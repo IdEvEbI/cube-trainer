@@ -1,3 +1,5 @@
+import { TimerView } from "./modules/timer/TimerView.tsx";
+
 export default function App() {
-  return <h1>Cube Trainer</h1>;
+  return <TimerView />;
 }
