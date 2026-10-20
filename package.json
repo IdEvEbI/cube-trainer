@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "test": "node --test src/modules/timer/timer.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint:md": "markdownlint \"**/*.md\"",
