@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+node_modules/
+dist
+dist-ssr
+*.local
+logs
+*.log
+
+.obsidian/
+.trash/
+temp/
+
+.env
+.env.*
+*.pem
+*.key

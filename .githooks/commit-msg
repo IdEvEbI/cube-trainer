@@ -1,0 +1,23 @@
+#!/bin/sh
+# 提交说明须写成：类型(范围): 原因
+# 类型只能是 docs、feat、fix 或 chore。
+
+msg_file="$1"
+
+if grep -qE '^Merge ' "$msg_file"; then
+  exit 0
+fi
+
+first=$(grep -v '^#' "$msg_file" | sed -n '1p')
+
+if echo "$first" | grep -qE '^(docs|feat|fix|chore)\([^)]+\): .+'; then
+  exit 0
+fi
+
+echo "提交说明不符合约定。"
+echo "请写成：类型(范围): 原因"
+echo "类型只能是 docs、feat、fix 或 chore。"
+echo "例如：docs(模板): 收齐空模板以免结构漂移"
+echo "本次说明首行是："
+echo "$first"
+exit 1

@@ -1,0 +1,24 @@
+# Markdownlint 配置（中文业务文档）
+
+# MD013: 行长度 — 中文文档放宽
+MD013:
+  line_length: 400
+  code_blocks: false
+  tables: false
+  headings: false
+
+# MD025: 文头里的 title 不算正文标题，允许与一级标题并存
+MD025:
+  front_matter_title: ""
+
+# MD041: 文档以一级标题开始
+MD041:
+  level: 1
+
+# MD024: 允许不同章节重复标题
+MD024: false
+
+# MD033: 表格等场景允许 br
+MD033:
+  allowed_elements:
+    - br
