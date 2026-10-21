@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { randomScramble3x3 } from "./scramble.ts";
 import type { Scramble } from "./types.ts";
 import "./scramble.css";
@@ -10,10 +10,11 @@ export function ScramblePanel({
 }) {
   const [moves, setMoves] = useState<string | null>(null);
 
-  function scramble() {
+  function scramble(event: MouseEvent<HTMLButtonElement>) {
     const next = randomScramble3x3();
     setMoves(next.moves);
     onScramble(next);
+    event.currentTarget.blur();
   }
 
   return (

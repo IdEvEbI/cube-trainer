@@ -21,10 +21,18 @@ const statusLabel: Record<Phase, string> = {
   stopped: "已停止",
 };
 
-export function TimerView({ ref }: { ref?: Ref<TimerHandle> }) {
+export function TimerView({
+  ref,
+  onStop,
+}: {
+  ref?: Ref<TimerHandle>;
+  onStop?: (timeMs: number) => void;
+}) {
   const timer = useRef(createTimer());
   const phaseRef = useRef<Phase>("idle");
   const stopKeyHeld = useRef(false);
+  const onStopRef = useRef(onStop);
+  onStopRef.current = onStop;
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsed, setElapsed] = useState(0);
 
@@ -59,9 +67,7 @@ export function TimerView({ ref }: { ref?: Ref<TimerHandle> }) {
       }
       event.preventDefault();
       if (phaseRef.current === "running") {
-        timer.current.stop();
-        setElapsed(timer.current.current());
-        moveTo("stopped");
+        finish();
         stopKeyHeld.current = true;
         return;
       }
@@ -102,10 +108,19 @@ export function TimerView({ ref }: { ref?: Ref<TimerHandle> }) {
     moveTo("running");
   }
 
-  function stop() {
+  function finish() {
+    if (phaseRef.current !== "running") {
+      return;
+    }
     timer.current.stop();
-    setElapsed(timer.current.current());
+    const timeMs = timer.current.current();
+    setElapsed(timeMs);
     moveTo("stopped");
+    onStopRef.current?.(timeMs);
+  }
+
+  function stop() {
+    finish();
   }
 
   function reset() {
