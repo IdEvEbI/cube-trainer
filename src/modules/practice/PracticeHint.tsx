@@ -1,3 +1,5 @@
+import { PatternIcon } from "./PatternIcon.tsx";
+import { formulaPattern } from "./pattern.ts";
 import type { PracticeCase } from "./setup.ts";
 import "./practice.css";
 
@@ -8,12 +10,21 @@ export function PracticeHint({
   practice: PracticeCase | null;
   note: string | null;
 }) {
+  const pattern = practice ? formulaPattern(practice.id) : null;
+
   return (
     <section className="practice-hint" aria-label="步骤提示">
       <h2>步骤提示</h2>
       {practice ? (
         <>
           <p className="practice-name">{practice.name}</p>
+          {pattern ? (
+            <PatternIcon
+              top={pattern.top}
+              label={`${practice.name}的顶层图案`}
+              large
+            />
+          ) : null}
           <p className="practice-moves">{practice.forward}</p>
         </>
       ) : (
