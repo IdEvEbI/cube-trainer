@@ -1,6 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 import { createTimer, formatElapsed } from "./timer.ts";
 import "./timer.css";
+
+export type TimerHandle = {
+  prepare(): void;
+};
 
 type Phase = "idle" | "armed" | "running" | "stopped";
 
@@ -11,7 +21,7 @@ const statusLabel: Record<Phase, string> = {
   stopped: "已停止",
 };
 
-export function TimerView() {
+export function TimerView({ ref }: { ref?: Ref<TimerHandle> }) {
   const timer = useRef(createTimer());
   const phaseRef = useRef<Phase>("idle");
   const stopKeyHeld = useRef(false);
@@ -104,6 +114,10 @@ export function TimerView() {
     setElapsed(0);
     moveTo("idle");
   }
+
+  useImperativeHandle(ref, () => ({
+    prepare: reset,
+  }));
 
   return (
     <main className="timer">

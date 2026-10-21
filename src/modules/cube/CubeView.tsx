@@ -7,6 +7,7 @@ import "./cube.css";
 
 export type CubeHandle = {
   applyAlgorithm(moves: string): void;
+  setAlgorithm(moves: string): void;
 };
 
 export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
@@ -49,6 +50,17 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
         }
         const current = await twisty.experimentalGet.alg();
         twisty.alg = `${current.toString()} ${parsed}`.trim();
+        twisty.timestamp = "end";
+      });
+    },
+    setAlgorithm(moves: string) {
+      const parsed = parseAlgorithm(moves).join(" ");
+      queue.current = queue.current.then(async () => {
+        const twisty = player.current;
+        if (!twisty) {
+          return;
+        }
+        twisty.alg = parsed;
         twisty.timestamp = "end";
       });
     },

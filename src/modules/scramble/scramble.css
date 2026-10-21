@@ -1,0 +1,32 @@
+.scramble {
+  padding: 20px 20px 0;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.scramble button {
+  min-width: 88px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #f3f0e8;
+  color: #12141a;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.scramble-moves {
+  margin: 0;
+  max-width: 36rem;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.scramble-hint {
+  margin: 0;
+  color: #8d887d;
+  font-size: 0.9rem;
+}
