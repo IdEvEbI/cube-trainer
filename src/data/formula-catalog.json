@@ -1,0 +1,191 @@
+[
+  {
+    "id": "lbl",
+    "name": "层先法",
+    "subclasses": [
+      {
+        "id": "lbl-cross",
+        "name": "底层十字",
+        "formulas": []
+      },
+      {
+        "id": "lbl-corner",
+        "name": "底层角块",
+        "formulas": [
+          {
+            "id": "lbl-corner-insert",
+            "name": "反复插入",
+            "moves": "R' D' R D"
+          }
+        ]
+      },
+      {
+        "id": "lbl-middle",
+        "name": "中层棱块",
+        "formulas": [
+          {
+            "id": "lbl-middle-right",
+            "name": "向右插入",
+            "moves": "U R U' R' U' F' U F"
+          }
+        ]
+      },
+      {
+        "id": "lbl-top-cross",
+        "name": "顶层十字",
+        "formulas": []
+      },
+      {
+        "id": "lbl-top-face",
+        "name": "顶层面",
+        "formulas": []
+      },
+      {
+        "id": "lbl-corner-perm",
+        "name": "顶层角位置",
+        "formulas": []
+      },
+      {
+        "id": "lbl-edge-perm",
+        "name": "顶层棱位置",
+        "formulas": []
+      }
+    ]
+  },
+  {
+    "id": "cfop",
+    "name": "CFOP",
+    "subclasses": [
+      {
+        "id": "cfop-cross",
+        "name": "Cross",
+        "formulas": []
+      },
+      {
+        "id": "cfop-f2l",
+        "name": "F2L",
+        "formulas": [
+          {
+            "id": "f2l-split",
+            "name": "分开再合",
+            "moves": "R U' R' U R U' R'"
+          }
+        ]
+      },
+      {
+        "id": "cfop-oll",
+        "name": "OLL",
+        "formulas": [
+          {
+            "id": "oll-line",
+            "name": "一字",
+            "moves": "F R U R' U' F'"
+          },
+          {
+            "id": "oll-l",
+            "name": "小拐弯",
+            "moves": "F U R U' R' F'"
+          },
+          {
+            "id": "oll-sune",
+            "name": "右手小鱼",
+            "moves": "R U R' U R U2 R'"
+          },
+          {
+            "id": "oll-antisune",
+            "name": "左手小鱼",
+            "moves": "R U2 R' U' R U' R'"
+          }
+        ]
+      },
+      {
+        "id": "cfop-pll",
+        "name": "PLL",
+        "formulas": [
+          {
+            "id": "pll-t",
+            "name": "T 排列",
+            "moves": "R U R' U' R' F R2 U' R' U' R U R' F'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "roux",
+    "name": "桥式",
+    "subclasses": [
+      {
+        "id": "roux-fb",
+        "name": "左桥",
+        "formulas": []
+      },
+      {
+        "id": "roux-sb",
+        "name": "右桥",
+        "formulas": []
+      },
+      {
+        "id": "roux-cmll",
+        "name": "CMLL",
+        "formulas": [
+          {
+            "id": "cmll-sune",
+            "name": "右手小鱼",
+            "moves": "R U R' U R U2 R'"
+          }
+        ]
+      },
+      {
+        "id": "roux-lse",
+        "name": "LSE",
+        "formulas": [
+          {
+            "id": "lse-eo",
+            "name": "棱块朝向",
+            "moves": "M U M' U M U2 M'"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "bld",
+    "name": "盲拧",
+    "subclasses": [
+      {
+        "id": "bld-corner",
+        "name": "角块",
+        "formulas": [
+          {
+            "id": "bld-op-corner",
+            "name": "角块交换",
+            "moves": "R U' R' U' R U R' F' R U R' U' R' F R"
+          }
+        ]
+      },
+      {
+        "id": "bld-edge",
+        "name": "棱块",
+        "formulas": [
+          {
+            "id": "bld-m2",
+            "name": "中层对调",
+            "moves": "M2"
+          }
+        ]
+      },
+      {
+        "id": "bld-parity",
+        "name": "奇偶",
+        "formulas": [
+          {
+            "id": "bld-parity",
+            "name": "奇偶",
+            "moves": "R U' R' U' R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'"
+          }
+        ]
+      }
+    ]
+  }
+]
