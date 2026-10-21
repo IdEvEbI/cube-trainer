@@ -21,8 +21,8 @@ export function FormulaList({
   return (
     <section className="formula-list">
       <h1>公式库</h1>
-      {methods.map((method, index) => (
-        <details key={method.id} className="formula-method" open={index === 0}>
+      {methods.map((method) => (
+        <details key={method.id} className="formula-method">
           <summary>{method.name}</summary>
           {method.steps.map((step) => (
             <details key={step.id} className="formula-step">

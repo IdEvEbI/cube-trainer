@@ -1,6 +1,6 @@
 .scramble {
   box-sizing: border-box;
-  width: min(100%, 560px);
+  width: 100%;
   min-width: 0;
   padding: 0;
   display: grid;
@@ -11,7 +11,8 @@
 .scramble-bar {
   width: 100%;
   min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
 }
@@ -32,12 +33,14 @@
 
 .scramble-moves,
 .scramble-hint {
-  flex: 1;
   margin: 0;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.scramble-moves {
+  font-size: clamp(1.05rem, 2.1vw, 1.35rem);
+  font-weight: 560;
+  line-height: 1.45;
 }
 
 .scramble-hint {

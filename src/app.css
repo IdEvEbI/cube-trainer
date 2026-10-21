@@ -1,82 +1,231 @@
 .app {
   box-sizing: border-box;
   height: 100vh;
-  overflow: auto;
+  height: 100dvh;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
-.library {
-  box-sizing: border-box;
-  min-height: 0;
+.topbar {
   display: flex;
-  flex-direction: column;
-  border-right: 1px solid #2a2d36;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 16px;
 }
 
-.library .formula-list {
-  flex: 1;
-}
-
-.mode-switch {
-  margin: 16px 14px 0;
+.mode-switch,
+.nav-back,
+.library-entry,
+.net-toggle {
+  flex: none;
   min-height: 40px;
   border: 0;
   border-radius: 999px;
-  background: #f3f0e8;
-  color: #12141a;
   font: inherit;
   cursor: pointer;
 }
 
-.workspace {
-  box-sizing: border-box;
+.mode-switch {
+  padding: 0 18px;
+  background: #f3f0e8;
+  color: #12141a;
+}
+
+.nav-back,
+.library-entry,
+.net-toggle {
+  padding: 0 16px;
+  background: #1c1f27;
+  color: #f3f0e8;
+}
+
+.topbar-title {
+  min-width: 0;
+  overflow: hidden;
+  color: #b7b1a4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus {
   min-width: 0;
   min-height: 0;
-  display: flex;
+  overflow: hidden;
+}
+
+.focus[data-focus="计时"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px 20px;
   align-items: center;
-  justify-content: center;
-  gap: 28px;
-  padding: 16px 24px;
+  padding: 0 20px 16px;
 }
 
-.side {
-  width: 320px;
-  flex: none;
+.focus[data-focus="计时"] .slot-scramble {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.focus[data-focus="计时"] .slot-cube {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.focus[data-focus="计时"] .slot-tools {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.focus[data-focus="计时"] .slot-cube,
+.focus[data-focus="练习"] .slot-cube {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.focus[data-focus="计时"] .slot-tools {
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
   display: grid;
-  justify-items: center;
   align-content: center;
-  gap: 16px;
-}
-
-.stage {
-  flex: 0 1 640px;
-  width: min(100%, 640px);
-  min-width: 0;
-  display: grid;
   justify-items: center;
   gap: 10px;
 }
 
-@media (max-width: 960px) {
-  .app {
-    height: auto;
-    min-height: 100vh;
+.focus[data-focus="方法"],
+.focus[data-focus="公式"],
+.focus[data-focus="公式库"] {
+  display: grid;
+  min-height: 0;
+}
+
+.slot-methods,
+.slot-formulas,
+.slot-library {
+  min-height: 0;
+  overflow: auto;
+}
+
+.slot-library .formula-list {
+  max-height: none;
+  overflow: visible;
+}
+
+.focus[data-focus="练习"] {
+  display: grid;
+  grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(
+      220px,
+      300px
+    );
+  grid-template-areas: "formula cube timer";
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px 16px;
+}
+
+.focus[data-focus="练习"] .slot-session {
+  display: contents;
+}
+
+.focus[data-focus="练习"] .slot-cube {
+  grid-area: cube;
+}
+
+.focus[data-focus="练习"] .practice-hint {
+  grid-area: formula;
+  width: 100%;
+  min-height: 0;
+}
+
+.focus[data-focus="练习"] .timer {
+  grid-area: timer;
+}
+
+.focus[data-focus="计时"] .cube-view,
+.focus[data-focus="练习"] .cube-view {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.focus[data-focus="计时"] .cube-view h2,
+.focus[data-focus="计时"] .cube-hint,
+.focus[data-focus="练习"] .cube-view h2,
+.focus[data-focus="练习"] .cube-hint {
+  display: none;
+}
+
+.focus[data-focus="计时"] .cube-stage,
+.focus[data-focus="练习"] .cube-stage {
+  height: 100%;
+  min-height: 140px;
+}
+
+.focus .timer,
+.focus .scores {
+  width: min(100%, 320px);
+}
+
+.focus[data-focus="练习"] .practice-moves {
+  font-size: 1.2rem;
+}
+
+.focus[data-focus="练习"] .top-pattern.is-hint,
+.focus[data-focus="练习"] .top-pattern.is-large {
+  grid-template-columns: repeat(3, 26px);
+}
+
+.focus[data-focus="练习"] .top-pattern.is-hint span,
+.focus[data-focus="练习"] .top-pattern.is-large span {
+  width: 26px;
+  height: 26px;
+}
+
+@media (max-width: 900px) {
+  .focus[data-focus="计时"] {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 0 12px 12px;
   }
 
-  .library {
-    border-right: 0;
-    border-bottom: 1px solid #2a2d36;
+  .focus[data-focus="计时"] .slot-scramble,
+  .focus[data-focus="计时"] .slot-cube,
+  .focus[data-focus="计时"] .slot-tools {
+    grid-column: 1;
   }
 
-  .workspace {
-    flex-direction: column;
+  .focus[data-focus="计时"] .slot-scramble {
+    grid-row: 1;
   }
 
-  .stage,
-  .side {
-    width: 100%;
+  .focus[data-focus="计时"] .slot-cube {
+    grid-row: 2;
+  }
+
+  .focus[data-focus="计时"] .slot-tools {
+    grid-row: 3;
+    max-height: 42vh;
+    align-content: start;
+  }
+
+  .focus[data-focus="练习"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "formula"
+      "cube"
+      "timer";
+    gap: 8px;
+    padding: 0 12px 12px;
+  }
+
+  .focus[data-focus="练习"] .practice-hint {
+    padding: 10px 12px;
   }
 }
