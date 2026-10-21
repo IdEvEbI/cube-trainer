@@ -1,0 +1,18 @@
+.formula-list {
+  padding: 24px 20px 0;
+}
+
+.formula-list h1 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.formula-list ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.formula-list li + li {
+  margin-top: 8px;
+}
