@@ -9,6 +9,7 @@ import "./cube.css";
 export type CubeHandle = {
   applyAlgorithm(moves: string): void;
   setAlgorithm(moves: string): void;
+  showMoves(moves: string): void;
 };
 
 export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
@@ -56,6 +57,17 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
     },
     setAlgorithm(moves: string) {
       const parsed = scrambleDisplayAlgorithm(moves);
+      queue.current = queue.current.then(async () => {
+        const twisty = player.current;
+        if (!twisty) {
+          return;
+        }
+        twisty.alg = parsed;
+        twisty.timestamp = "end";
+      });
+    },
+    showMoves(moves: string) {
+      const parsed = parseAlgorithm(moves).join(" ");
       queue.current = queue.current.then(async () => {
         const twisty = player.current;
         if (!twisty) {

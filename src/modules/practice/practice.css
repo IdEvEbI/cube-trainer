@@ -1,0 +1,32 @@
+.practice-hint {
+  box-sizing: border-box;
+  width: min(100%, 320px);
+  min-height: 160px;
+  padding: 16px;
+  border: 1px dashed #3a3f4b;
+  border-radius: 12px;
+}
+
+.practice-hint h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.practice-hint p,
+.practice-name,
+.practice-moves {
+  margin: 12px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.practice-hint p,
+.practice-name {
+  color: #8d887d;
+}
+
+.practice-moves {
+  color: #f3f0e8;
+  font-size: 1.05rem;
+}

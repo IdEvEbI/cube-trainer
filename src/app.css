@@ -6,6 +6,29 @@
   grid-template-columns: 260px minmax(0, 1fr);
 }
 
+.library {
+  box-sizing: border-box;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #2a2d36;
+}
+
+.library .formula-list {
+  flex: 1;
+}
+
+.mode-switch {
+  margin: 16px 14px 0;
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: #f3f0e8;
+  color: #12141a;
+  font: inherit;
+  cursor: pointer;
+}
+
 .workspace {
   box-sizing: border-box;
   min-width: 0;
@@ -41,6 +64,11 @@
     height: auto;
     min-height: 100vh;
     grid-template-columns: 1fr;
+  }
+
+  .library {
+    border-right: 0;
+    border-bottom: 1px solid #2a2d36;
   }
 
   .workspace {

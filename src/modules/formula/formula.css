@@ -3,7 +3,6 @@
   min-height: 0;
   overflow: auto;
   padding: 16px 14px;
-  border-right: 1px solid #2a2d36;
 }
 
 .formula-list h1 {
@@ -93,7 +92,5 @@
 @media (max-width: 960px) {
   .formula-list {
     max-height: 34vh;
-    border-right: 0;
-    border-bottom: 1px solid #2a2d36;
   }
 }
