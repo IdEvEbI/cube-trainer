@@ -1,12 +1,18 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { TwistyPlayer } from "cubing/twisty";
+import { parseAlgorithm } from "../formula/formulas.ts";
 import { CUBE_ORIENTATION_ALG, isLayerMove } from "./cube.ts";
 import { LAYER_MOVES, type LayerMove } from "./types.ts";
 import "./cube.css";
 
-export function CubeView() {
+export type CubeHandle = {
+  applyAlgorithm(moves: string): void;
+};
+
+export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<TwistyPlayer | null>(null);
+  const queue = useRef(Promise.resolve());
 
   useEffect(() => {
     const mount = host.current;
@@ -32,6 +38,21 @@ export function CubeView() {
       player.current = null;
     };
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    applyAlgorithm(moves: string) {
+      const parsed = parseAlgorithm(moves).join(" ");
+      queue.current = queue.current.then(async () => {
+        const twisty = player.current;
+        if (!twisty) {
+          return;
+        }
+        const current = await twisty.experimentalGet.alg();
+        twisty.alg = `${current.toString()} ${parsed}`.trim();
+        twisty.timestamp = "end";
+      });
+    },
+  }));
 
   function turn(move: LayerMove) {
     if (!isLayerMove(move)) {

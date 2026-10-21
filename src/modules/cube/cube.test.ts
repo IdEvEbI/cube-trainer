@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { colorsMatchTarget, isLayerMove, readCube } from "./cube.ts";
+import {
+  appendAlgorithm,
+  colorsMatchTarget,
+  isLayerMove,
+  readCube,
+} from "./cube.ts";
 import { CUBE_FACES, LAYER_MOVES } from "./types.ts";
 
 describe("readCube", () => {
@@ -21,6 +26,20 @@ describe("readCube", () => {
       assert.deepEqual(turned.centers, solved.centers);
       assert.deepEqual(restored.corners, solved.corners);
     }
+  });
+});
+
+describe("appendAlgorithm", () => {
+  it("把算法接到当前状态后面，角块会变化", async () => {
+    const current = "U";
+    const algorithm = "R U R' U R U2 R'";
+    const before = await readCube(current);
+    const applied = appendAlgorithm(current, algorithm);
+    const after = await readCube(applied);
+
+    assert.equal(applied, "U R U R' U R U2 R'");
+    assert.notDeepEqual(after.corners, before.corners);
+    assert.notDeepEqual(after.corners, (await readCube(algorithm)).corners);
   });
 });
 

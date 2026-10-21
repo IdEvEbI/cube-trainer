@@ -1,5 +1,6 @@
 import { cube3x3x3 } from "cubing/puzzles";
 import type { KPattern, KPuzzle } from "cubing/kpuzzle";
+import { parseAlgorithm } from "../formula/formulas.ts";
 import {
   LAYER_MOVES,
   TARGET_FACE_COLORS,
@@ -67,6 +68,15 @@ export async function readCube(moves = ""): Promise<{
     corners,
     centers,
   };
+}
+
+export function appendAlgorithm(
+  currentMoves: string,
+  algorithm: string,
+): string {
+  const moves = parseAlgorithm(algorithm).join(" ");
+  const base = currentMoves.trim();
+  return base === "" ? moves : `${base} ${moves}`;
 }
 
 export function isLayerMove(move: string): move is LayerMove {
