@@ -12,14 +12,14 @@ import { parseFormulaLibrary } from "../formula/formulas.ts";
 import type { Formula } from "../formula/types.ts";
 import { invertAlgorithm, practiceCase } from "./setup.ts";
 
-const samplePath = new URL("../../data/formulas-3x3.json", import.meta.url);
+const samplePath = new URL("../../data/formula-catalog.json", import.meta.url);
 
 function loadFormulas(): Formula[] {
   const methods = parseFormulaLibrary(
     JSON.parse(readFileSync(samplePath, "utf8")),
   );
   return methods.flatMap((method) =>
-    method.steps.flatMap((step) => step.formulas),
+    method.subclasses.flatMap((subclass) => subclass.formulas),
   );
 }
 

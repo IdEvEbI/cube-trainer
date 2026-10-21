@@ -6,6 +6,7 @@
       {
         "id": "lbl-cross",
         "name": "底层十字",
+        "note": "靠观察完成，没有固定公式",
         "formulas": []
       },
       {
@@ -15,6 +16,7 @@
           {
             "id": "lbl-corner-insert",
             "name": "反复插入",
+            "puzzle": "3x3",
             "moves": "R' D' R D"
           }
         ]
@@ -26,29 +28,76 @@
           {
             "id": "lbl-middle-right",
             "name": "向右插入",
+            "puzzle": "3x3",
             "moves": "U R U' R' U' F' U F"
+          },
+          {
+            "id": "lbl-middle-left",
+            "name": "向左插入",
+            "puzzle": "3x3",
+            "moves": "U' L' U L U F U' F'"
           }
         ]
       },
       {
         "id": "lbl-top-cross",
         "name": "顶层十字",
-        "formulas": []
+        "formulas": [
+          {
+            "id": "lbl-line",
+            "name": "一字",
+            "puzzle": "3x3",
+            "moves": "F R U R' U' F'"
+          },
+          {
+            "id": "lbl-l-shape",
+            "name": "小拐弯",
+            "puzzle": "3x3",
+            "moves": "F U R U' R' F'"
+          }
+        ]
       },
       {
         "id": "lbl-top-face",
         "name": "顶层面",
-        "formulas": []
+        "formulas": [
+          {
+            "id": "lbl-sune",
+            "name": "右手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U2 R'"
+          },
+          {
+            "id": "lbl-antisune",
+            "name": "左手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U2 R' U' R U' R'"
+          }
+        ]
       },
       {
         "id": "lbl-corner-perm",
         "name": "顶层角位置",
-        "formulas": []
+        "formulas": [
+          {
+            "id": "lbl-corner-cycle",
+            "name": "三角换",
+            "puzzle": "3x3",
+            "moves": "U R U' L' U R' U' L"
+          }
+        ]
       },
       {
         "id": "lbl-edge-perm",
         "name": "顶层棱位置",
-        "formulas": []
+        "formulas": [
+          {
+            "id": "lbl-edge-cycle",
+            "name": "三棱换",
+            "puzzle": "3x3",
+            "moves": "R2 U R U R' U' R' U' R' U R'"
+          }
+        ]
       }
     ]
   },
@@ -59,53 +108,747 @@
       {
         "id": "cfop-cross",
         "name": "Cross",
+        "note": "靠观察完成，通常不超过 8 步",
         "formulas": []
       },
       {
         "id": "cfop-f2l",
         "name": "F2L",
+        "note": "基础情况 41 个，另保留侧面插入",
         "formulas": [
+          {
+            "id": "f2l-paired",
+            "name": "已配对插入",
+            "puzzle": "3x3",
+            "moves": "R U R'"
+          },
+          {
+            "id": "f2l-join",
+            "name": "顶层插入",
+            "puzzle": "3x3",
+            "moves": "U R U' R'"
+          },
           {
             "id": "f2l-split",
             "name": "分开再合",
+            "puzzle": "3x3",
             "moves": "R U' R' U R U' R'"
+          },
+          {
+            "id": "f2l-white-front",
+            "name": "白朝前分开",
+            "puzzle": "3x3",
+            "moves": "R U R' U' R U R'"
+          },
+          {
+            "id": "f2l-white-up",
+            "name": "白朝上分开",
+            "puzzle": "3x3",
+            "moves": "R U2 R' U' R U R'"
+          },
+          {
+            "id": "f2l-side",
+            "name": "侧面插入",
+            "puzzle": "3x3",
+            "moves": "R' F R F'"
+          },
+          {
+            "id": "f2l-1-2",
+            "name": "容易插入 1",
+            "puzzle": "3x3",
+            "moves": "U' F' U F"
+          },
+          {
+            "id": "f2l-1-4",
+            "name": "容易插入 2",
+            "puzzle": "3x3",
+            "moves": "F' U' F"
+          },
+          {
+            "id": "f2l-2-1",
+            "name": "顶层分开 1",
+            "puzzle": "3x3",
+            "moves": "U' R U R' U2 R U' R'"
+          },
+          {
+            "id": "f2l-2-2",
+            "name": "顶层分开 2",
+            "puzzle": "3x3",
+            "moves": "U F' U' F U2 F' U F"
+          },
+          {
+            "id": "f2l-2-3",
+            "name": "顶层分开 3",
+            "puzzle": "3x3",
+            "moves": "U' R U2 R' U2 R U' R'"
+          },
+          {
+            "id": "f2l-2-4",
+            "name": "顶层分开 4",
+            "puzzle": "3x3",
+            "moves": "U F' U2 F U2 F' U F"
+          },
+          {
+            "id": "f2l-2-5",
+            "name": "顶层分开 5",
+            "puzzle": "3x3",
+            "moves": "U' R U R' U R U R'"
+          },
+          {
+            "id": "f2l-2-6",
+            "name": "顶层分开 6",
+            "puzzle": "3x3",
+            "moves": "U' R U' R' U F' U' F"
+          },
+          {
+            "id": "f2l-2-7",
+            "name": "顶层分开 7",
+            "puzzle": "3x3",
+            "moves": "U R U2 R' U R U' R'"
+          },
+          {
+            "id": "f2l-2-8",
+            "name": "顶层分开 8",
+            "puzzle": "3x3",
+            "moves": "U' F' U2 F U' F' U F"
+          },
+          {
+            "id": "f2l-2-9",
+            "name": "顶层分开 9",
+            "puzzle": "3x3",
+            "moves": "U2 R U R' U R U' R'"
+          },
+          {
+            "id": "f2l-2-10",
+            "name": "顶层分开 10",
+            "puzzle": "3x3",
+            "moves": "U2 F' U' F U' F' U F"
+          },
+          {
+            "id": "f2l-3-1",
+            "name": "角在槽里 1",
+            "puzzle": "3x3",
+            "moves": "U' R' F R F' R U R'"
+          },
+          {
+            "id": "f2l-3-2",
+            "name": "角在槽里 2",
+            "puzzle": "3x3",
+            "moves": "U R U' R' U' F' U F"
+          },
+          {
+            "id": "f2l-3-4",
+            "name": "角在槽里 3",
+            "puzzle": "3x3",
+            "moves": "F' U F U' F' U F"
+          },
+          {
+            "id": "f2l-3-6",
+            "name": "角在槽里 4",
+            "puzzle": "3x3",
+            "moves": "F' U' F U F' U' F"
+          },
+          {
+            "id": "f2l-4-1",
+            "name": "棱在槽里 1",
+            "puzzle": "3x3",
+            "moves": "U R U' R' U R U' R' U R U' R'"
+          },
+          {
+            "id": "f2l-4-2",
+            "name": "棱在槽里 2",
+            "puzzle": "3x3",
+            "moves": "U' R' F R F' R U' R'"
+          },
+          {
+            "id": "f2l-4-3",
+            "name": "棱在槽里 3",
+            "puzzle": "3x3",
+            "moves": "U' R U' R' U2 R U' R'"
+          },
+          {
+            "id": "f2l-4-4",
+            "name": "棱在槽里 4",
+            "puzzle": "3x3",
+            "moves": "U' R U R' U F' U' F"
+          },
+          {
+            "id": "f2l-4-5",
+            "name": "棱在槽里 5",
+            "puzzle": "3x3",
+            "moves": "U R U R' U2 R U R'"
+          },
+          {
+            "id": "f2l-4-6",
+            "name": "棱在槽里 6",
+            "puzzle": "3x3",
+            "moves": "U F' U' F U' R U R'"
+          },
+          {
+            "id": "f2l-5-1",
+            "name": "连在一起 1",
+            "puzzle": "3x3",
+            "moves": "R' U2 R2 U R2 U R"
+          },
+          {
+            "id": "f2l-5-2",
+            "name": "连在一起 2",
+            "puzzle": "3x3",
+            "moves": "U' R U2 R' U F' U' F"
+          },
+          {
+            "id": "f2l-5-3",
+            "name": "连在一起 3",
+            "puzzle": "3x3",
+            "moves": "U' R U' R' U R U R'"
+          },
+          {
+            "id": "f2l-5-4",
+            "name": "连在一起 4",
+            "puzzle": "3x3",
+            "moves": "U F' U F U' F' U' F"
+          },
+          {
+            "id": "f2l-5-5",
+            "name": "连在一起 5",
+            "puzzle": "3x3",
+            "moves": "R U R' U2 R U' R' U R U' R'"
+          },
+          {
+            "id": "f2l-5-6",
+            "name": "连在一起 6",
+            "puzzle": "3x3",
+            "moves": "R U' R' U2 F' U' F"
+          },
+          {
+            "id": "f2l-5-8",
+            "name": "连在一起 7",
+            "puzzle": "3x3",
+            "moves": "F' U2 F U F' U' F"
+          },
+          {
+            "id": "f2l-5-9",
+            "name": "连在一起 8",
+            "puzzle": "3x3",
+            "moves": "U R U' R' U' R U' R' U R U' R'"
+          },
+          {
+            "id": "f2l-5-10",
+            "name": "连在一起 9",
+            "puzzle": "3x3",
+            "moves": "F U R U' R' F' R U' R'"
+          },
+          {
+            "id": "f2l-6-1",
+            "name": "都在槽里 1",
+            "puzzle": "3x3",
+            "moves": "R U' R' U F' U2 F U2 F' U F"
+          },
+          {
+            "id": "f2l-6-2",
+            "name": "都在槽里 2",
+            "puzzle": "3x3",
+            "moves": "R U' R' U' R U R' U2 R U' R'"
+          },
+          {
+            "id": "f2l-6-3",
+            "name": "都在槽里 3",
+            "puzzle": "3x3",
+            "moves": "R U' R' U' R U' R' U F' U' F"
+          },
+          {
+            "id": "f2l-6-4",
+            "name": "都在槽里 4",
+            "puzzle": "3x3",
+            "moves": "R U' R' U R U2 R' U R U' R'"
+          },
+          {
+            "id": "f2l-6-5",
+            "name": "都在槽里 5",
+            "puzzle": "3x3",
+            "moves": "R U' R' U2 F' U' F U' F' U F"
           }
         ]
       },
       {
         "id": "cfop-oll",
         "name": "OLL",
+        "note": "全部 57 个",
         "formulas": [
           {
             "id": "oll-line",
             "name": "一字",
+            "puzzle": "3x3",
             "moves": "F R U R' U' F'"
           },
           {
             "id": "oll-l",
             "name": "小拐弯",
+            "puzzle": "3x3",
             "moves": "F U R U' R' F'"
           },
           {
             "id": "oll-sune",
             "name": "右手小鱼",
+            "puzzle": "3x3",
             "moves": "R U R' U R U2 R'"
           },
           {
             "id": "oll-antisune",
             "name": "左手小鱼",
+            "puzzle": "3x3",
             "moves": "R U2 R' U' R U' R'"
+          },
+          {
+            "id": "oll-dot",
+            "name": "点",
+            "puzzle": "3x3",
+            "moves": "F R U R' U' F' U F R U R' U' F'"
+          },
+          {
+            "id": "oll-t",
+            "name": "T 形",
+            "puzzle": "3x3",
+            "moves": "R U R' U' R' F R F'"
+          },
+          {
+            "id": "oll-h",
+            "name": "车灯",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U' R' U R U2 R'"
+          },
+          {
+            "id": "oll-pi",
+            "name": "小π",
+            "puzzle": "3x3",
+            "moves": "R U2 R2 U' R2 U' R2 U2 R"
+          },
+          {
+            "id": "oll-u",
+            "name": "U 形",
+            "puzzle": "3x3",
+            "moves": "R2 D R' U2 R D' R' U2 R'"
+          },
+          {
+            "id": "oll-wca-24",
+            "name": "OLL 24",
+            "puzzle": "3x3",
+            "moves": "R U R D R' U' R D' R2"
+          },
+          {
+            "id": "oll-wca-25",
+            "name": "OLL 25",
+            "puzzle": "3x3",
+            "moves": "R2 D' R U' R' D R U R"
+          },
+          {
+            "id": "oll-wca-43",
+            "name": "OLL 43",
+            "puzzle": "3x3",
+            "moves": "R' U' F' U F R"
+          },
+          {
+            "id": "oll-wca-31",
+            "name": "OLL 31",
+            "puzzle": "3x3",
+            "moves": "R' U' F U R U' R' F' R"
+          },
+          {
+            "id": "oll-wca-32",
+            "name": "OLL 32",
+            "puzzle": "3x3",
+            "moves": "L U F' U' L' U L F L'"
+          },
+          {
+            "id": "oll-wca-46",
+            "name": "OLL 46",
+            "puzzle": "3x3",
+            "moves": "R' U' R' F R F' U R"
+          },
+          {
+            "id": "oll-wca-34",
+            "name": "OLL 34",
+            "puzzle": "3x3",
+            "moves": "R U R2 U' R' F R U R U' F'"
+          },
+          {
+            "id": "oll-wca-38",
+            "name": "OLL 38",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U' R' U' R' F R F'"
+          },
+          {
+            "id": "oll-wca-36",
+            "name": "OLL 36",
+            "puzzle": "3x3",
+            "moves": "L' U' L U' L' U L U L F' L' F"
+          },
+          {
+            "id": "oll-wca-6",
+            "name": "OLL 6",
+            "puzzle": "3x3",
+            "moves": "R M' U2 R' U' R U' R' M"
+          },
+          {
+            "id": "oll-wca-5",
+            "name": "OLL 5",
+            "puzzle": "3x3",
+            "moves": "R' M U2 R U R' U R M'"
+          },
+          {
+            "id": "oll-wca-28",
+            "name": "OLL 28",
+            "puzzle": "3x3",
+            "moves": "R M' U R' U' M U R U' R'"
+          },
+          {
+            "id": "oll-wca-57",
+            "name": "OLL 57",
+            "puzzle": "3x3",
+            "moves": "R U R' U' M' U R U' R' M"
+          },
+          {
+            "id": "oll-wca-7",
+            "name": "OLL 7",
+            "puzzle": "3x3",
+            "moves": "R M' U R' U R U2 R' M"
+          },
+          {
+            "id": "oll-wca-8",
+            "name": "OLL 8",
+            "puzzle": "3x3",
+            "moves": "R' F' R M' U' R' M F2 R"
+          },
+          {
+            "id": "oll-wca-11",
+            "name": "OLL 11",
+            "puzzle": "3x3",
+            "moves": "R' M R2 U R' U R U2 R' U M'"
+          },
+          {
+            "id": "oll-wca-12",
+            "name": "OLL 12",
+            "puzzle": "3x3",
+            "moves": "R M' R2 U' R U' R' U2 R U' M"
+          },
+          {
+            "id": "oll-wca-40",
+            "name": "OLL 40",
+            "puzzle": "3x3",
+            "moves": "R' F R U R' U' F' U R"
+          },
+          {
+            "id": "oll-wca-39",
+            "name": "OLL 39",
+            "puzzle": "3x3",
+            "moves": "L F' L' U' L U F U' L'"
+          },
+          {
+            "id": "oll-wca-48",
+            "name": "OLL 48",
+            "puzzle": "3x3",
+            "moves": "F R U R' U' R U R' U' F'"
+          },
+          {
+            "id": "oll-wca-47",
+            "name": "OLL 47",
+            "puzzle": "3x3",
+            "moves": "R' U' R' F R F' R' F R F' U R"
+          },
+          {
+            "id": "oll-wca-53",
+            "name": "OLL 53",
+            "puzzle": "3x3",
+            "moves": "L' M' U2 L U L' U' L U L' U L M"
+          },
+          {
+            "id": "oll-wca-54",
+            "name": "OLL 54",
+            "puzzle": "3x3",
+            "moves": "R M' U R' U R U' R' U R U2 R' M"
+          },
+          {
+            "id": "oll-wca-49",
+            "name": "OLL 49",
+            "puzzle": "3x3",
+            "moves": "R M' U' R2 M2 U R2 M2 U R2 M2 U' R M'"
+          },
+          {
+            "id": "oll-wca-50",
+            "name": "OLL 50",
+            "puzzle": "3x3",
+            "moves": "R' M U R2 M2 U' R2 M2 U' R2 M2 U R' M"
+          },
+          {
+            "id": "oll-wca-37",
+            "name": "OLL 37",
+            "puzzle": "3x3",
+            "moves": "F R' F' R U R U' R'"
+          },
+          {
+            "id": "oll-wca-35",
+            "name": "OLL 35",
+            "puzzle": "3x3",
+            "moves": "R U2 R2 F R F' R U2 R'"
+          },
+          {
+            "id": "oll-wca-9",
+            "name": "OLL 9",
+            "puzzle": "3x3",
+            "moves": "R U R' U' R' F R2 U R' U' F'"
+          },
+          {
+            "id": "oll-wca-10",
+            "name": "OLL 10",
+            "puzzle": "3x3",
+            "moves": "R U R' U R' F R F' R U2 R'"
+          },
+          {
+            "id": "oll-wca-29",
+            "name": "OLL 29",
+            "puzzle": "3x3",
+            "moves": "R U R' U' R U' R' F' U' F R U R'"
+          },
+          {
+            "id": "oll-wca-30",
+            "name": "OLL 30",
+            "puzzle": "3x3",
+            "moves": "F U R U2 R' U' R U2 R' U' F'"
+          },
+          {
+            "id": "oll-wca-41",
+            "name": "OLL 41",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U2 R' F R U R' U' F'"
+          },
+          {
+            "id": "oll-wca-42",
+            "name": "OLL 42",
+            "puzzle": "3x3",
+            "moves": "R' U' R U' R' U2 R F R U R' U' F'"
+          },
+          {
+            "id": "oll-wca-51",
+            "name": "OLL 51",
+            "puzzle": "3x3",
+            "moves": "F U R U' R' U R U' R' F'"
+          },
+          {
+            "id": "oll-wca-52",
+            "name": "OLL 52",
+            "puzzle": "3x3",
+            "moves": "R' F' U' F U' R U R' U R"
+          },
+          {
+            "id": "oll-wca-56",
+            "name": "OLL 56",
+            "puzzle": "3x3",
+            "moves": "R M' U R' M U R U' R' U R U' R' R M' U' R' M"
+          },
+          {
+            "id": "oll-wca-55",
+            "name": "OLL 55",
+            "puzzle": "3x3",
+            "moves": "R' F R U R U' R2 F' R2 U' R' U R U R'"
+          },
+          {
+            "id": "oll-wca-16",
+            "name": "OLL 16",
+            "puzzle": "3x3",
+            "moves": "R' F' R L' U' L U R' F R"
+          },
+          {
+            "id": "oll-wca-13",
+            "name": "OLL 13",
+            "puzzle": "3x3",
+            "moves": "F U R U' R2 F' R U R U' R'"
+          },
+          {
+            "id": "oll-wca-14",
+            "name": "OLL 14",
+            "puzzle": "3x3",
+            "moves": "R' F R U R' F' R F U' F'"
+          },
+          {
+            "id": "oll-wca-1",
+            "name": "OLL 1",
+            "puzzle": "3x3",
+            "moves": "R U2 R2 F R F' U2 R' F R F'"
+          },
+          {
+            "id": "oll-wca-2",
+            "name": "OLL 2",
+            "puzzle": "3x3",
+            "moves": "F S U R U' R' S' U R U' R' F'"
+          },
+          {
+            "id": "oll-wca-17",
+            "name": "OLL 17",
+            "puzzle": "3x3",
+            "moves": "F R' F' R U S' R U' R' S"
+          },
+          {
+            "id": "oll-wca-20",
+            "name": "OLL 20",
+            "puzzle": "3x3",
+            "moves": "S R' U' R U R U R U' R' S'"
+          },
+          {
+            "id": "oll-wca-19",
+            "name": "OLL 19",
+            "puzzle": "3x3",
+            "moves": "S' R U R' S U' R' F R F'"
+          },
+          {
+            "id": "oll-wca-18",
+            "name": "OLL 18",
+            "puzzle": "3x3",
+            "moves": "R M' U R' U R U2 R' M R' M U' R U' R' U2 R M'"
+          },
+          {
+            "id": "oll-wca-4",
+            "name": "OLL 4",
+            "puzzle": "3x3",
+            "moves": "R' F2 R2 U2 R' F' R U2 R2 F2 R"
+          },
+          {
+            "id": "oll-wca-3",
+            "name": "OLL 3",
+            "puzzle": "3x3",
+            "moves": "R' F2 R2 U2 R' F R U2 R2 F2 R"
           }
         ]
       },
       {
         "id": "cfop-pll",
         "name": "PLL",
+        "note": "全部 21 种排列",
         "formulas": [
           {
             "id": "pll-t",
             "name": "T 排列",
+            "puzzle": "3x3",
             "moves": "R U R' U' R' F R2 U' R' U' R U R' F'"
+          },
+          {
+            "id": "pll-y",
+            "name": "Y 排列",
+            "puzzle": "3x3",
+            "moves": "F R U' R' U' R U R' F' R U R' U' R' F R F'"
+          },
+          {
+            "id": "pll-jb",
+            "name": "Jb 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' F' R U R' U' R' F R2 U' R'"
+          },
+          {
+            "id": "pll-ua",
+            "name": "Ua 排列",
+            "puzzle": "3x3",
+            "moves": "M2 U M U2 M' U M2"
+          },
+          {
+            "id": "pll-ub",
+            "name": "Ub 排列",
+            "puzzle": "3x3",
+            "moves": "M2 U' M U2 M' U' M2"
+          },
+          {
+            "id": "pll-h",
+            "name": "H 排列",
+            "puzzle": "3x3",
+            "moves": "M2 U M2 U2 M2 U M2"
+          },
+          {
+            "id": "pll-z",
+            "name": "Z 排列",
+            "puzzle": "3x3",
+            "moves": "M2 U M2 U M' U2 M2 U2 M'"
+          },
+          {
+            "id": "pll-ja",
+            "name": "Ja 排列",
+            "puzzle": "3x3",
+            "moves": "L' U' L F L' U' L U L F' L2 U L"
+          },
+          {
+            "id": "pll-aa",
+            "name": "Aa 排列",
+            "puzzle": "3x3",
+            "moves": "R' F R' B2 R F' R' B2 R2"
+          },
+          {
+            "id": "pll-ab",
+            "name": "Ab 排列",
+            "puzzle": "3x3",
+            "moves": "R2 B2 R F R' B2 R F' R"
+          },
+          {
+            "id": "pll-e",
+            "name": "E 排列",
+            "puzzle": "3x3",
+            "moves": "R B' R' F R B R' F' R B R' F R B' R' F'"
+          },
+          {
+            "id": "pll-f",
+            "name": "F 排列",
+            "puzzle": "3x3",
+            "moves": "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R"
+          },
+          {
+            "id": "pll-ra",
+            "name": "Ra 排列",
+            "puzzle": "3x3",
+            "moves": "R U' R' U' R U R D R' U' R D' R' U2 R'"
+          },
+          {
+            "id": "pll-rb",
+            "name": "Rb 排列",
+            "puzzle": "3x3",
+            "moves": "R2 F R U R U' R' F' R U2 R' U2 R"
+          },
+          {
+            "id": "pll-na",
+            "name": "Na 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'"
+          },
+          {
+            "id": "pll-nb",
+            "name": "Nb 排列",
+            "puzzle": "3x3",
+            "moves": "R' U R U' R' F' U' F R U R' F R' F' R U' R"
+          },
+          {
+            "id": "pll-v",
+            "name": "V 排列",
+            "puzzle": "3x3",
+            "moves": "R' U R' U' R D' R' D R' U D' R2 U' R2 D R2"
+          },
+          {
+            "id": "pll-ga",
+            "name": "Ga 排列",
+            "puzzle": "3x3",
+            "moves": "R2 U R' U R' U' R U' R2 D U' R' U R D'"
+          },
+          {
+            "id": "pll-gb",
+            "name": "Gb 排列",
+            "puzzle": "3x3",
+            "moves": "D R' U' R U D' R2 U R' U R U' R U' R2"
+          },
+          {
+            "id": "pll-gc",
+            "name": "Gc 排列",
+            "puzzle": "3x3",
+            "moves": "D R2 U' R U' R U R' U R2 D' U R U' R'"
+          },
+          {
+            "id": "pll-gd",
+            "name": "Gd 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' U' D R2 U' R U' R' U R' U R2 D'"
           }
         ]
       }
@@ -118,32 +861,68 @@
       {
         "id": "roux-fb",
         "name": "左桥",
+        "note": "在左侧观察拼出 1x2x3，没有固定公式",
         "formulas": []
       },
       {
         "id": "roux-sb",
         "name": "右桥",
+        "note": "在右侧观察拼出，不拆左桥",
         "formulas": []
       },
       {
         "id": "roux-cmll",
         "name": "CMLL",
+        "note": "先放小鱼和两种换角，完整情况 42 个",
         "formulas": [
           {
             "id": "cmll-sune",
             "name": "右手小鱼",
+            "puzzle": "3x3",
             "moves": "R U R' U R U2 R'"
+          },
+          {
+            "id": "cmll-antisune",
+            "name": "左手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U2 R' U' R U' R'"
+          },
+          {
+            "id": "cmll-adjacent",
+            "name": "相邻换角",
+            "puzzle": "3x3",
+            "moves": "R U R' F' R U R' U' R' F R2 U' R'"
+          },
+          {
+            "id": "cmll-diagonal",
+            "name": "对角换角",
+            "puzzle": "3x3",
+            "moves": "F R U' R' U' R U R' F' R U R' U' R' F R F'"
           }
         ]
       },
       {
         "id": "roux-lse",
         "name": "LSE",
+        "note": "先朝向，再放左右中棱，最后收四棱",
         "formulas": [
           {
             "id": "lse-eo",
             "name": "棱块朝向",
+            "puzzle": "3x3",
             "moves": "M U M' U M U2 M'"
+          },
+          {
+            "id": "lse-ulur",
+            "name": "左右中棱",
+            "puzzle": "3x3",
+            "moves": "M' U2 M'"
+          },
+          {
+            "id": "lse-l4e",
+            "name": "最后四棱",
+            "puzzle": "3x3",
+            "moves": "M2 U2 M2"
           }
         ]
       }
@@ -160,6 +939,7 @@
           {
             "id": "bld-op-corner",
             "name": "角块交换",
+            "puzzle": "3x3",
             "moves": "R U' R' U' R U R' F' R U R' U' R' F R"
           }
         ]
@@ -171,6 +951,7 @@
           {
             "id": "bld-m2",
             "name": "中层对调",
+            "puzzle": "3x3",
             "moves": "M2"
           }
         ]
@@ -182,6 +963,7 @@
           {
             "id": "bld-parity",
             "name": "奇偶",
+            "puzzle": "3x3",
             "moves": "R U' R' U' R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'"
           }
         ]

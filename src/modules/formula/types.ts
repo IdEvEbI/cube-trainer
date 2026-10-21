@@ -1,11 +1,13 @@
+export type Puzzle = "2x2" | "3x3" | "4x4" | "5x5";
+
 export interface Formula {
   id: string;
   name: string;
-  puzzle: "3x3";
+  puzzle: Puzzle;
   moves: string;
 }
 
-export interface FormulaStep {
+export interface FormulaSubclass {
   id: string;
   name: string;
   note?: string;
@@ -15,5 +17,5 @@ export interface FormulaStep {
 export interface FormulaMethod {
   id: string;
   name: string;
-  steps: FormulaStep[];
+  subclasses: FormulaSubclass[];
 }

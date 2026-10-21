@@ -1,21 +1,24 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import {
-  collectFormulas,
-  parseFormulaLibrary,
-} from "../modules/formula/formulas.ts";
+import { practiceCase } from "../modules/practice/setup.ts";
 import {
   formulasForMethod,
   formulasForSubclass,
   parseFormulaCatalog,
+  toPracticeFormula,
   type CatalogFormula,
   type CatalogMethod,
 } from "./catalog.ts";
 
 const catalogPath = new URL("./formula-catalog.json", import.meta.url);
-const libraryPath = new URL("./formulas-3x3.json", import.meta.url);
 const ollIds = ["oll-line", "oll-l", "oll-sune", "oll-antisune"] as const;
+const ollMoves = {
+  "oll-line": ["一字", "F R U R' U' F'"],
+  "oll-l": ["小拐弯", "F U R U' R' F'"],
+  "oll-sune": ["右手小鱼", "R U R' U R U2 R'"],
+  "oll-antisune": ["左手小鱼", "R U2 R' U' R U' R'"],
+} as const;
 
 function loadCatalog(): CatalogMethod[] {
   return parseFormulaCatalog(JSON.parse(readFileSync(catalogPath, "utf8")));
@@ -56,8 +59,25 @@ describe("formula catalog", () => {
       cfop?.subclasses.map((subclass) => subclass.name),
       ["Cross", "F2L", "OLL", "PLL"],
     );
-    assert.ok(formulasForSubclass(catalog, "cfop", "cfop-f2l")?.length);
-    assert.ok(formulasForSubclass(catalog, "cfop", "cfop-pll")?.length);
+    const f2l = formulasForSubclass(catalog, "cfop", "cfop-f2l");
+    const oll = formulasForSubclass(catalog, "cfop", "cfop-oll");
+    const pll = formulasForSubclass(catalog, "cfop", "cfop-pll");
+    assert.equal(f2l?.length, 42);
+    assert.equal(oll?.length, 57);
+    assert.equal(pll?.length, 21);
+    for (const id of ["f2l-split", "f2l-side", "f2l-1-2", "f2l-6-5"]) {
+      assert.ok(f2l?.some((formula) => formula.id === id));
+    }
+    for (const id of ["oll-wca-1", "oll-wca-57", "oll-dot"]) {
+      assert.ok(oll?.some((formula) => formula.id === id));
+    }
+    for (const id of ["pll-t", "pll-aa", "pll-e", "pll-ga", "pll-gd"]) {
+      assert.ok(pll?.some((formula) => formula.id === id));
+    }
+    assert.equal(
+      [...f2l, ...oll, ...pll].every((formula) => formula.puzzle === "3x3"),
+      true,
+    );
     assert.equal(formulasForSubclass(catalog, "cfop", "cfop-cross")?.length, 0);
     assert.deepEqual(
       lbl?.subclasses.map((subclass) => subclass.name),
@@ -82,34 +102,39 @@ describe("formula catalog", () => {
     assert.equal(formulasForSubclass(catalog, "cfop", "missing"), null);
   });
 
-  it("已有的四条 OLL 与练习库一致，并且只出现一次", () => {
+  it("已支持的四条 OLL 仍能生成练习状态，并且只出现一次", () => {
     const catalog = loadCatalog();
-    const library = parseFormulaLibrary(
-      JSON.parse(readFileSync(libraryPath, "utf8")),
-    );
     const oll = formulasForSubclass(catalog, "cfop", "cfop-oll");
     const all = catalog.flatMap((method) =>
       method.subclasses.flatMap((subclass) => subclass.formulas),
     );
 
-    assert.deepEqual(
-      oll?.map((formula) => formula.id),
-      [...ollIds],
-    );
     for (const id of ollIds) {
       const stored: CatalogFormula | undefined = oll?.find(
         (formula) => formula.id === id,
       );
-      const existing = collectFormulas(library).find(
-        (formula) => formula.id === id,
-      );
+      const [name, moves] = ollMoves[id];
       assert.ok(stored);
-      assert.ok(existing);
-      assert.equal(stored.name, existing.name);
-      assert.equal(stored.moves, existing.moves);
+      assert.equal(stored.name, name);
+      assert.equal(stored.moves, moves);
+      assert.equal(stored.puzzle, "3x3");
       assert.equal(stored.methodName, "CFOP");
       assert.equal(stored.subclassName, "OLL");
       assert.equal(all.filter((formula) => formula.id === id).length, 1);
+      assert.ok(practiceCase(toPracticeFormula(stored)));
     }
+    const sune = oll?.find((formula) => formula.id === "oll-sune");
+    assert.ok(sune);
+    assert.deepEqual(practiceCase(toPracticeFormula(sune)), {
+      id: "oll-sune",
+      name: "右手小鱼",
+      forward: "R U R' U R U2 R'",
+      inverse: "R U2 R' U' R U' R'",
+    });
+    const tPerm = formulasForSubclass(catalog, "cfop", "cfop-pll")?.find(
+      (formula) => formula.id === "pll-t",
+    );
+    assert.ok(tPerm);
+    assert.equal(practiceCase(toPracticeFormula(tPerm)), null);
   });
 });

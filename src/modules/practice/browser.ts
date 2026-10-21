@@ -1,4 +1,8 @@
-import type { Formula, FormulaMethod, FormulaStep } from "../formula/types.ts";
+import type {
+  Formula,
+  FormulaMethod,
+  FormulaSubclass,
+} from "../formula/types.ts";
 
 export function methodNames(methods: FormulaMethod[]): string[] {
   return methods.map((method) => method.name);
@@ -7,9 +11,9 @@ export function methodNames(methods: FormulaMethod[]): string[] {
 export function methodSteps(
   methods: FormulaMethod[],
   methodId: string,
-): FormulaStep[] | null {
+): FormulaSubclass[] | null {
   const method = methods.find((item) => item.id === methodId);
-  return method ? method.steps : null;
+  return method ? method.subclasses : null;
 }
 
 export function formulasForMethod(

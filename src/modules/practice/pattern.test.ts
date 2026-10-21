@@ -9,7 +9,7 @@ import type { Formula } from "../formula/types.ts";
 import { formulaPattern, type TopSticker } from "./pattern.ts";
 import { practiceCase } from "./setup.ts";
 
-const samplePath = new URL("../../data/formulas-3x3.json", import.meta.url);
+const samplePath = new URL("../../data/formula-catalog.json", import.meta.url);
 
 const U_SLOTS = [
   ["CORNERS", 2, 0],
@@ -28,7 +28,7 @@ function loadFormulas(): Formula[] {
     JSON.parse(readFileSync(samplePath, "utf8")),
   );
   return methods.flatMap((method) =>
-    method.steps.flatMap((step) => step.formulas),
+    method.subclasses.flatMap((subclass) => subclass.formulas),
   );
 }
 

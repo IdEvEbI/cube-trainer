@@ -14,7 +14,7 @@ import {
 } from "./focus.ts";
 import { practiceCase } from "./setup.ts";
 
-const samplePath = new URL("../../data/formulas-3x3.json", import.meta.url);
+const samplePath = new URL("../../data/formula-catalog.json", import.meta.url);
 
 function loadMethods(): FormulaMethod[] {
   return parseFormulaLibrary(JSON.parse(readFileSync(samplePath, "utf8")));

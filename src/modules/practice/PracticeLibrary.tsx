@@ -1,5 +1,9 @@
-import type { Formula, FormulaMethod } from "../formula/types.ts";
-import { formulasForMethod, methodSteps } from "./browser.ts";
+import {
+  formulasForMethod,
+  toPracticeFormula,
+  type CatalogMethod,
+} from "../../data/catalog.ts";
+import type { Formula } from "../formula/types.ts";
 import { PatternIcon } from "./PatternIcon.tsx";
 import { formulaPattern } from "./pattern.ts";
 import { practiceCase } from "./setup.ts";
@@ -9,7 +13,7 @@ export function MethodPicker({
   methods,
   onSelect,
 }: {
-  methods: FormulaMethod[];
+  methods: CatalogMethod[];
   onSelect: (methodId: string) => void;
 }) {
   return (
@@ -42,31 +46,31 @@ export function FormulaBoard({
   note,
   onSelect,
 }: {
-  methods: FormulaMethod[];
+  methods: CatalogMethod[];
   methodId: string;
   selectedId: string | null;
   note: string | null;
   onSelect: (formula: Formula) => void;
 }) {
-  const steps = methodSteps(methods, methodId);
-  const methodName = methods.find((method) => method.id === methodId)?.name;
-  if (!steps || !methodName) {
+  const method = methods.find((item) => item.id === methodId);
+  if (!method) {
     return null;
   }
 
   return (
-    <section className="practice-library" aria-label={methodName}>
-      <h1>{methodName}</h1>
+    <section className="practice-library" aria-label={method.name}>
+      <h1>{method.name}</h1>
       {note ? <p className="practice-unsupported">{note}</p> : null}
-      {steps.map((step) => (
-        <div key={step.id} className="practice-step">
-          <h2>{step.name}</h2>
-          {step.formulas.length === 0 ? (
+      {method.subclasses.map((subclass) => (
+        <div key={subclass.id} className="practice-step">
+          <h2>{subclass.name}</h2>
+          {subclass.formulas.length === 0 ? (
             <p className="practice-unsupported">暂不支持</p>
           ) : (
             <div className="formula-grid">
-              {step.formulas.map((formula) => {
-                const supported = practiceCase(formula) !== null;
+              {subclass.formulas.map((formula) => {
+                const practiceFormula = toPracticeFormula(formula);
+                const supported = practiceCase(practiceFormula) !== null;
                 const pattern = formulaPattern(formula.id);
                 return (
                   <button
@@ -76,7 +80,7 @@ export function FormulaBoard({
                       supported ? "formula-card" : "formula-card is-unsupported"
                     }
                     aria-pressed={selectedId === formula.id}
-                    onClick={() => onSelect(formula)}
+                    onClick={() => onSelect(practiceFormula)}
                   >
                     {pattern ? (
                       <PatternIcon

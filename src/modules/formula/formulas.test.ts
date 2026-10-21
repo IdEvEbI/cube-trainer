@@ -8,22 +8,23 @@ import {
   parseFormulaLibrary,
 } from "./formulas.ts";
 
-const samplePath = new URL("../../data/formulas-3x3.json", import.meta.url);
+const samplePath = new URL("../../data/formula-catalog.json", import.meta.url);
 
 function loadSample() {
   return parseFormulaLibrary(JSON.parse(readFileSync(samplePath, "utf8")));
 }
 
 describe("parseFormulaLibrary", () => {
-  it("按层先法、CFOP、桥式三级列出步骤", () => {
+  it("打乱计时公式库能读到层先法、CFOP、桥式和盲拧", () => {
     const methods = loadSample();
+    const cfop = methods.find((method) => method.id === "cfop");
 
     assert.deepEqual(
       methods.map((method) => method.name),
-      ["层先法", "CFOP", "桥式"],
+      ["层先法", "CFOP", "桥式", "盲拧"],
     );
     assert.deepEqual(
-      methods[0]?.steps.map((step) => step.name),
+      methods[0]?.subclasses.map((subclass) => subclass.name),
       [
         "底层十字",
         "底层角块",
@@ -35,13 +36,30 @@ describe("parseFormulaLibrary", () => {
       ],
     );
     assert.deepEqual(
-      methods[1]?.steps.map((step) => step.name),
+      cfop?.subclasses.map((subclass) => subclass.name),
       ["Cross", "F2L", "OLL", "PLL"],
     );
+    assert.equal(
+      cfop?.subclasses.find((subclass) => subclass.id === "cfop-cross")?.note,
+      "靠观察完成，通常不超过 8 步",
+    );
     assert.deepEqual(
-      methods[2]?.steps.map((step) => step.name),
+      methods[2]?.subclasses.map((subclass) => subclass.name),
       ["左桥", "右桥", "CMLL", "LSE"],
     );
+    const formulas = collectFormulas(methods);
+    for (const id of [
+      "lbl-middle-left",
+      "lbl-edge-cycle",
+      "f2l-side",
+      "oll-dot",
+      "pll-ja",
+      "cmll-diagonal",
+      "lse-l4e",
+      "bld-m2",
+    ]) {
+      assert.ok(formulas.some((formula) => formula.id === id));
+    }
   });
 
   it("示例公式都是 3x3，并且都能按层转动", () => {
@@ -68,7 +86,7 @@ describe("parseFormulaLibrary", () => {
           {
             id: "lbl",
             name: "层先法",
-            steps: [
+            subclasses: [
               {
                 id: "top",
                 name: "顶层面",
@@ -90,7 +108,7 @@ describe("parseFormulaLibrary", () => {
           {
             id: "lbl",
             name: "层先法",
-            steps: [
+            subclasses: [
               {
                 id: "top",
                 name: "顶层面",
@@ -114,6 +132,26 @@ describe("parseFormulaLibrary", () => {
         ]),
       /公式 id 重复：sune/,
     );
+  });
+
+  it("省略 puzzle 时默认为 3x3", () => {
+    const methods = parseFormulaLibrary([
+      {
+        id: "lbl",
+        name: "层先法",
+        subclasses: [
+          {
+            id: "top",
+            name: "顶层面",
+            formulas: [
+              { id: "sune", name: "右手小鱼", moves: "R U R' U R U2 R'" },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    assert.equal(collectFormulas(methods)[0]?.puzzle, "3x3");
   });
 
   it("把右手小鱼的算法拆成层转动", () => {
