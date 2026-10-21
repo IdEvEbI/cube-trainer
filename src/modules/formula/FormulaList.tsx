@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { PatternIcon } from "../practice/PatternIcon.tsx";
+import { formulaPattern } from "../practice/pattern.ts";
 import type { Formula, FormulaMethod } from "./types.ts";
 import "./formula.css";
 
@@ -28,17 +30,26 @@ export function FormulaList({
               {step.note ? <p className="formula-note">{step.note}</p> : null}
               {step.formulas.length > 0 ? (
                 <ul>
-                  {step.formulas.map((formula) => (
-                    <li key={formula.id}>
-                      <button
-                        type="button"
-                        aria-pressed={selectedId === formula.id}
-                        onClick={() => choose(formula)}
-                      >
-                        {formula.name}
-                      </button>
-                    </li>
-                  ))}
+                  {step.formulas.map((formula) => {
+                    const pattern = formulaPattern(formula.id);
+                    return (
+                      <li key={formula.id}>
+                        <button
+                          type="button"
+                          aria-pressed={selectedId === formula.id}
+                          onClick={() => choose(formula)}
+                        >
+                          {pattern ? (
+                            <PatternIcon
+                              top={pattern.top}
+                              label={`${formula.name}的顶层图案`}
+                            />
+                          ) : null}
+                          {formula.name}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : null}
             </details>

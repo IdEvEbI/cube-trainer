@@ -30,3 +30,31 @@
   color: #f3f0e8;
   font-size: 1.05rem;
 }
+
+.top-pattern {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 7px);
+  gap: 1px;
+  flex: none;
+}
+
+.top-pattern span {
+  width: 7px;
+  height: 7px;
+  background: #3a3f4b;
+}
+
+.top-pattern span[data-sticker="黄"] {
+  background: #ffd500;
+}
+
+.top-pattern.is-large {
+  grid-template-columns: repeat(3, 18px);
+  gap: 2px;
+  margin-top: 12px;
+}
+
+.top-pattern.is-large span {
+  width: 18px;
+  height: 18px;
+}
