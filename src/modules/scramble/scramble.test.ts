@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readCube } from "../cube/cube.ts";
-import { parseScramble, randomScramble3x3 } from "./scramble.ts";
+import { cube3x3x3 } from "cubing/puzzles";
+import {
+  parseScramble,
+  randomScramble3x3,
+  scrambleDisplayAlgorithm,
+} from "./scramble.ts";
 
 const FACE_TURN = /^[UDLRFB](?:2'|2|')?$/;
 
@@ -33,6 +38,43 @@ describe("parseScramble", () => {
     assert.throws(() => parseScramble("   "), /打乱是空的/);
     assert.throws(() => parseScramble("R U M"), /无法打乱：M/);
     assert.throws(() => parseScramble("R U x"), /无法打乱：x/);
+  });
+});
+
+describe("scrambleDisplayAlgorithm", () => {
+  it("打乱前先 z2，打乱后再 z2", () => {
+    assert.equal(scrambleDisplayAlgorithm("R U R'"), "z2 R U R' z2");
+  });
+
+  it("按白上执行打乱，再转回黄上观看", async () => {
+    const moves = "R U";
+    const puzzle = await cube3x3x3.kpuzzle();
+    const shown = puzzle
+      .defaultPattern()
+      .applyAlg("z2")
+      .applyAlg(scrambleDisplayAlgorithm(moves));
+    const whiteUpThenYellow = puzzle
+      .defaultPattern()
+      .applyAlg(moves)
+      .applyAlg("z2");
+    const yellowUpDirect = puzzle.defaultPattern().applyAlg(`z2 ${moves}`);
+
+    assert.deepEqual(
+      shown.patternData.CORNERS,
+      whiteUpThenYellow.patternData.CORNERS,
+    );
+    assert.deepEqual(
+      shown.patternData.EDGES,
+      whiteUpThenYellow.patternData.EDGES,
+    );
+    assert.notDeepEqual(
+      shown.patternData.CORNERS?.pieces,
+      yellowUpDirect.patternData.CORNERS?.pieces,
+    );
+  });
+
+  it("拒绝整颗转动", () => {
+    assert.throws(() => scrambleDisplayAlgorithm("R x"), /无法打乱：x/);
   });
 });
 

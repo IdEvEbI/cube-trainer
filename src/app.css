@@ -17,6 +17,16 @@
   padding: 16px 24px;
 }
 
+.side {
+  width: 320px;
+  flex: none;
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 16px;
+}
+
 .stage {
   flex: 0 1 640px;
   width: min(100%, 640px);
@@ -37,7 +47,8 @@
     flex-direction: column;
   }
 
-  .stage {
+  .stage,
+  .side {
     width: 100%;
   }
 }

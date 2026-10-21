@@ -18,15 +18,17 @@ export function ScramblePanel({
 
   return (
     <section className="scramble">
-      <button type="button" onClick={scramble}>
-        打乱
-      </button>
-      <p
-        className={moves ? "scramble-moves" : "scramble-hint"}
-        title={moves ?? undefined}
-      >
-        {moves ?? "打乱当前魔方，计时回到准备"}
-      </p>
+      <div className="scramble-bar">
+        <button type="button" onClick={scramble}>
+          打乱
+        </button>
+        <p
+          className={moves ? "scramble-moves" : "scramble-hint"}
+          title={moves ?? undefined}
+        >
+          {moves ?? "打乱当前魔方，计时回到准备"}
+        </p>
+      </div>
     </section>
   );
 }
