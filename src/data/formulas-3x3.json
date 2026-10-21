@@ -1,32 +1,289 @@
 [
   {
-    "id": "sune",
-    "name": "右手小鱼",
-    "puzzle": "3x3",
-    "moves": "R U R' U R U2 R'"
+    "id": "lbl",
+    "name": "层先法",
+    "steps": [
+      {
+        "id": "lbl-cross",
+        "name": "底层十字",
+        "note": "靠观察完成，没有固定公式",
+        "formulas": []
+      },
+      {
+        "id": "lbl-corner",
+        "name": "底层角块",
+        "formulas": [
+          {
+            "id": "lbl-corner-insert",
+            "name": "反复插入",
+            "puzzle": "3x3",
+            "moves": "R' D' R D"
+          }
+        ]
+      },
+      {
+        "id": "lbl-middle",
+        "name": "中层棱块",
+        "formulas": [
+          {
+            "id": "lbl-middle-right",
+            "name": "向右插入",
+            "puzzle": "3x3",
+            "moves": "U R U' R' U' F' U F"
+          },
+          {
+            "id": "lbl-middle-left",
+            "name": "向左插入",
+            "puzzle": "3x3",
+            "moves": "U' L' U L U F U' F'"
+          }
+        ]
+      },
+      {
+        "id": "lbl-top-cross",
+        "name": "顶层十字",
+        "formulas": [
+          {
+            "id": "lbl-line",
+            "name": "一字",
+            "puzzle": "3x3",
+            "moves": "F R U R' U' F'"
+          },
+          {
+            "id": "lbl-l-shape",
+            "name": "小拐弯",
+            "puzzle": "3x3",
+            "moves": "F U R U' R' F'"
+          }
+        ]
+      },
+      {
+        "id": "lbl-top-face",
+        "name": "顶层面",
+        "formulas": [
+          {
+            "id": "lbl-sune",
+            "name": "右手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U2 R'"
+          },
+          {
+            "id": "lbl-antisune",
+            "name": "左手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U2 R' U' R U' R'"
+          }
+        ]
+      },
+      {
+        "id": "lbl-corner-perm",
+        "name": "顶层角位置",
+        "formulas": [
+          {
+            "id": "lbl-corner-cycle",
+            "name": "三角换",
+            "puzzle": "3x3",
+            "moves": "U R U' L' U R' U' L"
+          }
+        ]
+      },
+      {
+        "id": "lbl-edge-perm",
+        "name": "顶层棱位置",
+        "formulas": [
+          {
+            "id": "lbl-edge-cycle",
+            "name": "三棱换",
+            "puzzle": "3x3",
+            "moves": "R2 U R U R' U' R' U' R' U R'"
+          }
+        ]
+      }
+    ]
   },
   {
-    "id": "antisune",
-    "name": "左手小鱼",
-    "puzzle": "3x3",
-    "moves": "R U2 R' U' R U' R'"
+    "id": "cfop",
+    "name": "CFOP",
+    "steps": [
+      {
+        "id": "cfop-cross",
+        "name": "Cross",
+        "note": "靠观察完成，通常不超过 8 步",
+        "formulas": []
+      },
+      {
+        "id": "cfop-f2l",
+        "name": "F2L",
+        "note": "先放基础插入，完整情况约 41 个",
+        "formulas": [
+          {
+            "id": "f2l-split",
+            "name": "分开再合",
+            "puzzle": "3x3",
+            "moves": "R U' R' U R U' R'"
+          },
+          {
+            "id": "f2l-join",
+            "name": "顶层插入",
+            "puzzle": "3x3",
+            "moves": "U R U' R'"
+          },
+          {
+            "id": "f2l-paired",
+            "name": "已配对插入",
+            "puzzle": "3x3",
+            "moves": "R U R'"
+          }
+        ]
+      },
+      {
+        "id": "cfop-oll",
+        "name": "OLL",
+        "note": "先放 2-look 常用公式，完整情况 57 个",
+        "formulas": [
+          {
+            "id": "oll-line",
+            "name": "一字",
+            "puzzle": "3x3",
+            "moves": "F R U R' U' F'"
+          },
+          {
+            "id": "oll-l",
+            "name": "小拐弯",
+            "puzzle": "3x3",
+            "moves": "F U R U' R' F'"
+          },
+          {
+            "id": "oll-sune",
+            "name": "右手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U2 R'"
+          },
+          {
+            "id": "oll-antisune",
+            "name": "左手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U2 R' U' R U' R'"
+          }
+        ]
+      },
+      {
+        "id": "cfop-pll",
+        "name": "PLL",
+        "note": "先放常用排列，完整情况 21 个",
+        "formulas": [
+          {
+            "id": "pll-t",
+            "name": "T 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' U' R' F R2 U' R' U' R U R' F'"
+          },
+          {
+            "id": "pll-y",
+            "name": "Y 排列",
+            "puzzle": "3x3",
+            "moves": "F R U' R' U' R U R' F' R U R' U' R' F R F'"
+          },
+          {
+            "id": "pll-jb",
+            "name": "Jb 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' F' R U R' U' R' F R2 U' R'"
+          },
+          {
+            "id": "pll-ua",
+            "name": "Ua 排列",
+            "puzzle": "3x3",
+            "moves": "M2 U M U2 M' U M2"
+          },
+          {
+            "id": "pll-ub",
+            "name": "Ub 排列",
+            "puzzle": "3x3",
+            "moves": "M2 U' M U2 M' U' M2"
+          },
+          {
+            "id": "pll-h",
+            "name": "H 排列",
+            "puzzle": "3x3",
+            "moves": "M2 U M2 U2 M2 U M2"
+          }
+        ]
+      }
+    ]
   },
   {
-    "id": "t-perm",
-    "name": "T 排列",
-    "puzzle": "3x3",
-    "moves": "R U R' U' R' F R2 U' R' U' R U R' F'"
-  },
-  {
-    "id": "ua-perm",
-    "name": "Ua 排列",
-    "puzzle": "3x3",
-    "moves": "M2 U M U2 M' U M2"
-  },
-  {
-    "id": "cross-line",
-    "name": "一线变十字",
-    "puzzle": "3x3",
-    "moves": "F R U R' U' F'"
+    "id": "roux",
+    "name": "桥式",
+    "steps": [
+      {
+        "id": "roux-fb",
+        "name": "左桥",
+        "note": "在左侧观察拼出 1x2x3，没有固定公式",
+        "formulas": []
+      },
+      {
+        "id": "roux-sb",
+        "name": "右桥",
+        "note": "在右侧观察拼出，不拆左桥",
+        "formulas": []
+      },
+      {
+        "id": "roux-cmll",
+        "name": "CMLL",
+        "note": "先放小鱼和两种换角，完整情况 42 个",
+        "formulas": [
+          {
+            "id": "cmll-sune",
+            "name": "右手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U2 R'"
+          },
+          {
+            "id": "cmll-antisune",
+            "name": "左手小鱼",
+            "puzzle": "3x3",
+            "moves": "R U2 R' U' R U' R'"
+          },
+          {
+            "id": "cmll-adjacent",
+            "name": "相邻换角",
+            "puzzle": "3x3",
+            "moves": "R U R' F' R U R' U' R' F R2 U' R'"
+          },
+          {
+            "id": "cmll-diagonal",
+            "name": "对角换角",
+            "puzzle": "3x3",
+            "moves": "F R U' R' U' R U R' F' R U R' U' R' F R F'"
+          }
+        ]
+      },
+      {
+        "id": "roux-lse",
+        "name": "LSE",
+        "note": "先朝向，再放左右中棱，最后收四棱",
+        "formulas": [
+          {
+            "id": "lse-eo",
+            "name": "棱块朝向",
+            "puzzle": "3x3",
+            "moves": "M U M' U M U2 M'"
+          },
+          {
+            "id": "lse-ulur",
+            "name": "左右中棱",
+            "puzzle": "3x3",
+            "moves": "M' U2 M'"
+          },
+          {
+            "id": "lse-l4e",
+            "name": "最后四棱",
+            "puzzle": "3x3",
+            "moves": "M2 U2 M2"
+          }
+        ]
+      }
+    ]
   }
 ]
