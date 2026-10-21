@@ -16,3 +16,22 @@
 .formula-list li + li {
   margin-top: 8px;
 }
+
+.formula-list button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.formula-list button[aria-pressed="true"] {
+  text-decoration: underline;
+}
+
+.formula-hint {
+  margin: 12px 0 0;
+  color: #8d887d;
+  font-size: 0.9rem;
+}

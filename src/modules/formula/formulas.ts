@@ -1,4 +1,7 @@
+import { Alg } from "cubing/alg";
 import type { Formula } from "./types.ts";
+
+const LAYER_MOVE = /^(?:[UDLRFB]|[MES])(?:2'|2|')?$/;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
@@ -36,4 +39,18 @@ export function parseFormulas(input: unknown): Formula[] {
 
 export function formulaNames(formulas: Formula[]): string[] {
   return formulas.map((formula) => formula.name);
+}
+
+export function parseAlgorithm(source: string): string[] {
+  const moves = [...new Alg(source).experimentalLeafMoves()].map((move) =>
+    move.toString(),
+  );
+  if (moves.length === 0) {
+    throw new Error("算法是空的");
+  }
+  const invalid = moves.find((move) => !LAYER_MOVE.test(move));
+  if (invalid) {
+    throw new Error(`无法按层转动：${invalid}`);
+  }
+  return moves;
 }

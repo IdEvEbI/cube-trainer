@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { formulaNames, parseFormulas } from "./formulas.ts";
+import { formulaNames, parseAlgorithm, parseFormulas } from "./formulas.ts";
 
 const samplePath = new URL("../../data/formulas-3x3.json", import.meta.url);
 
@@ -41,6 +41,35 @@ describe("parseFormulas", () => {
         ]),
       /第 1 条公式无效/,
     );
+  });
+
+  it("把右手小鱼的算法拆成层转动", () => {
+    assert.deepEqual(parseAlgorithm("R U R' U R U2 R'"), [
+      "R",
+      "U",
+      "R'",
+      "U",
+      "R",
+      "U2",
+      "R'",
+    ]);
+  });
+
+  it("把含中层的算法拆开", () => {
+    assert.deepEqual(parseAlgorithm("M2 U M U2 M' U M2"), [
+      "M2",
+      "U",
+      "M",
+      "U2",
+      "M'",
+      "U",
+      "M2",
+    ]);
+  });
+
+  it("拒绝整颗转动和空算法", () => {
+    assert.throws(() => parseAlgorithm("R U X"), /无法按层转动：X/);
+    assert.throws(() => parseAlgorithm("   "), /算法是空的/);
   });
 
   it("空名称时拒绝", () => {
