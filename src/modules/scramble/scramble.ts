@@ -28,6 +28,10 @@ function pick<T>(items: readonly T[], random: () => number): T {
   return item;
 }
 
+export function scrambleDisplayAlgorithm(moves: string): string {
+  return `z2 ${parseScramble(moves).join(" ")} z2`;
+}
+
 export function parseScramble(source: string): string[] {
   const moves = [...new Alg(source).experimentalLeafMoves()].map((move) =>
     move.toString(),

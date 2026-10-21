@@ -3,6 +3,14 @@
   width: min(100%, 560px);
   min-width: 0;
   padding: 0;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+
+.scramble-bar {
+  width: 100%;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -34,5 +42,84 @@
 
 .scramble-hint {
   color: #8d887d;
+  font-size: 0.9rem;
+}
+
+.scramble-net {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  gap: 12px;
+  justify-content: center;
+}
+
+.scramble-net-face {
+  display: grid;
+  grid-template-columns: repeat(3, 22px);
+  gap: 1px;
+}
+
+.scramble-net-face[data-face="U"] {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.scramble-net-face[data-face="L"] {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.scramble-net-face[data-face="F"] {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.scramble-net-face[data-face="R"] {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.scramble-net-face[data-face="B"] {
+  grid-column: 4;
+  grid-row: 2;
+}
+
+.scramble-net-face[data-face="D"] {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.scramble-sticker {
+  width: 22px;
+  height: 22px;
+  border-radius: 1px;
+}
+
+.scramble-sticker[data-color="白"] {
+  background: #ffffff;
+}
+
+.scramble-sticker[data-color="黄"] {
+  background: #ffd500;
+}
+
+.scramble-sticker[data-color="绿"] {
+  background: #00a651;
+}
+
+.scramble-sticker[data-color="蓝"] {
+  background: #0051ba;
+}
+
+.scramble-sticker[data-color="红"] {
+  background: #c41e3a;
+}
+
+.scramble-sticker[data-color="橙"] {
+  background: #ff5800;
+}
+
+.scramble-net-error {
+  margin: 0;
+  color: #d2a3a3;
   font-size: 0.9rem;
 }

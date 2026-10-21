@@ -1,9 +1,10 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import formulas from "./data/formulas-3x3.json";
 import { CubeView, type CubeHandle } from "./modules/cube/CubeView.tsx";
 import { FormulaList } from "./modules/formula/FormulaList.tsx";
 import { parseFormulaLibrary } from "./modules/formula/formulas.ts";
 import type { Formula } from "./modules/formula/types.ts";
+import { ScrambleNet } from "./modules/scramble/ScrambleNet.tsx";
 import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
 import type { Scramble } from "./modules/scramble/types.ts";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
@@ -14,6 +15,7 @@ const formulaLibrary = parseFormulaLibrary(formulas);
 export default function App() {
   const cube = useRef<CubeHandle>(null);
   const timer = useRef<TimerHandle>(null);
+  const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
 
   function onFormula(formula: Formula) {
     cube.current?.applyAlgorithm(formula.moves);
@@ -22,6 +24,7 @@ export default function App() {
   function onScramble(scramble: Scramble) {
     cube.current?.setAlgorithm(scramble.moves);
     timer.current?.prepare();
+    setScrambleMoves(scramble.moves);
   }
 
   return (
@@ -32,7 +35,10 @@ export default function App() {
           <CubeView ref={cube} />
           <ScramblePanel onScramble={onScramble} />
         </div>
-        <TimerView ref={timer} />
+        <div className="side">
+          <TimerView ref={timer} />
+          {scrambleMoves ? <ScrambleNet moves={scrambleMoves} /> : null}
+        </div>
       </div>
     </div>
   );

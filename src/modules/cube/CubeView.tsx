@@ -1,6 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { TwistyPlayer } from "cubing/twisty";
 import { parseAlgorithm } from "../formula/formulas.ts";
+import { scrambleDisplayAlgorithm } from "../scramble/scramble.ts";
 import { CUBE_ORIENTATION_ALG, isLayerMove } from "./cube.ts";
 import { LAYER_MOVES, type LayerMove } from "./types.ts";
 import "./cube.css";
@@ -54,7 +55,7 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
       });
     },
     setAlgorithm(moves: string) {
-      const parsed = parseAlgorithm(moves).join(" ");
+      const parsed = scrambleDisplayAlgorithm(moves);
       queue.current = queue.current.then(async () => {
         const twisty = player.current;
         if (!twisty) {
