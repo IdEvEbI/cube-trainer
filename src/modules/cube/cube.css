@@ -1,8 +1,11 @@
 .cube-view {
-  padding: 28px 20px 8px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   display: grid;
   justify-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .cube-view h2 {
@@ -12,8 +15,8 @@
 }
 
 .cube-stage {
-  width: min(100%, 520px);
-  height: 320px;
+  width: min(100%, 480px);
+  height: clamp(220px, 46vh, 420px);
 }
 
 .cube-player {
@@ -22,17 +25,18 @@
 }
 
 .cube-moves {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(6, 52px);
   justify-content: center;
   gap: 8px;
-  max-width: 520px;
+  width: 100%;
 }
 
 .cube-moves button {
-  min-width: 52px;
-  min-height: 40px;
-  padding: 0 12px;
+  min-width: 0;
+  width: 52px;
+  min-height: 36px;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: #f3f0e8;
@@ -45,4 +49,10 @@
   margin: 0;
   color: #8d887d;
   font-size: 0.9rem;
+}
+
+@media (max-width: 960px) {
+  .cube-stage {
+    height: 200px;
+  }
 }

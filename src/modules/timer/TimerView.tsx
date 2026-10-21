@@ -53,7 +53,7 @@ export function TimerView({ ref }: { ref?: Ref<TimerHandle> }) {
       }
       if (
         event.target instanceof HTMLElement &&
-        event.target.closest("button")
+        event.target.closest("button, summary")
       ) {
         return;
       }
@@ -120,7 +120,7 @@ export function TimerView({ ref }: { ref?: Ref<TimerHandle> }) {
   }));
 
   return (
-    <main className="timer">
+    <section className="timer">
       <p className="timer-status">{statusLabel[phase]}</p>
       <p className={phase === "armed" ? "timer-time is-armed" : "timer-time"}>
         {formatElapsed(elapsed)}
@@ -137,6 +137,6 @@ export function TimerView({ ref }: { ref?: Ref<TimerHandle> }) {
         </button>
       </div>
       <p className="timer-hint">按住空格预备，松开开始，再按空格停止</p>
-    </main>
+    </section>
   );
 }

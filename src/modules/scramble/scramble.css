@@ -1,11 +1,15 @@
 .scramble {
-  padding: 20px 20px 0;
-  display: grid;
-  justify-items: center;
+  box-sizing: border-box;
+  width: min(100%, 560px);
+  min-width: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
 .scramble button {
+  flex-shrink: 0;
   min-width: 88px;
   min-height: 44px;
   padding: 0 18px;
@@ -18,15 +22,17 @@
   cursor: pointer;
 }
 
-.scramble-moves {
+.scramble-moves,
+.scramble-hint {
+  flex: 1;
   margin: 0;
-  max-width: 36rem;
-  text-align: center;
-  line-height: 1.6;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .scramble-hint {
-  margin: 0;
   color: #8d887d;
   font-size: 0.9rem;
 }
