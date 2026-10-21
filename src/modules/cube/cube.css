@@ -26,15 +26,15 @@
 
 .cube-moves {
   display: grid;
-  grid-template-columns: repeat(6, 52px);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   justify-content: center;
   gap: 8px;
-  width: 100%;
+  width: min(100%, 360px);
 }
 
 .cube-moves button {
   min-width: 0;
-  width: 52px;
+  width: auto;
   min-height: 36px;
   padding: 0;
   border: 0;

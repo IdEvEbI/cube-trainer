@@ -48,13 +48,132 @@
   background: #ffd500;
 }
 
+.top-pattern.is-card {
+  grid-template-columns: repeat(3, 11px);
+  gap: 1px;
+}
+
+.top-pattern.is-card span {
+  width: 11px;
+  height: 11px;
+}
+
+.top-pattern.is-hint,
 .top-pattern.is-large {
   grid-template-columns: repeat(3, 18px);
   gap: 2px;
   margin-top: 12px;
 }
 
+.top-pattern.is-hint span,
 .top-pattern.is-large span {
   width: 18px;
   height: 18px;
+}
+
+.practice-library {
+  box-sizing: border-box;
+  width: min(100%, 880px);
+  margin: 0 auto;
+  padding: 8px 20px 24px;
+}
+
+.practice-library h1 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.method-screen {
+  box-sizing: border-box;
+  min-height: 100%;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 24px 16px;
+}
+
+.method-screen h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.method-grid,
+.formula-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.method-grid {
+  width: min(100%, 640px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.formula-grid {
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+}
+
+.method-card,
+.formula-card {
+  border: 0;
+  border-radius: 12px;
+  background: #1c1f27;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.method-card {
+  min-height: 88px;
+  font-size: 1.05rem;
+}
+
+.formula-card {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  min-height: 72px;
+  padding: 8px 6px;
+}
+
+.formula-card.is-unsupported {
+  color: #8d887d;
+}
+
+.formula-card small,
+.practice-unsupported {
+  color: #8d887d;
+  font-size: 0.75rem;
+}
+
+.formula-card[aria-pressed="true"] {
+  outline: 1px solid #f3f0e8;
+}
+
+.practice-step {
+  margin-top: 14px;
+}
+
+.practice-step h2 {
+  margin: 0 0 8px;
+  color: #d9d3c7;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.practice-unsupported {
+  margin: 0;
+}
+
+.practice-library > .practice-unsupported {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  .method-grid {
+    grid-template-columns: 1fr;
+  }
 }
