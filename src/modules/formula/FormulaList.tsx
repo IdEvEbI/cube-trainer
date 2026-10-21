@@ -24,7 +24,7 @@ export function FormulaList({
       {methods.map((method) => (
         <details key={method.id} className="formula-method">
           <summary>{method.name}</summary>
-          {method.steps.map((step) => (
+          {method.subclasses.map((step) => (
             <details key={step.id} className="formula-step">
               <summary>{step.name}</summary>
               {step.note ? <p className="formula-note">{step.note}</p> : null}

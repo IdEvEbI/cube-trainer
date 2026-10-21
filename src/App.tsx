@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type MouseEvent } from "react";
-import formulas from "./data/formulas-3x3.json";
+import formulas from "./data/formula-catalog.json";
+import { parseFormulaCatalog } from "./data/catalog.ts";
 import { CubeView, type CubeHandle } from "./modules/cube/CubeView.tsx";
 import { FormulaList } from "./modules/formula/FormulaList.tsx";
 import { parseFormulaLibrary } from "./modules/formula/formulas.ts";
@@ -33,6 +34,7 @@ import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
 import "./app.css";
 
 const formulaLibrary = parseFormulaLibrary(formulas);
+const formulaCatalog = parseFormulaCatalog(formulas);
 
 function modeOf(focus: Focus) {
   return focus.kind === "计时" || focus.kind === "公式库"
@@ -57,7 +59,7 @@ export default function App() {
   const mode = modeOf(focus);
   const methodId =
     focus.kind === "公式" || focus.kind === "练习" ? focus.methodId : null;
-  const methodName = formulaLibrary.find(
+  const methodName = formulaCatalog.find(
     (method) => method.id === methodId,
   )?.name;
   const showCube = focus.kind === "计时" || focus.kind === "练习";
@@ -178,7 +180,7 @@ export default function App() {
         </div>
         <div className="slot-methods" hidden={focus.kind !== "方法"}>
           <MethodPicker
-            methods={formulaLibrary}
+            methods={formulaCatalog}
             onSelect={(id) => {
               setPracticeNote(null);
               setFocus(showFormulas(id));
@@ -188,7 +190,7 @@ export default function App() {
         <div className="slot-formulas" hidden={focus.kind !== "公式"}>
           {focus.kind === "公式" ? (
             <FormulaBoard
-              methods={formulaLibrary}
+              methods={formulaCatalog}
               methodId={focus.methodId}
               selectedId={practice?.id ?? null}
               note={practiceNote}

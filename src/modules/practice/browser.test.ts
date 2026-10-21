@@ -6,7 +6,7 @@ import type { FormulaMethod } from "../formula/types.ts";
 import { formulasForMethod, methodNames, methodSteps } from "./browser.ts";
 import { practiceCase } from "./setup.ts";
 
-const samplePath = new URL("../../data/formulas-3x3.json", import.meta.url);
+const samplePath = new URL("../../data/formula-catalog.json", import.meta.url);
 
 function loadMethods(): FormulaMethod[] {
   return parseFormulaLibrary(JSON.parse(readFileSync(samplePath, "utf8")));
@@ -14,7 +14,12 @@ function loadMethods(): FormulaMethod[] {
 
 describe("practice browser", () => {
   it("先列出层先法、CFOP 和桥式", () => {
-    assert.deepEqual(methodNames(loadMethods()), ["层先法", "CFOP", "桥式"]);
+    assert.deepEqual(methodNames(loadMethods()), [
+      "层先法",
+      "CFOP",
+      "桥式",
+      "盲拧",
+    ]);
   });
 
   it("选择 CFOP 后进入该分类，点击右手小鱼仍生成练习状态", () => {
