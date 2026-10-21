@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sune",
+    "name": "右手小鱼",
+    "puzzle": "3x3",
+    "moves": "R U R' U R U2 R'"
+  },
+  {
+    "id": "antisune",
+    "name": "左手小鱼",
+    "puzzle": "3x3",
+    "moves": "R U2 R' U' R U' R'"
+  },
+  {
+    "id": "t-perm",
+    "name": "T 排列",
+    "puzzle": "3x3",
+    "moves": "R U R' U' R' F R2 U' R' U' R U R' F'"
+  },
+  {
+    "id": "ua-perm",
+    "name": "Ua 排列",
+    "puzzle": "3x3",
+    "moves": "M2 U M U2 M' U M2"
+  },
+  {
+    "id": "cross-line",
+    "name": "一线变十字",
+    "puzzle": "3x3",
+    "moves": "F R U R' U' F'"
+  }
+]
