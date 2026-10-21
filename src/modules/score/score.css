@@ -1,0 +1,67 @@
+.scores {
+  box-sizing: border-box;
+  width: min(100%, 320px);
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.scores-toggle {
+  min-width: 88px;
+  min-height: 36px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #2a2d36;
+  color: #f3f0e8;
+  font: inherit;
+  cursor: pointer;
+}
+
+.scores-empty {
+  margin: 0;
+  color: #8d887d;
+  font-size: 0.9rem;
+}
+
+.scores-list {
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.scores-list li {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 4px 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.score-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.score-date,
+.score-mode {
+  color: #b7b1a4;
+  font-size: 0.8rem;
+}
+
+.score-scramble {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #d9d3c7;
+  font-size: 0.85rem;
+}
