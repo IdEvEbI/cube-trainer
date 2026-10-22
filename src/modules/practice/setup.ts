@@ -1,7 +1,12 @@
 import { parseAlgorithm } from "../formula/formulas.ts";
 import type { Formula } from "../formula/types.ts";
 
-const PRACTICE_IDS = new Set(["oll-line", "oll-l", "oll-sune", "oll-antisune"]);
+const OLL_PRACTICE_IDS = new Set([
+  "oll-line",
+  "oll-l",
+  "oll-sune",
+  "oll-antisune",
+]);
 
 export type PracticeCase = {
   id: string;
@@ -24,8 +29,12 @@ export function invertAlgorithm(moves: string): string {
   return parseAlgorithm(moves).reverse().map(invertMove).join(" ");
 }
 
+function canPractice(formula: Formula): boolean {
+  return OLL_PRACTICE_IDS.has(formula.id) || formula.id.startsWith("pll-");
+}
+
 export function practiceCase(formula: Formula): PracticeCase | null {
-  if (!PRACTICE_IDS.has(formula.id)) {
+  if (!canPractice(formula)) {
     return null;
   }
   const forward = parseAlgorithm(formula.moves).join(" ");

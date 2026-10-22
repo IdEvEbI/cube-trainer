@@ -9,7 +9,9 @@ import {
   FormulaBoard,
   MethodPicker,
 } from "./modules/practice/PracticeLibrary.tsx";
+import { formulaGroup, practiceList } from "./modules/practice/browser.ts";
 import { PracticeHint } from "./modules/practice/PracticeHint.tsx";
+import { PracticeSwitcher } from "./modules/practice/PracticeSwitcher.tsx";
 import {
   back,
   showFormulas,
@@ -54,6 +56,9 @@ export default function App() {
   const [focus, setFocus] = useState<Focus>({ kind: "计时" });
   const [practice, setPractice] = useState<PracticeCase | null>(null);
   const [practiceNote, setPracticeNote] = useState<string | null>(null);
+  const [practiceFormulaId, setPracticeFormulaId] = useState<string | null>(
+    null,
+  );
   focusRef.current = focus;
 
   const mode = modeOf(focus);
@@ -64,12 +69,17 @@ export default function App() {
   )?.name;
   const showCube = focus.kind === "计时" || focus.kind === "练习";
   const showScrambleTimer = focus.kind === "计时" || focus.kind === "公式库";
+  const practiceGroup =
+    methodId && practiceFormulaId
+      ? formulaGroup(formulaCatalog, methodId, practiceFormulaId)
+      : null;
 
   function onFormula(formula: Formula) {
     if (mode !== "公式练习") {
       cube.current?.applyAlgorithm(formula.moves);
       return;
     }
+    setPracticeFormulaId(formula.id);
     const setup = practiceCase(formula);
     if (!setup) {
       setPractice(null);
@@ -199,8 +209,20 @@ export default function App() {
           ) : null}
         </div>
         <div className="slot-session" hidden={focus.kind !== "练习"}>
+          <div className="practice-rail">
+            {practiceGroup ? (
+              <PracticeSwitcher
+                title={practiceGroup.name}
+                formulas={practiceList(practiceGroup)}
+                selectedId={practice?.id ?? null}
+                onSelect={onFormula}
+              />
+            ) : null}
+          </div>
           <PracticeHint practice={practice} note={practiceNote} />
-          {focus.kind === "练习" ? <TimerView /> : null}
+          {focus.kind === "练习" ? (
+            <TimerView key={practice?.id ?? "idle"} />
+          ) : null}
         </div>
       </main>
     </div>

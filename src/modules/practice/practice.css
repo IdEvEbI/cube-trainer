@@ -1,3 +1,82 @@
+.practice-switcher {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.switcher-toggle {
+  display: none;
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #1c1f27;
+  color: #f3f0e8;
+  font: inherit;
+  cursor: pointer;
+}
+
+.switcher-panel {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.switcher-title {
+  margin: 0;
+  color: #d9d3c7;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.switcher-list {
+  min-height: 0;
+  margin: 0;
+  padding: 2px;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  list-style: none;
+}
+
+.switcher-list button {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: #1c1f27;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.switcher-list button.is-unsupported {
+  color: #8d887d;
+}
+
+.switcher-list button[aria-pressed="true"] {
+  border-color: #f3f0e8;
+  background: #2a2e38;
+}
+
+.switcher-list small {
+  flex: none;
+  color: #8d887d;
+  font-size: 0.75rem;
+}
+
 .practice-hint {
   box-sizing: border-box;
   width: min(100%, 320px);
@@ -170,6 +249,36 @@
 
 .practice-library > .practice-unsupported {
   margin-bottom: 8px;
+}
+
+@media (max-width: 900px) {
+  .practice-switcher {
+    position: relative;
+    flex: none;
+  }
+
+  .switcher-toggle {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .switcher-panel {
+    display: none;
+  }
+
+  .practice-switcher.is-open .switcher-panel {
+    display: flex;
+    position: absolute;
+    z-index: 3;
+    top: calc(100% + 6px);
+    left: 0;
+    width: min(280px, 80vw);
+    max-height: min(50vh, 360px);
+    padding: 10px;
+    border-radius: 12px;
+    background: #12141a;
+    box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
+  }
 }
 
 @media (max-width: 640px) {
