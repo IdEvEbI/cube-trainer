@@ -41,7 +41,7 @@ describe("practice focus", () => {
     );
   });
 
-  it("选中右手小鱼后进入练习，并仍生成练习状态", () => {
+  it("选中 OLL 27 后进入练习，并仍生成练习状态", () => {
     const formulas = formulasForMethod(loadMethods(), "cfop");
     const sune = formulas?.find((formula) => formula.id === "oll-sune");
     const focus = showPractice(showFormulas("cfop"));
@@ -50,7 +50,7 @@ describe("practice focus", () => {
     assert.deepEqual(focus, { kind: "练习", methodId: "cfop" });
     assert.deepEqual(practiceCase(sune), {
       id: "oll-sune",
-      name: "右手小鱼",
+      name: "OLL 27（Sune）",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });

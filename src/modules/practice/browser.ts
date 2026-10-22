@@ -62,6 +62,48 @@ export function groupFormulas<T extends { group?: string }>(
   return groups;
 }
 
+export function groupNameForFormula<T extends { id: string; group?: string }>(
+  formulas: readonly T[],
+  selectedId: string | null,
+): string | null {
+  if (!selectedId) {
+    return null;
+  }
+  return formulas.find((formula) => formula.id === selectedId)?.group ?? null;
+}
+
+export function openPracticeGroups(
+  _openNames: readonly string[],
+  formulas: readonly { id: string; group?: string }[],
+  selectedId: string | null,
+): string[] {
+  const selectedGroup = groupNameForFormula(formulas, selectedId);
+  if (!selectedGroup) {
+    return [];
+  }
+  return [selectedGroup];
+}
+
+export function togglePracticeGroup(
+  openNames: readonly string[],
+  groupName: string,
+): string[] {
+  if (openNames.length === 1 && openNames[0] === groupName) {
+    return [];
+  }
+  return [groupName];
+}
+
+export function isPracticeGroupOpen(
+  openNames: readonly string[],
+  groupName: string | null,
+): boolean {
+  if (groupName === null) {
+    return true;
+  }
+  return openNames.includes(groupName);
+}
+
 export function formulaGroup(
   methods: FormulaMethod[],
   methodId: string,

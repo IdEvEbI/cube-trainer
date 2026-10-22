@@ -14,10 +14,10 @@ import {
 const catalogPath = new URL("./formula-catalog.json", import.meta.url);
 const ollIds = ["oll-line", "oll-l", "oll-sune", "oll-antisune"] as const;
 const ollMoves = {
-  "oll-line": ["一字", "(F)(R U R' U')(F')"],
-  "oll-l": ["小拐弯", "(F)(U R U' R')(F')"],
-  "oll-sune": ["右手小鱼", "(R U R' U)(R U2 R')"],
-  "oll-antisune": ["左手小鱼", "(R U2 R' U')(R U' R')"],
+  "oll-line": ["OLL 45", "(F)(R U R' U')(F')"],
+  "oll-l": ["OLL 44", "(F)(U R U' R')(F')"],
+  "oll-sune": ["OLL 27（Sune）", "(R U R' U)(R U2 R')"],
+  "oll-antisune": ["OLL 26（Anti-Sune）", "(R U2 R' U')(R U' R')"],
 } as const;
 
 function loadCatalog(): CatalogMethod[] {
@@ -127,7 +127,7 @@ describe("formula catalog", () => {
     assert.ok(sune);
     assert.deepEqual(practiceCase(toPracticeFormula(sune)), {
       id: "oll-sune",
-      name: "右手小鱼",
+      name: "OLL 27（Sune）",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });

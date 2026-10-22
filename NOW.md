@@ -6,18 +6,18 @@
 
 ## 正在做的任务
 
-本轮公式优化已确认可用。Issue #39、PR #40 已开，等待合并。
-
-- Issue：[#39](https://github.com/IdEvEbI/cube-trainer/issues/39)
-- PR：[#40](https://github.com/IdEvEbI/cube-trainer/pull/40)
+OLL 六类重分、练习列表折叠、标准数字命名。Issue #42，[PR #43](https://github.com/IdEvEbI/cube-trainer/pull/43) 待合并。
 
 ## 下一步计划
 
-合并后切回 `main` 并清理分支，再记录每个公式的练习次数、最好时间、最差时间、平均时间、Ao5。
+合并后切回 main、拉取并删分支；再推进 #41 剩余项（顶层图案缩略图等）。
 
 ## 已确认但暂不做
 
-- 公式练习统计
+- 顶层图案缩略图（Issue #41 后续）
+- 练习列表图标
+- PLL 分类调整
+- 公式练习统计（次数、最好 / 最差 / 平均、Ao5）
 - 蓝牙跟转与蓝牙计时
 - F2L 空槽高亮
 - 成绩后端

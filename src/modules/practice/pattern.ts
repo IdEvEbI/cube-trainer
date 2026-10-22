@@ -9,22 +9,22 @@ export type FormulaPattern = {
 const PATTERNS: Record<string, FormulaPattern> = {
   "oll-line": {
     id: "oll-line",
-    name: "一字",
+    name: "OLL 45",
     top: ["其他", "其他", "黄", "黄", "黄", "黄", "其他", "其他", "黄"],
   },
   "oll-l": {
     id: "oll-l",
-    name: "小拐弯",
+    name: "OLL 44",
     top: ["黄", "黄", "其他", "黄", "黄", "其他", "黄", "其他", "其他"],
   },
   "oll-sune": {
     id: "oll-sune",
-    name: "右手小鱼",
+    name: "OLL 27（Sune）",
     top: ["其他", "黄", "其他", "黄", "黄", "黄", "黄", "黄", "其他"],
   },
   "oll-antisune": {
     id: "oll-antisune",
-    name: "左手小鱼",
+    name: "OLL 26（Anti-Sune）",
     top: ["其他", "黄", "黄", "黄", "黄", "黄", "其他", "黄", "其他"],
   },
 };
