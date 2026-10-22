@@ -38,6 +38,8 @@ export function PracticeHint({
           {pattern ? (
             <PatternIcon
               top={pattern.top}
+              sides={pattern.sides}
+              arrows={pattern.arrows}
               label={`${practice.name}的顶层图案`}
               large
             />

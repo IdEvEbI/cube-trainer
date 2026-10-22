@@ -110,11 +110,11 @@
 .switcher-list button {
   box-sizing: border-box;
   width: 100%;
-  min-height: 36px;
+  min-height: 52px;
   padding: 6px 10px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   border: 2px solid transparent;
   border-radius: 10px;
@@ -123,6 +123,15 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.switcher-list button > span:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+
+.switcher-list button > small {
+  margin-left: auto;
 }
 
 .switcher-list button.is-unsupported {
@@ -245,43 +254,63 @@
 }
 
 .top-pattern {
-  display: inline-grid;
-  grid-template-columns: repeat(3, 7px);
-  gap: 1px;
+  --oll-oriented: #ffd500;
+  --oll-unoriented: #0a0a0a;
+  --oll-green: #00a651;
+  --oll-blue: #0051ba;
+  --oll-red: #c41e3a;
+  --oll-orange: #ff5800;
+  display: block;
   flex: none;
+  width: 44px;
+  height: 44px;
 }
 
-.top-pattern span {
-  width: 7px;
-  height: 7px;
-  background: #3a3f4b;
+.top-pattern-frame {
+  fill: #2a2e38;
+  stroke: #6a7180;
+  stroke-width: 0.8;
 }
 
-.top-pattern span[data-sticker="黄"] {
-  background: #ffd500;
+.top-pattern-cell,
+.top-pattern-bar {
+  stroke: #4a5160;
+  stroke-width: 0.4;
+}
+
+.top-pattern-arrow-halo {
+  fill: none;
+  stroke: #fff6a8;
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.top-pattern-arrow-shaft {
+  fill: none;
+  stroke: #12141a;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.top-pattern-arrow-head {
+  fill: #12141a;
+  stroke: #fff6a8;
+  stroke-width: 0.55;
+  stroke-linejoin: round;
 }
 
 .top-pattern.is-card {
-  grid-template-columns: repeat(3, 11px);
-  gap: 1px;
-}
-
-.top-pattern.is-card span {
-  width: 11px;
-  height: 11px;
+  width: 64px;
+  height: 64px;
 }
 
 .top-pattern.is-hint,
 .top-pattern.is-large {
-  grid-template-columns: repeat(3, 18px);
-  gap: 2px;
+  width: 96px;
+  height: 96px;
   margin-top: 12px;
-}
-
-.top-pattern.is-hint span,
-.top-pattern.is-large span {
-  width: 18px;
-  height: 18px;
 }
 
 .practice-library {
@@ -325,7 +354,7 @@
 }
 
 .formula-grid {
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
 }
 
 .method-card,
@@ -347,9 +376,9 @@
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 6px;
-  min-height: 72px;
-  padding: 8px 6px;
+  gap: 8px;
+  min-height: 108px;
+  padding: 10px 8px;
 }
 
 .formula-card.is-unsupported {

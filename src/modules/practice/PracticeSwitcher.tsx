@@ -6,6 +6,8 @@ import {
   openPracticeGroups,
   togglePracticeGroup,
 } from "./browser.ts";
+import { PatternIcon } from "./PatternIcon.tsx";
+import { formulaPattern } from "./pattern.ts";
 import { practiceCase } from "./setup.ts";
 
 export function PracticeSwitcher({
@@ -88,6 +90,7 @@ export function PracticeSwitcher({
                     <ul className="switcher-list">
                       {group.formulas.map((formula) => {
                         const supported = practiceCase(formula) !== null;
+                        const pattern = formulaPattern(formula.id);
                         return (
                           <li key={formula.id}>
                             <button
@@ -98,6 +101,14 @@ export function PracticeSwitcher({
                               aria-pressed={selectedId === formula.id}
                               onClick={(event) => choose(formula, event)}
                             >
+                              {pattern ? (
+                                <PatternIcon
+                                  top={pattern.top}
+                                  sides={pattern.sides}
+                                  arrows={pattern.arrows}
+                                  label={`${formula.name}的顶层图案`}
+                                />
+                              ) : null}
                               <span>{formula.name}</span>
                               {supported ? null : <small>暂不支持</small>}
                             </button>
@@ -114,6 +125,7 @@ export function PracticeSwitcher({
           <ul className="switcher-list">
             {formulas.map((formula) => {
               const supported = practiceCase(formula) !== null;
+              const pattern = formulaPattern(formula.id);
               return (
                 <li key={formula.id}>
                   <button
@@ -122,6 +134,14 @@ export function PracticeSwitcher({
                     aria-pressed={selectedId === formula.id}
                     onClick={(event) => choose(formula, event)}
                   >
+                    {pattern ? (
+                      <PatternIcon
+                        top={pattern.top}
+                        sides={pattern.sides}
+                        arrows={pattern.arrows}
+                        label={`${formula.name}的顶层图案`}
+                      />
+                    ) : null}
                     <span>{formula.name}</span>
                     {supported ? null : <small>暂不支持</small>}
                   </button>

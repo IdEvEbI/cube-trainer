@@ -6,7 +6,12 @@ import type { KPattern } from "cubing/kpuzzle";
 import { CUBE_ORIENTATION_ALG } from "../cube/cube.ts";
 import { parseFormulaLibrary } from "../formula/formulas.ts";
 import type { Formula } from "../formula/types.ts";
-import { formulaPattern, type TopSticker } from "./pattern.ts";
+import {
+  formulaPattern,
+  hasOllPattern,
+  hasPllPattern,
+  type TopSticker,
+} from "./pattern.ts";
 import { practiceCase } from "./setup.ts";
 
 const samplePath = new URL("../../data/formula-catalog.json", import.meta.url);
@@ -23,13 +28,60 @@ const U_SLOTS = [
   ["CORNERS", 0, 0],
 ] as const;
 
-function loadFormulas(): Formula[] {
+const F_TOP = [
+  ["CORNERS", 3, 1],
+  ["EDGES", 0, 1],
+  ["CORNERS", 0, 2],
+] as const;
+const R_TOP = [
+  ["CORNERS", 0, 1],
+  ["EDGES", 1, 1],
+  ["CORNERS", 1, 2],
+] as const;
+const B_TOP = [
+  ["CORNERS", 1, 1],
+  ["EDGES", 2, 1],
+  ["CORNERS", 2, 2],
+] as const;
+const L_TOP = [
+  ["CORNERS", 2, 1],
+  ["EDGES", 3, 1],
+  ["CORNERS", 3, 2],
+] as const;
+
+const SIDE_SLOTS = [
+  B_TOP[2],
+  B_TOP[1],
+  B_TOP[0],
+  R_TOP[2],
+  R_TOP[1],
+  R_TOP[0],
+  F_TOP[0],
+  F_TOP[1],
+  F_TOP[2],
+  L_TOP[0],
+  L_TOP[1],
+  L_TOP[2],
+] as const;
+
+function loadCfopSubclass(subclassId: string): Formula[] {
   const methods = parseFormulaLibrary(
     JSON.parse(readFileSync(samplePath, "utf8")),
   );
-  return methods.flatMap((method) =>
-    method.subclasses.flatMap((subclass) => subclass.formulas),
+  return (
+    methods
+      .find((method) => method.id === "cfop")
+      ?.subclasses.find((subclass) => subclass.id === subclassId)?.formulas ??
+    []
   );
+}
+
+function loadCfopOll(): Formula[] {
+  return loadCfopSubclass("cfop-oll");
+}
+
+function loadCfopPll(): Formula[] {
+  return loadCfopSubclass("cfop-pll");
 }
 
 function rememberYellow(pattern: KPattern): Map<string, number> {
@@ -50,8 +102,12 @@ function rememberYellow(pattern: KPattern): Map<string, number> {
   return yellow;
 }
 
-function topMask(pattern: KPattern, yellow: Map<string, number>): TopSticker[] {
-  return U_SLOTS.map(([orbit, location, orientation]) => {
+function stickerMask(
+  pattern: KPattern,
+  yellow: Map<string, number>,
+  slots: readonly (readonly [string, number, number])[],
+): TopSticker[] {
+  return slots.map(([orbit, location, orientation]) => {
     if (orbit === "CENTERS") {
       return "黄";
     }
@@ -68,33 +124,103 @@ function topMask(pattern: KPattern, yellow: Map<string, number>): TopSticker[] {
 }
 
 describe("formulaPattern", () => {
-  it("四条 OLL 显示和练习状态一致的顶层图案", async () => {
-    const formulas = loadFormulas().filter((formula) =>
-      ["oll-line", "oll-l", "oll-sune", "oll-antisune"].includes(formula.id),
-    );
+  it("OLL 缩略图能正常显示", () => {
+    const oll = loadCfopOll();
+    const signatures = new Set<string>();
+
+    assert.equal(oll.length, 57);
+    for (const formula of oll) {
+      const pattern = formulaPattern(formula.id);
+      assert.ok(pattern, formula.id);
+      assert.equal(hasOllPattern(formula.id), true);
+      assert.equal(pattern.name, formula.name);
+      assert.equal(pattern.top.length, 9);
+      assert.equal(pattern.sides.length, 12);
+      assert.equal(pattern.top[4], "黄");
+      assert.equal(
+        pattern.top.every((sticker) => sticker === "黄" || sticker === "其他"),
+        true,
+      );
+      assert.equal(
+        pattern.sides.every(
+          (sticker) => sticker === "黄" || sticker === "其他",
+        ),
+        true,
+      );
+      signatures.add(`${pattern.top.join("")}|${pattern.sides.join("")}`);
+    }
+    assert.equal(signatures.size, 57);
+  });
+
+  it("全部 OLL 顶层图案与练习状态一致", async () => {
+    const formulas = loadCfopOll();
     const puzzle = await cube3x3x3.kpuzzle();
     const solved = puzzle
       .defaultPattern()
       .applyTransformation(puzzle.algToTransformation(CUBE_ORIENTATION_ALG));
     const yellow = rememberYellow(solved);
 
-    assert.equal(formulas.length, 4);
+    assert.equal(formulas.length, 57);
     for (const formula of formulas) {
       const setup = practiceCase(formula);
       const pattern = formulaPattern(formula.id);
-      assert.ok(setup);
-      assert.ok(pattern);
+      assert.ok(setup, formula.id);
+      assert.ok(pattern, formula.id);
       assert.equal(pattern.name, formula.name);
       const practice = solved.applyTransformation(
         puzzle.algToTransformation(setup.inverse),
       );
-      assert.deepEqual(pattern.top, topMask(practice, yellow));
+      assert.deepEqual(
+        pattern.top,
+        stickerMask(practice, yellow, U_SLOTS),
+        formula.id,
+      );
+      assert.deepEqual(
+        pattern.sides,
+        stickerMask(practice, yellow, SIDE_SLOTS),
+        `${formula.id} sides`,
+      );
     }
+  });
+
+  it("PLL 缩略图能正常显示", () => {
+    const pll = loadCfopPll();
+    const signatures = new Set<string>();
+
+    assert.equal(pll.length, 21);
+    for (const formula of pll) {
+      const pattern = formulaPattern(formula.id);
+      assert.ok(pattern, formula.id);
+      assert.equal(hasPllPattern(formula.id), true);
+      assert.equal(hasOllPattern(formula.id), false);
+      assert.equal(pattern.name, formula.name);
+      assert.equal(pattern.top.length, 9);
+      assert.equal(pattern.sides.length, 12);
+      assert.equal(
+        pattern.top.every((sticker) => sticker === "黄"),
+        true,
+      );
+      assert.ok(pattern.arrows && pattern.arrows.length > 0, formula.id);
+      for (const [from, to] of pattern.arrows ?? []) {
+        assert.ok(
+          from >= 0 && from <= 8 && from !== 4,
+          `${formula.id}:${from}`,
+        );
+        assert.ok(to >= 0 && to <= 8 && to !== 4, `${formula.id}:${to}`);
+      }
+      signatures.add(
+        `${pattern.sides.join("")}|${(pattern.arrows ?? [])
+          .map(([a, b]) => `${a}>${b}`)
+          .join(",")}`,
+      );
+    }
+    assert.equal(signatures.size, 21);
   });
 
   it("未支持的公式没有图案，也不报错", () => {
     assert.equal(formulaPattern("f2l-paired"), null);
-    assert.equal(formulaPattern("pll-t"), null);
     assert.equal(formulaPattern(""), null);
+    assert.equal(hasOllPattern("pll-t"), false);
+    assert.equal(hasPllPattern("oll-sune"), false);
   });
 });

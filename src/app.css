@@ -237,14 +237,9 @@
 
 .focus[data-focus="练习"] .top-pattern.is-hint,
 .focus[data-focus="练习"] .top-pattern.is-large {
-  grid-template-columns: repeat(3, 26px);
+  width: 112px;
+  height: 112px;
   margin-top: 0;
-}
-
-.focus[data-focus="练习"] .top-pattern.is-hint span,
-.focus[data-focus="练习"] .top-pattern.is-large span {
-  width: 26px;
-  height: 26px;
 }
 
 @media (max-width: 900px) {

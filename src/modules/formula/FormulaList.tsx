@@ -42,6 +42,8 @@ export function FormulaList({
                           {pattern ? (
                             <PatternIcon
                               top={pattern.top}
+                              sides={pattern.sides}
+                              arrows={pattern.arrows}
                               label={`${formula.name}的顶层图案`}
                             />
                           ) : null}
