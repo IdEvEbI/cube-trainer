@@ -34,7 +34,11 @@ import {
   type Focus,
 } from "./modules/practice/focus.ts";
 import { switchMode } from "./modules/practice/mode.ts";
-import { practiceCase, type PracticeCase } from "./modules/practice/setup.ts";
+import {
+  formulaAlgorithms,
+  practiceCase,
+  type PracticeCase,
+} from "./modules/practice/setup.ts";
 import {
   browserScoreStorage,
   createScoreLog,
@@ -68,6 +72,7 @@ export default function App() {
   const [focus, setFocus] = useState<Focus>({ kind: "计时" });
   const [practice, setPractice] = useState<PracticeCase | null>(null);
   const [practiceNote, setPracticeNote] = useState<string | null>(null);
+  const [algorithmIndex, setAlgorithmIndex] = useState(0);
   const [practiceFormulaId, setPracticeFormulaId] = useState<string | null>(
     null,
   );
@@ -90,6 +95,11 @@ export default function App() {
     methodId && practiceFormulaId
       ? formulaGroup(formulaCatalog, methodId, practiceFormulaId)
       : null;
+  const practiceFormula =
+    practiceGroup?.formulas.find(
+      (formula) => formula.id === practiceFormulaId,
+    ) ?? null;
+  const algorithms = practiceFormula ? formulaAlgorithms(practiceFormula) : [];
 
   function stopPlay() {
     playRun.current += 1;
@@ -216,6 +226,7 @@ export default function App() {
     stopPlay();
     cube.current?.cancelAnimation();
     setPracticeFormulaId(formula.id);
+    setAlgorithmIndex(0);
     const setup = practiceCase(formula);
     if (!setup) {
       setPractice(null);
@@ -226,6 +237,24 @@ export default function App() {
     setPractice(setup);
     cube.current?.showMoves(setup.inverse);
     setFocus((current) => showPractice(current));
+  }
+
+  function onAlgorithm(index: number) {
+    const formula = practiceGroup?.formulas.find(
+      (item) => item.id === practiceFormulaId,
+    );
+    if (!formula) {
+      return;
+    }
+    const setup = practiceCase(formula, index);
+    if (!setup) {
+      return;
+    }
+    stopPlay();
+    cube.current?.cancelAnimation();
+    setAlgorithmIndex(index);
+    setPractice(setup);
+    cube.current?.showMoves(setup.inverse);
   }
 
   function onScramble(scramble: Scramble) {
@@ -359,6 +388,9 @@ export default function App() {
             practice={practice}
             note={practiceNote}
             cursor={cursor}
+            algorithms={algorithms}
+            algorithmIndex={algorithmIndex}
+            onAlgorithm={onAlgorithm}
           />
           {focus.kind === "练习" && practice && cursor ? (
             <PracticeControls

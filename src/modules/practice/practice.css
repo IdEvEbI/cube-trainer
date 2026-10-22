@@ -131,6 +131,7 @@
 
 .practice-hint p,
 .practice-name,
+.practice-length,
 .practice-moves {
   margin: 12px 0 0;
   font-size: 0.92rem;
@@ -138,13 +139,36 @@
 }
 
 .practice-hint p,
-.practice-name {
+.practice-name,
+.practice-length {
   color: #8d887d;
 }
 
 .practice-moves {
   color: #f3f0e8;
   font-size: 1.05rem;
+}
+
+.algorithm-picker {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: #8d887d;
+  font-size: 0.85rem;
+}
+
+.algorithm-picker select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #3a3f4b;
+  border-radius: 8px;
+  background: #1c1f27;
+  color: #f3f0e8;
+  font: inherit;
+}
+
+.practice-moves .group {
+  color: #8d887d;
 }
 
 .practice-moves .step {
@@ -287,6 +311,17 @@
   margin: 0 0 8px;
   color: #d9d3c7;
   font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.practice-group {
+  margin-top: 12px;
+}
+
+.practice-group h3 {
+  margin: 0 0 8px;
+  color: #f3f0e8;
+  font-size: 0.84rem;
   font-weight: 600;
 }
 

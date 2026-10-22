@@ -4,6 +4,9 @@ import { describe, it } from "node:test";
 import {
   collectFormulas,
   formulaNames,
+  formulaDisplay,
+  formulaTokens,
+  moveCount,
   parseAlgorithm,
   parseFormulaLibrary,
 } from "./formulas.ts";
@@ -237,6 +240,217 @@ describe("parseFormulaLibrary", () => {
     assert.equal(collectFormulas(methods)[0]?.puzzle, "3x3");
   });
 
+  it("能读取一条公式的多个算法，默认算法保持不变", () => {
+    const formulas = collectFormulas(loadSample());
+    const sune = formulas.find((formula) => formula.id === "oll-sune");
+    const crown = formulas.find((formula) => formula.id === "oll-wca-18");
+    const dot = formulas.find((formula) => formula.id === "oll-dot");
+
+    assert.ok(sune?.algs);
+    assert.deepEqual(sune.algs, [
+      "(R U R' U)(R U2 R')",
+      "(U' R' U2 R)(U R' U R)",
+    ]);
+    assert.equal(sune.algs[0], sune.moves);
+    assert.ok(crown?.algs);
+    assert.equal(crown.algs.length, 3);
+    assert.equal(crown.algs[0], crown.moves);
+    assert.equal(dot?.algs, undefined);
+  });
+
+  it("新增的 OLL 备选算法可以读取，默认算法不变", () => {
+    const formulas = collectFormulas(loadSample());
+    const oll = formulas.filter((formula) => formula.id.startsWith("oll-"));
+    const multi = oll.filter((formula) => formula.algs);
+    assert.equal(multi.length, 35);
+    for (const formula of multi) {
+      assert.ok(formula.algs);
+      assert.equal(formula.algs[0], formula.moves);
+      assert.equal(formula.algs.length >= 2, true);
+      assert.notEqual(formula.algs[1], formula.moves);
+    }
+    assert.equal(
+      oll.find((formula) => formula.id === "oll-line")?.algs?.[1],
+      "(U2 F')(L' U' L U)(F)",
+    );
+    assert.equal(
+      oll.find((formula) => formula.id === "oll-dot")?.algs,
+      undefined,
+    );
+  });
+
+  it("新增的 PLL 备选算法可以读取，默认算法不变", () => {
+    const formulas = collectFormulas(loadSample());
+    const pll = formulas.filter((formula) => formula.id.startsWith("pll-"));
+    const multi = pll.filter((formula) => formula.algs);
+    assert.equal(multi.length, 12);
+    for (const formula of multi) {
+      assert.ok(formula.algs);
+      assert.equal(formula.algs[0], formula.moves);
+      assert.equal(formula.algs.length >= 2, true);
+      assert.notEqual(formula.algs[1], formula.moves);
+    }
+    for (const id of [
+      "pll-ua",
+      "pll-ub",
+      "pll-h",
+      "pll-z",
+      "pll-t",
+      "pll-y",
+      "pll-ja",
+      "pll-jb",
+    ]) {
+      assert.ok(pll.find((formula) => formula.id === id)?.algs, id);
+    }
+    assert.equal(
+      pll.find((formula) => formula.id === "pll-ua")?.algs?.[1],
+      "(R U' R U)(R U)(R U' R')(U' R2)",
+    );
+    assert.equal(
+      pll.find((formula) => formula.id === "pll-aa")?.algs,
+      undefined,
+    );
+    assert.equal(
+      formulas.filter(
+        (formula) => formula.id.startsWith("oll-") && formula.algs,
+      ).length,
+      35,
+    );
+  });
+
+  it("默认算法不一致或重复时拒绝", () => {
+    function library(algs: unknown) {
+      return [
+        {
+          id: "cfop",
+          name: "CFOP",
+          subclasses: [
+            {
+              id: "cfop-oll",
+              name: "OLL",
+              formulas: [
+                {
+                  id: "oll-sune",
+                  name: "右手小鱼",
+                  moves: "R U R' U R U2 R'",
+                  algs,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+    }
+
+    assert.throws(
+      () =>
+        parseFormulaLibrary(library(["R U R' U R U2 R'", "R U R' U R U2 R'"])),
+      /算法重复/,
+    );
+    assert.throws(
+      () => parseFormulaLibrary(library(["R U2 R' U' R U' R'", "R"])),
+      /默认算法不一致/,
+    );
+  });
+
+  it("带括号的公式仍按层转动解析，括号只保留在显示里", () => {
+    const grouped = "(R U R' U)(R U2 R')";
+    const plain = "R U R' U R U2 R'";
+
+    assert.deepEqual(parseAlgorithm(grouped), parseAlgorithm(plain));
+    assert.deepEqual(
+      formulaTokens(grouped).map((token) => token.text),
+      ["(", "R", "U", "R'", "U", ")", "(", "R", "U2", "R'", ")"],
+    );
+    assert.deepEqual(
+      formulaTokens(grouped).flatMap((token) =>
+        token.step === null ? [] : [token.text],
+      ),
+      parseAlgorithm(plain),
+    );
+    assert.throws(() => parseAlgorithm("(R U"), /括号不匹配/);
+    assert.throws(() => parseAlgorithm("()"), /括号是空的/);
+    assert.throws(() => parseAlgorithm("(R U)2"), /括号只用于分组/);
+  });
+
+  it("带括号的公式显示时，分组之间有一个空格", () => {
+    const source = "(U' R' U2 R)(U R' U R)";
+
+    assert.equal(formulaDisplay(source), "(U' R' U2 R) (U R' U R)");
+    assert.equal(formulaDisplay("(R U R' U)(R U2 R')"), "(R U R' U) (R U2 R')");
+    assert.deepEqual(
+      parseAlgorithm(source),
+      parseAlgorithm(formulaDisplay(source)),
+    );
+  });
+
+  it("新增的 OLL 和 PLL 备选算法带括号分组，显示时空格，执行步骤不受括号影响", () => {
+    const formulas = collectFormulas(loadSample());
+    const samples = [
+      ["oll-line", 1],
+      ["oll-h", 1],
+      ["pll-ua", 1],
+      ["pll-t", 1],
+    ] as const;
+
+    for (const [id, index] of samples) {
+      const formula = formulas.find((item) => item.id === id);
+      const source = formula?.algs?.[index];
+      assert.ok(source, id);
+      assert.match(source, /[()]/);
+      assert.match(formulaDisplay(source), /\) \(/);
+      assert.deepEqual(
+        parseAlgorithm(source),
+        parseAlgorithm(source.replace(/[()]/g, " ")),
+      );
+      assert.equal(moveCount(source), parseAlgorithm(source).length);
+    }
+  });
+
+  it("单算法的 OLL 和 PLL 默认算法也带括号分组，显示时空格，执行步骤不受括号影响", () => {
+    const formulas = collectFormulas(loadSample()).filter(
+      (formula) =>
+        (formula.id.startsWith("oll-") || formula.id.startsWith("pll-")) &&
+        !formula.algs,
+    );
+    assert.equal(formulas.length, 31);
+    for (const formula of formulas) {
+      assert.match(formula.moves, /[()]/, formula.id);
+      assert.match(formulaDisplay(formula.moves), /\) \(/, formula.id);
+      assert.deepEqual(
+        parseAlgorithm(formula.moves),
+        parseAlgorithm(formula.moves.replace(/[()]/g, " ")),
+        formula.id,
+      );
+      assert.equal(
+        moveCount(formula.moves),
+        parseAlgorithm(formula.moves).length,
+        formula.id,
+      );
+    }
+    assert.equal(
+      formulaDisplay(
+        formulas.find((formula) => formula.id === "oll-dot")?.moves ?? "",
+      ),
+      "(F R U R' U' F') (U) (F R U R' U' F')",
+    );
+    assert.equal(
+      formulaDisplay(
+        formulas.find((formula) => formula.id === "pll-aa")?.moves ?? "",
+      ),
+      "(R' F R' B2) (R F' R' B2 R2)",
+    );
+  });
+
+  it("带括号的公式按实际转动计算步数", () => {
+    assert.equal(moveCount("(U' R' U2 R)(U R' U R)"), 8);
+    assert.equal(moveCount("(R U R' U)(R U2 R')"), 7);
+    assert.equal(
+      moveCount("(R U R' U)(R U2 R')"),
+      moveCount("R U R' U R U2 R'"),
+    );
+  });
+
   it("把右手小鱼的算法拆成层转动", () => {
     assert.deepEqual(parseAlgorithm("R U R' U R U2 R'"), [
       "R",
@@ -259,6 +473,60 @@ describe("parseFormulaLibrary", () => {
       "U",
       "M2",
     ]);
+  });
+
+  it("宽层转可以解析，R M' 写法仍保留可用", () => {
+    assert.deepEqual(parseAlgorithm("r U R' U R U2 r'"), [
+      "r",
+      "U",
+      "R'",
+      "U",
+      "R",
+      "U2",
+      "r'",
+    ]);
+    assert.equal(moveCount("(r U R' U R U2 r')(r' U' R U' R' U2 r)"), 14);
+    assert.equal(
+      formulaDisplay("(r U R' U R U2 r')(r' U' R U' R' U2 r)"),
+      "(r U R' U R U2 r') (r' U' R U' R' U2 r)",
+    );
+
+    const formulas = collectFormulas(loadSample());
+    const crown = formulas.find((formula) => formula.id === "oll-wca-18");
+    const edges = formulas.find((formula) => formula.id === "oll-wca-28");
+    assert.ok(crown?.algs);
+    assert.ok(edges?.algs);
+    assert.equal(
+      crown.algs[0],
+      "(R M' U R' U R U2 R' M)(R' M U' R U' R' U2 R M')",
+    );
+    assert.equal(crown.algs[2], "(r U R' U R U2 r')(r' U' R U' R' U2 r)");
+    assert.equal(edges.algs[0], "(R M' U R' U')(M U R U' R')");
+    assert.equal(edges.algs[2], "(r U R' U')(M U R U' R')");
+    assert.notEqual(
+      parseAlgorithm(crown.algs[0]).join(" "),
+      parseAlgorithm(crown.algs[2] ?? "").join(" "),
+    );
+
+    const moreWide = [
+      ["oll-wca-7", "(r U)(R' U R U2 r')"],
+      ["oll-wca-5", "(r' U2)(R U R' U r)"],
+      ["oll-wca-6", "(r U2)(R' U' R U' r')"],
+      ["oll-wca-49", "(r U')(r2 U)(r2 U)(r2 U')(r)"],
+      ["oll-wca-50", "(r' U)(r2 U')(r2 U')(r2 U)(r')"],
+      ["oll-wca-54", "(r U)(R' U R U')(R' U R U2 r')"],
+      ["oll-wca-53", "(l' U2)(L U L' U')(L U L' U)(l)"],
+      ["oll-wca-8", "(R' F')(r U' r')(F2 R)"],
+      ["oll-wca-56", "(r U r')(U R U' R')(U R U' R')(r U' r')"],
+    ] as const;
+    for (const [id, wide] of moreWide) {
+      const formula = formulas.find((item) => item.id === id);
+      assert.ok(formula?.algs, id);
+      assert.equal(formula.algs[0], formula.moves, id);
+      assert.equal(formula.algs[1], wide, id);
+      assert.match(formula.moves, /M/, id);
+      assert.match(wide, /\b[rl]\b/, id);
+    }
   });
 
   it("拒绝整颗转动和空算法", () => {

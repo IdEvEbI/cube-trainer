@@ -30,14 +30,38 @@ export function invertAlgorithm(moves: string): string {
 }
 
 function canPractice(formula: Formula): boolean {
-  return OLL_PRACTICE_IDS.has(formula.id) || formula.id.startsWith("pll-");
+  return (
+    formula.practice === true ||
+    OLL_PRACTICE_IDS.has(formula.id) ||
+    formula.id.startsWith("pll-")
+  );
 }
 
-export function practiceCase(formula: Formula): PracticeCase | null {
+export function formulaAlgorithms(formula: Formula): string[] {
+  return formula.algs ?? [formula.moves];
+}
+
+export function practiceCase(
+  formula: Formula,
+  algorithmIndex = 0,
+): PracticeCase | null {
   if (!canPractice(formula)) {
     return null;
   }
-  const forward = parseAlgorithm(formula.moves).join(" ");
+  const algorithms = formulaAlgorithms(formula);
+  if (
+    !Number.isInteger(algorithmIndex) ||
+    algorithmIndex < 0 ||
+    algorithmIndex >= algorithms.length
+  ) {
+    return null;
+  }
+  const source =
+    algorithmIndex === 0 ? formula.moves : algorithms[algorithmIndex];
+  if (!source) {
+    return null;
+  }
+  const forward = parseAlgorithm(source).join(" ");
   return {
     id: formula.id,
     name: formula.name,

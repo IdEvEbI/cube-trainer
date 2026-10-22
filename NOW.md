@@ -6,11 +6,14 @@
 
 ## 正在做的任务
 
-[#37](https://github.com/IdEvEbI/cube-trainer/issues/37) 练习控制条、步骤高亮和 PLL 顺序已提交，等待合并。[#38](https://github.com/IdEvEbI/cube-trainer/pull/38)
+本轮公式优化已确认可用。Issue #39、PR #40 已开，等待合并。
+
+- Issue：[#39](https://github.com/IdEvEbI/cube-trainer/issues/39)
+- PR：[#40](https://github.com/IdEvEbI/cube-trainer/pull/40)
 
 ## 下一步计划
 
-合并后，再记录每个公式的练习次数、最好时间、最差时间、平均时间、Ao5。
+合并后切回 `main` 并清理分支，再记录每个公式的练习次数、最好时间、最差时间、平均时间、Ao5。
 
 ## 已确认但暂不做
 

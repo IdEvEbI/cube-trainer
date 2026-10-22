@@ -14,10 +14,10 @@ import {
 const catalogPath = new URL("./formula-catalog.json", import.meta.url);
 const ollIds = ["oll-line", "oll-l", "oll-sune", "oll-antisune"] as const;
 const ollMoves = {
-  "oll-line": ["一字", "F R U R' U' F'"],
-  "oll-l": ["小拐弯", "F U R U' R' F'"],
-  "oll-sune": ["右手小鱼", "R U R' U R U2 R'"],
-  "oll-antisune": ["左手小鱼", "R U2 R' U' R U' R'"],
+  "oll-line": ["一字", "(F)(R U R' U')(F')"],
+  "oll-l": ["小拐弯", "(F)(U R U' R')(F')"],
+  "oll-sune": ["右手小鱼", "(R U R' U)(R U2 R')"],
+  "oll-antisune": ["左手小鱼", "(R U2 R' U')(R U' R')"],
 } as const;
 
 function loadCatalog(): CatalogMethod[] {

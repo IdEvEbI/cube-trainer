@@ -6,7 +6,7 @@ import type {
   Puzzle,
 } from "./types.ts";
 
-const LAYER_MOVE = /^(?:[UDLRFB]|[MES])(?:2'|2|')?$/;
+const LAYER_MOVE = /^(?:[UDLRFBudlrfb]|[MES])(?:2'|2|')?$/;
 const PUZZLES = new Set<Puzzle>(["2x2", "3x3", "4x4", "5x5"]);
 
 function isNonEmptyString(value: unknown): value is string {
@@ -33,6 +33,55 @@ function readOrder(value: unknown, label: string): number | null {
   return value;
 }
 
+function readGroup(value: unknown, label: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isNonEmptyString(value)) {
+    throw new Error(`${label}的分类无效`);
+  }
+  return value;
+}
+
+function readPractice(value: unknown, label: string): boolean {
+  if (value === undefined) {
+    return false;
+  }
+  if (typeof value !== "boolean") {
+    throw new Error(`${label}的练习标记无效`);
+  }
+  return value;
+}
+
+function readAlgs(
+  value: unknown,
+  moves: string,
+  label: string,
+): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value) || value.length < 2) {
+    throw new Error(`${label}的算法无效`);
+  }
+  const defaultMoves = parseAlgorithm(moves).join(" ");
+  const seen = new Set<string>();
+  return value.map((item, index) => {
+    if (!isNonEmptyString(item)) {
+      throw new Error(`${label}的算法无效`);
+    }
+    const parsed = parseAlgorithm(item).join(" ");
+    if (seen.has(parsed)) {
+      throw new Error(`${label}的算法重复`);
+    }
+    seen.add(parsed);
+    if (index === 0 && parsed !== defaultMoves) {
+      throw new Error(`${label}的默认算法不一致`);
+    }
+    return item;
+  });
+}
+
 function readFormula(
   value: unknown,
   label: string,
@@ -49,13 +98,25 @@ function readFormula(
     throw new Error(`${label}无效`);
   }
   parseAlgorithm(item.moves);
+  const formula: Formula = {
+    id: item.id,
+    name: item.name,
+    puzzle: readPuzzle(item.puzzle, label),
+    moves: item.moves,
+  };
+  const algs = readAlgs(item.algs, item.moves, label);
+  if (algs) {
+    formula.algs = algs;
+  }
+  const group = readGroup(item.group, label);
+  if (group) {
+    formula.group = group;
+  }
+  if (readPractice(item.practice, label)) {
+    formula.practice = true;
+  }
   return {
-    formula: {
-      id: item.id,
-      name: item.name,
-      puzzle: readPuzzle(item.puzzle, label),
-      moves: item.moves,
-    },
+    formula,
     order: readOrder(item.order, label),
   };
 }
@@ -165,9 +226,105 @@ export function formulaNames(formulas: Formula[]): string[] {
   return formulas.map((formula) => formula.name);
 }
 
+export type FormulaToken = {
+  text: string;
+  step: number | null;
+};
+
+const MOVE_TOKEN = /(?:[UDLRFBudlrfb]|[MES])(?:2'|2|')?/y;
+
+function withoutGroups(source: string): string {
+  const open: boolean[] = [];
+  let plain = "";
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index] ?? "";
+    if (char === "(") {
+      open.push(false);
+      plain += " ";
+      continue;
+    }
+    if (char === ")") {
+      const hadMove = open.pop();
+      if (hadMove === undefined) {
+        throw new Error("括号不匹配");
+      }
+      if (!hadMove) {
+        throw new Error("括号是空的");
+      }
+      if (open.length > 0) {
+        open[open.length - 1] = true;
+      }
+      const next = source.slice(index + 1).trimStart()[0];
+      if (next && /[0-9']/.test(next)) {
+        throw new Error("括号只用于分组");
+      }
+      plain += " ";
+      continue;
+    }
+    if (!/\s/.test(char) && open.length > 0) {
+      open[open.length - 1] = true;
+    }
+    plain += char;
+  }
+  if (open.length > 0) {
+    throw new Error("括号不匹配");
+  }
+  return plain;
+}
+
+export function formulaTokens(source: string): FormulaToken[] {
+  const moves = parseAlgorithm(source);
+  const tokens: FormulaToken[] = [];
+  let step = 0;
+  let cursor = 0;
+  while (cursor < source.length) {
+    const char = source[cursor] ?? "";
+    if (/\s/.test(char)) {
+      cursor += 1;
+      continue;
+    }
+    if (char === "(" || char === ")") {
+      tokens.push({ text: char, step: null });
+      cursor += 1;
+      continue;
+    }
+    MOVE_TOKEN.lastIndex = cursor;
+    const match = MOVE_TOKEN.exec(source);
+    if (!match) {
+      throw new Error(`无法按层转动：${source.slice(cursor).trim()}`);
+    }
+    tokens.push({ text: match[0], step });
+    step += 1;
+    cursor = MOVE_TOKEN.lastIndex;
+  }
+  if (step !== moves.length) {
+    throw new Error("括号只用于分组");
+  }
+  return tokens;
+}
+
+export function formulaTokenGap(
+  previous: FormulaToken | undefined,
+  token: FormulaToken,
+): string {
+  if (!previous || token.text === ")" || previous.text === "(") {
+    return "";
+  }
+  return " ";
+}
+
+export function formulaDisplay(source: string): string {
+  const tokens = formulaTokens(source);
+  return tokens
+    .map(
+      (token, index) => formulaTokenGap(tokens[index - 1], token) + token.text,
+    )
+    .join("");
+}
+
 export function parseAlgorithm(source: string): string[] {
-  const moves = [...new Alg(source).experimentalLeafMoves()].map((move) =>
-    move.toString(),
+  const moves = [...new Alg(withoutGroups(source)).experimentalLeafMoves()].map(
+    (move) => move.toString(),
   );
   if (moves.length === 0) {
     throw new Error("算法是空的");
@@ -177,4 +334,8 @@ export function parseAlgorithm(source: string): string[] {
     throw new Error(`无法按层转动：${invalid}`);
   }
   return moves;
+}
+
+export function moveCount(source: string): number {
+  return parseAlgorithm(source).length;
 }
