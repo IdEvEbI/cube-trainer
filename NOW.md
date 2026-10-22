@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-F2L 可练习、缩略图与简化显示。PR 待合并（见 Issue #46）。
+F2L 可练习、缩略图与简化显示。等待合并 [PR #47](https://github.com/IdEvEbI/cube-trainer/pull/47)（Closes #46）。
 
 ## 下一步计划
 
