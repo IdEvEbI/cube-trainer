@@ -23,7 +23,20 @@ function readPuzzle(value: unknown, label: string): Puzzle {
   throw new Error(`${label}无效`);
 }
 
-function readFormula(value: unknown, label: string): Formula {
+function readOrder(value: unknown, label: string): number | null {
+  if (value === undefined) {
+    return null;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new Error(`${label}的顺序无效`);
+  }
+  return value;
+}
+
+function readFormula(
+  value: unknown,
+  label: string,
+): { formula: Formula; order: number | null } {
   if (typeof value !== "object" || value === null) {
     throw new Error(`${label}无效`);
   }
@@ -37,11 +50,36 @@ function readFormula(value: unknown, label: string): Formula {
   }
   parseAlgorithm(item.moves);
   return {
-    id: item.id,
-    name: item.name,
-    puzzle: readPuzzle(item.puzzle, label),
-    moves: item.moves,
+    formula: {
+      id: item.id,
+      name: item.name,
+      puzzle: readPuzzle(item.puzzle, label),
+      moves: item.moves,
+    },
+    order: readOrder(item.order, label),
   };
+}
+
+function sortFormulas(
+  entries: Array<{ formula: Formula; order: number | null }>,
+  label: string,
+): Formula[] {
+  const orders = entries.flatMap((entry) =>
+    entry.order === null ? [] : [entry.order],
+  );
+  if (orders.length !== 0 && orders.length !== entries.length) {
+    throw new Error(`${label}的顺序不完整`);
+  }
+  if (new Set(orders).size !== orders.length) {
+    throw new Error(`${label}的顺序重复`);
+  }
+  if (orders.length === 0) {
+    return entries.map((entry) => entry.formula);
+  }
+  return entries
+    .slice()
+    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+    .map((entry) => entry.formula);
 }
 
 function readSubclass(value: unknown, label: string): FormulaSubclass {
@@ -62,8 +100,11 @@ function readSubclass(value: unknown, label: string): FormulaSubclass {
     id: item.id,
     name: item.name,
     note: item.note,
-    formulas: item.formulas.map((formula, index) =>
-      readFormula(formula, `${label}的第 ${index + 1} 条公式`),
+    formulas: sortFormulas(
+      item.formulas.map((formula, index) =>
+        readFormula(formula, `${label}的第 ${index + 1} 条公式`),
+      ),
+      label,
     ),
   };
 }

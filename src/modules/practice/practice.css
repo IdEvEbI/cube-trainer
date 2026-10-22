@@ -77,6 +77,43 @@
   font-size: 0.75rem;
 }
 
+.practice-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.practice-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #1c1f27;
+  color: #f3f0e8;
+  cursor: pointer;
+}
+
+.practice-controls svg {
+  width: 22px;
+  height: 22px;
+}
+
+.practice-controls button[aria-pressed="true"] {
+  background: #f3f0e8;
+  color: #12141a;
+}
+
+.practice-controls button:disabled {
+  color: #8d887d;
+  cursor: default;
+}
+
 .practice-hint {
   box-sizing: border-box;
   width: min(100%, 320px);
@@ -108,6 +145,16 @@
 .practice-moves {
   color: #f3f0e8;
   font-size: 1.05rem;
+}
+
+.practice-moves .step {
+  border-radius: 4px;
+  padding: 0 3px;
+}
+
+.practice-moves .step.is-current {
+  background: #ffd500;
+  color: #12141a;
 }
 
 .top-pattern {

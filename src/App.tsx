@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import formulas from "./data/formula-catalog.json";
 import { parseFormulaCatalog } from "./data/catalog.ts";
 import { CubeView, type CubeHandle } from "./modules/cube/CubeView.tsx";
@@ -10,8 +10,20 @@ import {
   MethodPicker,
 } from "./modules/practice/PracticeLibrary.tsx";
 import { formulaGroup, practiceList } from "./modules/practice/browser.ts";
+import { PracticeControls } from "./modules/practice/PracticeControls.tsx";
 import { PracticeHint } from "./modules/practice/PracticeHint.tsx";
 import { PracticeSwitcher } from "./modules/practice/PracticeSwitcher.tsx";
+import {
+  PLAYBACK_STEP_MS,
+  atStart,
+  atTarget,
+  createPracticeCursor,
+  displayedMoves,
+  isAtTarget,
+  stepNext,
+  stepPrevious,
+  type PracticeCursor,
+} from "./modules/practice/playback.ts";
 import {
   back,
   showFormulas,
@@ -59,6 +71,11 @@ export default function App() {
   const [practiceFormulaId, setPracticeFormulaId] = useState<string | null>(
     null,
   );
+  const [cursor, setCursor] = useState<PracticeCursor | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const cursorRef = useRef<PracticeCursor | null>(null);
+  const playingRef = useRef(false);
+  const playRun = useRef(0);
   focusRef.current = focus;
 
   const mode = modeOf(focus);
@@ -74,11 +91,130 @@ export default function App() {
       ? formulaGroup(formulaCatalog, methodId, practiceFormulaId)
       : null;
 
+  function stopPlay() {
+    playRun.current += 1;
+    if (playingRef.current) {
+      playingRef.current = false;
+      setPlaying(false);
+    }
+  }
+
+  function showCursor(next: PracticeCursor) {
+    cursorRef.current = next;
+    setCursor(next);
+    cube.current?.cancelAnimation();
+    void cube.current?.showMoves(displayedMoves(next));
+  }
+
+  function moveCursor(
+    update: (current: PracticeCursor) => PracticeCursor,
+    motion: "snap" | "forward" | "back",
+  ) {
+    stopPlay();
+    const current = cursorRef.current;
+    if (!current) {
+      return;
+    }
+    const next = update(current);
+    if (motion === "snap" || next.index === current.index) {
+      showCursor(next);
+      return;
+    }
+    cursorRef.current = next;
+    setCursor(next);
+    cube.current?.cancelAnimation();
+    void cube.current?.animateMove(
+      displayedMoves(current),
+      displayedMoves(next),
+      motion,
+      PLAYBACK_STEP_MS,
+    );
+  }
+
+  useEffect(() => {
+    stopPlay();
+    if (!practice) {
+      cursorRef.current = null;
+      setCursor(null);
+      return;
+    }
+    const next = createPracticeCursor(practice);
+    cursorRef.current = next;
+    setCursor(next);
+  }, [practice]);
+
+  useEffect(() => {
+    if (focus.kind !== "练习") {
+      stopPlay();
+      const current = cursorRef.current;
+      cube.current?.cancelAnimation();
+      if (current) {
+        void cube.current?.showMoves(displayedMoves(current));
+      }
+    }
+  }, [focus]);
+
+  useEffect(
+    () => () => {
+      playRun.current += 1;
+    },
+    [],
+  );
+
+  async function onPlay() {
+    if (playingRef.current) {
+      stopPlay();
+      return;
+    }
+    let current = cursorRef.current;
+    if (!current) {
+      return;
+    }
+    const run = playRun.current;
+    try {
+      if (isAtTarget(current)) {
+        const start = atStart(current);
+        cursorRef.current = start;
+        setCursor(start);
+        cube.current?.cancelAnimation();
+        await cube.current?.showMoves(displayedMoves(start));
+        if (playRun.current !== run) {
+          return;
+        }
+        current = start;
+      }
+      playingRef.current = true;
+      setPlaying(true);
+      while (playRun.current === run && !isAtTarget(current)) {
+        const next = stepNext(current);
+        cursorRef.current = next;
+        setCursor(next);
+        await cube.current?.animateMove(
+          displayedMoves(current),
+          displayedMoves(next),
+          "forward",
+          PLAYBACK_STEP_MS,
+        );
+        if (playRun.current !== run) {
+          return;
+        }
+        current = next;
+      }
+    } finally {
+      if (playRun.current === run && playingRef.current) {
+        playingRef.current = false;
+        setPlaying(false);
+      }
+    }
+  }
+
   function onFormula(formula: Formula) {
     if (mode !== "公式练习") {
       cube.current?.applyAlgorithm(formula.moves);
       return;
     }
+    stopPlay();
+    cube.current?.cancelAnimation();
     setPracticeFormulaId(formula.id);
     const setup = practiceCase(formula);
     if (!setup) {
@@ -219,7 +355,23 @@ export default function App() {
               />
             ) : null}
           </div>
-          <PracticeHint practice={practice} note={practiceNote} />
+          <PracticeHint
+            practice={practice}
+            note={practiceNote}
+            cursor={cursor}
+          />
+          {focus.kind === "练习" && practice && cursor ? (
+            <PracticeControls
+              atStart={cursor.index === 0}
+              atTarget={isAtTarget(cursor)}
+              playing={playing}
+              onStart={() => moveCursor(atStart, "snap")}
+              onPrevious={() => moveCursor(stepPrevious, "back")}
+              onPlay={() => void onPlay()}
+              onNext={() => moveCursor(stepNext, "forward")}
+              onTarget={() => moveCursor(atTarget, "snap")}
+            />
+          ) : null}
           {focus.kind === "练习" ? (
             <TimerView key={practice?.id ?? "idle"} />
           ) : null}

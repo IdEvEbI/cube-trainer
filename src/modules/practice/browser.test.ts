@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import {
+  formulasForSubclass,
+  parseFormulaCatalog,
+} from "../../data/catalog.ts";
 import { parseFormulaLibrary } from "../formula/formulas.ts";
 import type { FormulaMethod } from "../formula/types.ts";
 import {
@@ -85,45 +89,54 @@ describe("practice browser", () => {
     assert.notEqual(next?.inverse, current?.inverse);
   });
 
-  it("PLL 练习列表按 Ua 到 Gd 的顺序显示", () => {
-    const group = formulaGroup(loadMethods(), "cfop", "pll-t");
+  it("卡片和练习界面的 PLL 顺序一致", () => {
+    const raw = JSON.parse(readFileSync(samplePath, "utf8"));
+    const group = formulaGroup(loadMethods(), "cfop", "pll-ua");
     const oll = formulaGroup(loadMethods(), "cfop", "oll-sune");
+    const cards = formulasForSubclass(
+      parseFormulaCatalog(raw),
+      "cfop",
+      "cfop-pll",
+    );
+    const expected = [
+      "pll-ua",
+      "pll-ub",
+      "pll-h",
+      "pll-z",
+      "pll-aa",
+      "pll-ab",
+      "pll-e",
+      "pll-t",
+      "pll-f",
+      "pll-v",
+      "pll-y",
+      "pll-ja",
+      "pll-jb",
+      "pll-ra",
+      "pll-rb",
+      "pll-na",
+      "pll-nb",
+      "pll-ga",
+      "pll-gb",
+      "pll-gc",
+      "pll-gd",
+    ];
 
     assert.ok(group);
     assert.ok(oll);
+    assert.ok(cards);
+    assert.deepEqual(
+      cards.map((formula) => formula.id),
+      expected,
+    );
     assert.deepEqual(
       practiceList(group).map((formula) => formula.id),
-      [
-        "pll-ua",
-        "pll-ub",
-        "pll-h",
-        "pll-z",
-        "pll-aa",
-        "pll-ab",
-        "pll-e",
-        "pll-t",
-        "pll-f",
-        "pll-v",
-        "pll-y",
-        "pll-ja",
-        "pll-jb",
-        "pll-ra",
-        "pll-rb",
-        "pll-na",
-        "pll-nb",
-        "pll-ga",
-        "pll-gb",
-        "pll-gc",
-        "pll-gd",
-      ],
+      expected,
     );
-    const listed = practiceList(group);
-    const ua = group.formulas.find((formula) => formula.id === "pll-ua");
-    assert.equal(group.formulas[0]?.id, "pll-t");
-    assert.equal(listed[0]?.id, "pll-ua");
-    assert.equal(listed[0]?.name, "Ua 排列");
-    assert.equal(listed[0]?.moves, ua?.moves);
+    const ua = cards[0];
+    assert.equal(ua?.name, "Ua 排列");
     assert.equal(ua?.moves, "M2 U M U2 M' U M2");
+    assert.equal(practiceList(group)[0]?.moves, ua?.moves);
     assert.deepEqual(
       practiceList(oll).map((formula) => formula.id),
       oll.formulas.map((formula) => formula.id),
