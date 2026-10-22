@@ -73,7 +73,7 @@ describe("parseFormulaLibrary", () => {
     for (const formula of formulas) {
       assert.ok(parseAlgorithm(formula.moves).length > 0);
     }
-    assert.ok(formulaNames(formulas).includes("右手小鱼"));
+    assert.ok(formulaNames(formulas).includes("OLL 27（Sune）"));
     assert.ok(formulaNames(formulas).includes("T 排列"));
     assert.ok(formulaNames(formulas).includes("Ua 排列"));
   });

@@ -10,10 +10,14 @@ import type { FormulaMethod } from "../formula/types.ts";
 import {
   formulaGroup,
   groupFormulas,
+  groupNameForFormula,
+  isPracticeGroupOpen,
+  openPracticeGroups,
   practiceList,
   formulasForMethod,
   methodNames,
   methodSteps,
+  togglePracticeGroup,
 } from "./browser.ts";
 import { invertAlgorithm, practiceCase } from "./setup.ts";
 
@@ -33,7 +37,7 @@ describe("practice browser", () => {
     ]);
   });
 
-  it("选择 CFOP 后进入该分类，点击右手小鱼仍生成练习状态", () => {
+  it("选择 CFOP 后进入该分类，点击 OLL 27 仍生成练习状态", () => {
     const methods = loadMethods();
     const steps = methodSteps(methods, "cfop");
     const formulas = formulasForMethod(methods, "cfop");
@@ -48,7 +52,7 @@ describe("practice browser", () => {
     assert.ok(sune);
     assert.deepEqual(practiceCase(sune), {
       id: "oll-sune",
-      name: "右手小鱼",
+      name: "OLL 27（Sune）",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });
@@ -147,7 +151,7 @@ describe("practice browser", () => {
     );
   });
 
-  it("OLL 按形状分类，卡片和练习列表分组一致", () => {
+  it("OLL 按截图分类正确分组", () => {
     const raw = JSON.parse(readFileSync(samplePath, "utf8"));
     const cards = formulasForSubclass(
       parseFormulaCatalog(raw),
@@ -161,48 +165,61 @@ describe("practice browser", () => {
     assert.ok(group);
     assert.ok(pll);
     const cardGroups = groupFormulas(cards);
-    const practiceGroups = groupFormulas(practiceList(group));
     const names = [
-      "点",
-      "小拐弯",
-      "一字",
-      "十字",
-      "T 形",
-      "小鱼",
-      "闪电",
-      "方块",
-      "P 形",
-      "C 形",
-      "W 形",
-      "骑士",
-      "别扭",
-      "角块已朝向",
+      "十字 OLL",
+      "直线 OLL",
+      "点 OLL",
+      "拐角 OLL",
+      "肥鱼 OLL",
+      "其他 OLL",
     ];
+    const counts = [7, 14, 10, 8, 10, 8];
 
     assert.deepEqual(
       cardGroups.map((item) => item.name),
       names,
     );
     assert.deepEqual(
-      practiceGroups.map((item) => item.name),
-      names,
+      cardGroups.map((item) => item.formulas.length),
+      counts,
     );
-    assert.deepEqual(
-      cardGroups.map((item) => item.formulas.map((formula) => formula.id)),
-      practiceGroups.map((item) => item.formulas.map((formula) => formula.id)),
-    );
+    assert.equal(cardGroups.flatMap((item) => item.formulas).length, 57);
+
     const ids = (name: string) =>
       cardGroups
         .find((item) => item.name === name)
         ?.formulas.map((formula) => formula.id) ?? [];
-    assert.deepEqual(ids("点").slice(0, 1), ["oll-dot"]);
-    assert.ok(ids("一字").includes("oll-line"));
-    assert.ok(ids("小拐弯").includes("oll-l"));
-    assert.ok(ids("十字").includes("oll-h"));
-    assert.deepEqual(ids("T 形"), ["oll-t"]);
-    assert.ok(ids("小鱼").includes("oll-sune"));
-    assert.ok(ids("小鱼").includes("oll-antisune"));
-    assert.equal(cardGroups.flatMap((item) => item.formulas).length, 57);
+
+    assert.deepEqual(ids("十字 OLL"), [
+      "oll-h",
+      "oll-pi",
+      "oll-u",
+      "oll-wca-24",
+      "oll-wca-25",
+      "oll-antisune",
+      "oll-sune",
+    ]);
+    assert.ok(ids("直线 OLL").includes("oll-line"));
+    assert.ok(ids("直线 OLL").includes("oll-t"));
+    assert.deepEqual(ids("点 OLL").slice(0, 4), [
+      "oll-wca-1",
+      "oll-wca-2",
+      "oll-wca-3",
+      "oll-wca-4",
+    ]);
+    assert.ok(ids("点 OLL").includes("oll-wca-28"));
+    assert.ok(ids("点 OLL").includes("oll-wca-57"));
+    assert.ok(ids("拐角 OLL").includes("oll-wca-47"));
+    assert.ok(ids("拐角 OLL").includes("oll-wca-9"));
+    assert.ok(ids("肥鱼 OLL").includes("oll-wca-7"));
+    assert.ok(ids("肥鱼 OLL").includes("oll-l"));
+    assert.ok(ids("其他 OLL").includes("oll-wca-29"));
+    assert.ok(ids("其他 OLL").includes("oll-wca-36"));
+
+    assert.deepEqual(
+      groupFormulas(practiceList(group)).map((item) => item.name),
+      names,
+    );
     assert.deepEqual(
       groupFormulas(pll.formulas).map((item) => item.name),
       [null],
@@ -211,7 +228,60 @@ describe("practice browser", () => {
     assert.equal(pll.formulas.at(-1)?.id, "pll-gd");
   });
 
-  it("原先暂不支持的 OLL 现在可以练习，分组不变", () => {
+  it("练习列表分类能正确折叠展开，切换公式后展开选中分类", () => {
+    const group = formulaGroup(loadMethods(), "cfop", "oll-sune");
+    assert.ok(group);
+    const formulas = practiceList(group);
+    const groups = groupFormulas(formulas);
+    assert.equal(groups.length, 6);
+
+    assert.equal(groupNameForFormula(formulas, "oll-sune"), "十字 OLL");
+    assert.equal(groupNameForFormula(formulas, "oll-wca-1"), "点 OLL");
+    assert.equal(groupNameForFormula(formulas, "missing"), null);
+
+    let openNames = openPracticeGroups([], formulas, "oll-sune");
+    assert.deepEqual(openNames, ["十字 OLL"]);
+    assert.equal(isPracticeGroupOpen(openNames, "十字 OLL"), true);
+    assert.equal(isPracticeGroupOpen(openNames, "点 OLL"), false);
+
+    openNames = togglePracticeGroup(openNames, "点 OLL");
+    assert.deepEqual(openNames, ["点 OLL"]);
+    assert.equal(isPracticeGroupOpen(openNames, "十字 OLL"), false);
+    assert.equal(isPracticeGroupOpen(openNames, "点 OLL"), true);
+
+    openNames = togglePracticeGroup(openNames, "拐角 OLL");
+    assert.deepEqual(openNames, ["拐角 OLL"]);
+    assert.equal(isPracticeGroupOpen(openNames, "点 OLL"), false);
+
+    openNames = togglePracticeGroup(openNames, "拐角 OLL");
+    assert.deepEqual(openNames, []);
+
+    openNames = openPracticeGroups(["点 OLL"], formulas, "oll-sune");
+    assert.deepEqual(openNames, ["十字 OLL"]);
+    assert.equal(isPracticeGroupOpen(openNames, "点 OLL"), false);
+
+    const sune = formulas.find((formula) => formula.id === "oll-sune");
+    const dot = formulas.find((formula) => formula.id === "oll-wca-1");
+    assert.ok(sune);
+    assert.ok(dot);
+    const suneCase = practiceCase(sune);
+    const dotCase = practiceCase(dot);
+    assert.ok(suneCase);
+    assert.ok(dotCase);
+    assert.notEqual(suneCase.forward, dotCase.forward);
+    assert.equal(suneCase.id, "oll-sune");
+    assert.equal(dotCase.id, "oll-wca-1");
+
+    const pll = formulaGroup(loadMethods(), "cfop", "pll-ua");
+    assert.ok(pll);
+    assert.deepEqual(
+      groupFormulas(practiceList(pll)).map((item) => item.name),
+      [null],
+    );
+    assert.equal(isPracticeGroupOpen([], null), true);
+  });
+
+  it("原先暂不支持的 OLL 现在可以练习，新分类下仍可练习", () => {
     const group = formulaGroup(loadMethods(), "cfop", "oll-sune");
     const dotCase = group?.formulas.find(
       (formula) => formula.id === "oll-wca-1",
@@ -220,18 +290,43 @@ describe("practice browser", () => {
 
     assert.equal(group?.name, "OLL");
     assert.ok(sune);
-    assert.equal(sune.group, "小鱼");
+    assert.equal(sune.group, "十字 OLL");
     assert.deepEqual(practiceCase(sune), {
       id: "oll-sune",
-      name: "右手小鱼",
+      name: "OLL 27（Sune）",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });
     assert.ok(dotCase);
-    assert.equal(dotCase.group, "点");
+    assert.equal(dotCase.group, "点 OLL");
     assert.equal(dotCase.name, "OLL 1");
     assert.ok(practiceCase(dotCase));
     assert.equal(formulaGroup(loadMethods(), "cfop", "missing"), null);
+  });
+
+  it("OLL 名称按标准数字显示，常见别名写在括号里", () => {
+    const formulas = formulaGroup(loadMethods(), "cfop", "oll-sune")?.formulas;
+    assert.ok(formulas);
+    assert.equal(formulas.length, 57);
+    for (const formula of formulas) {
+      assert.match(formula.name, /^OLL \d+(（.+）)?$/, formula.id);
+    }
+    assert.equal(
+      formulas.find((formula) => formula.id === "oll-sune")?.name,
+      "OLL 27（Sune）",
+    );
+    assert.equal(
+      formulas.find((formula) => formula.id === "oll-h")?.name,
+      "OLL 21（H）",
+    );
+    assert.equal(
+      formulas.find((formula) => formula.id === "oll-line")?.name,
+      "OLL 45",
+    );
+    assert.equal(
+      formulas.find((formula) => formula.id === "oll-wca-1")?.name,
+      "OLL 1",
+    );
   });
 
   it("选择层先法只进入层先法", () => {

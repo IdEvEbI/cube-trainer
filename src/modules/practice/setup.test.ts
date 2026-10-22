@@ -92,7 +92,7 @@ function pieceSignature(pattern: KPattern): string {
 }
 
 describe("practiceCase", () => {
-  it("右手小鱼从复原出发，应用的是逆公式", () => {
+  it("OLL 27 从复原出发，应用的是逆公式", () => {
     const sune = ollFormulas().find((formula) => formula.id === "oll-sune");
     assert.ok(sune);
 
@@ -100,7 +100,7 @@ describe("practiceCase", () => {
 
     assert.deepEqual(setup, {
       id: "oll-sune",
-      name: "右手小鱼",
+      name: "OLL 27（Sune）",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });
