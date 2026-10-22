@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-[#37](https://github.com/IdEvEbI/cube-trainer/issues/37) 练习控制条、步骤高亮和 PLL 顺序已提交，等待合并。
+[#37](https://github.com/IdEvEbI/cube-trainer/issues/37) 练习控制条、步骤高亮和 PLL 顺序已提交，等待合并。[#38](https://github.com/IdEvEbI/cube-trainer/pull/38)
 
 ## 下一步计划
 
