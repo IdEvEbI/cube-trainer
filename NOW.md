@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-OLL 六类重分、练习列表折叠、标准数字命名。Issue #42，PR 待合并。
+OLL 六类重分、练习列表折叠、标准数字命名。Issue #42，[PR #43](https://github.com/IdEvEbI/cube-trainer/pull/43) 待合并。
 
 ## 下一步计划
 
