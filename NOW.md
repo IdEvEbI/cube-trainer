@@ -6,18 +6,18 @@
 
 ## 正在做的任务
 
-OLL / PLL SVG 顶层缩略图。Issue #44，[PR #45](https://github.com/IdEvEbI/cube-trainer/pull/45) 待合并。
+F2L 可练习、缩略图与简化显示。等待合并 [PR #47](https://github.com/IdEvEbI/cube-trainer/pull/47)（Closes #46）。
 
 ## 下一步计划
 
-合并后切回 main、拉取并删分支；再推进 #41 剩余项（若有）。
+合入后处理本地分支，再推进统计或其他项。
 
 ## 已确认但暂不做
 
+- F2L 空槽高亮（3D）
 - PLL 分类调整
 - 公式练习统计（次数、最好 / 最差 / 平均、Ao5）
 - 蓝牙跟转与蓝牙计时
-- F2L 空槽高亮
 - 成绩后端
 - 朝向设置
 - 分段计时（成绩里的「是否分段」只预留）

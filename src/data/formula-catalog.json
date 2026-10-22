@@ -120,253 +120,341 @@
             "id": "f2l-paired",
             "name": "已配对插入",
             "puzzle": "3x3",
-            "moves": "R U R'"
+            "moves": "(R U R')",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-join",
             "name": "顶层插入",
             "puzzle": "3x3",
-            "moves": "U R U' R'"
+            "moves": "(U)(R U' R')",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-split",
             "name": "分开再合",
             "puzzle": "3x3",
-            "moves": "R U' R' U R U' R'"
+            "moves": "(R U' R' U)(R U' R')",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-white-front",
             "name": "白朝前分开",
             "puzzle": "3x3",
-            "moves": "R U R' U' R U R'"
+            "moves": "(R U R' U')(R U R')",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-white-up",
             "name": "白朝上分开",
             "puzzle": "3x3",
-            "moves": "R U2 R' U' R U R'"
+            "moves": "(R U2 R' U')(R U R')",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-side",
             "name": "侧面插入",
             "puzzle": "3x3",
-            "moves": "R' F R F'"
+            "moves": "(R' F R F')",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-1-2",
             "name": "容易插入 1",
             "puzzle": "3x3",
-            "moves": "U' F' U F"
+            "moves": "(U' F' U F)",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-1-4",
             "name": "容易插入 2",
             "puzzle": "3x3",
-            "moves": "F' U' F"
+            "moves": "(F' U' F)",
+            "practice": true,
+            "group": "基础插入"
           },
           {
             "id": "f2l-2-1",
             "name": "顶层分开 1",
             "puzzle": "3x3",
-            "moves": "U' R U R' U2 R U' R'"
+            "moves": "(U' R U R')(U2 R U' R')",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-2",
             "name": "顶层分开 2",
             "puzzle": "3x3",
-            "moves": "U F' U' F U2 F' U F"
+            "moves": "(U F' U' F)(U2 F' U F)",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-3",
             "name": "顶层分开 3",
             "puzzle": "3x3",
-            "moves": "U' R U2 R' U2 R U' R'"
+            "moves": "(U' R U2 R')(U2 R U' R')",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-4",
             "name": "顶层分开 4",
             "puzzle": "3x3",
-            "moves": "U F' U2 F U2 F' U F"
+            "moves": "(U F' U2 F)(U2 F' U F)",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-5",
             "name": "顶层分开 5",
             "puzzle": "3x3",
-            "moves": "U' R U R' U R U R'"
+            "moves": "(U' R U R' U)(R U R')",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-6",
             "name": "顶层分开 6",
             "puzzle": "3x3",
-            "moves": "U' R U' R' U F' U' F"
+            "moves": "(U' R U' R')(U F' U' F)",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-7",
             "name": "顶层分开 7",
             "puzzle": "3x3",
-            "moves": "U R U2 R' U R U' R'"
+            "moves": "(U R U2 R')(U R U' R')",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-8",
             "name": "顶层分开 8",
             "puzzle": "3x3",
-            "moves": "U' F' U2 F U' F' U F"
+            "moves": "(U' F' U2 F)(U' F' U F)",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-9",
             "name": "顶层分开 9",
             "puzzle": "3x3",
-            "moves": "U2 R U R' U R U' R'"
+            "moves": "(U2 R U R')(U R U' R')",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-2-10",
             "name": "顶层分开 10",
             "puzzle": "3x3",
-            "moves": "U2 F' U' F U' F' U F"
+            "moves": "(U2 F' U' F)(U' F' U F)",
+            "practice": true,
+            "group": "顶层分开"
           },
           {
             "id": "f2l-3-1",
             "name": "角在槽里 1",
             "puzzle": "3x3",
-            "moves": "U' R' F R F' R U R'"
+            "moves": "(U' R' F R F')(R U R')",
+            "practice": true,
+            "group": "角在槽里"
           },
           {
             "id": "f2l-3-2",
             "name": "角在槽里 2",
             "puzzle": "3x3",
-            "moves": "U R U' R' U' F' U F"
+            "moves": "(U R U' R')(U' F' U F)",
+            "practice": true,
+            "group": "角在槽里"
           },
           {
             "id": "f2l-3-4",
             "name": "角在槽里 3",
             "puzzle": "3x3",
-            "moves": "F' U F U' F' U F"
+            "moves": "(F' U F U')(F' U F)",
+            "practice": true,
+            "group": "角在槽里"
           },
           {
             "id": "f2l-3-6",
             "name": "角在槽里 4",
             "puzzle": "3x3",
-            "moves": "F' U' F U F' U' F"
+            "moves": "(F' U' F U)(F' U' F)",
+            "practice": true,
+            "group": "角在槽里"
           },
           {
             "id": "f2l-4-1",
             "name": "棱在槽里 1",
             "puzzle": "3x3",
-            "moves": "U R U' R' U R U' R' U R U' R'"
+            "moves": "(U R U' R')(U R U' R')(U R U' R')",
+            "practice": true,
+            "algs": [
+              "(U R U' R')(U R U' R')(U R U' R')",
+              "(R U R' U')(R U R' U')(R U R' U')"
+            ],
+            "group": "棱在槽里"
           },
           {
             "id": "f2l-4-2",
             "name": "棱在槽里 2",
             "puzzle": "3x3",
-            "moves": "U' R' F R F' R U' R'"
+            "moves": "(U' R' F R F')(R U' R')",
+            "practice": true,
+            "group": "棱在槽里"
           },
           {
             "id": "f2l-4-3",
             "name": "棱在槽里 3",
             "puzzle": "3x3",
-            "moves": "U' R U' R' U2 R U' R'"
+            "moves": "(U' R U' R')(U2 R U' R')",
+            "practice": true,
+            "group": "棱在槽里"
           },
           {
             "id": "f2l-4-4",
             "name": "棱在槽里 4",
             "puzzle": "3x3",
-            "moves": "U' R U R' U F' U' F"
+            "moves": "(U' R U R')(U F' U' F)",
+            "practice": true,
+            "group": "棱在槽里"
           },
           {
             "id": "f2l-4-5",
             "name": "棱在槽里 5",
             "puzzle": "3x3",
-            "moves": "U R U R' U2 R U R'"
+            "moves": "(U R U R')(U2 R U R')",
+            "practice": true,
+            "group": "棱在槽里"
           },
           {
             "id": "f2l-4-6",
             "name": "棱在槽里 6",
             "puzzle": "3x3",
-            "moves": "U F' U' F U' R U R'"
+            "moves": "(U F' U' F)(U' R U R')",
+            "practice": true,
+            "group": "棱在槽里"
           },
           {
             "id": "f2l-5-1",
             "name": "连在一起 1",
             "puzzle": "3x3",
-            "moves": "R' U2 R2 U R2 U R"
+            "moves": "(R' U2 R2 U)(R2 U R)",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-2",
             "name": "连在一起 2",
             "puzzle": "3x3",
-            "moves": "U' R U2 R' U F' U' F"
+            "moves": "(U' R U2 R')(U F' U' F)",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-3",
             "name": "连在一起 3",
             "puzzle": "3x3",
-            "moves": "U' R U' R' U R U R'"
+            "moves": "(U' R U' R' U)(R U R')",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-4",
             "name": "连在一起 4",
             "puzzle": "3x3",
-            "moves": "U F' U F U' F' U' F"
+            "moves": "(U F' U F U')(F' U' F)",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-5",
             "name": "连在一起 5",
             "puzzle": "3x3",
-            "moves": "R U R' U2 R U' R' U R U' R'"
+            "moves": "(R U R' U2)(R U' R' U)(R U' R')",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-6",
             "name": "连在一起 6",
             "puzzle": "3x3",
-            "moves": "R U' R' U2 F' U' F"
+            "moves": "(R U' R')(U2 F' U' F)",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-8",
             "name": "连在一起 7",
             "puzzle": "3x3",
-            "moves": "F' U2 F U F' U' F"
+            "moves": "(F' U2 F U)(F' U' F)",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-9",
             "name": "连在一起 8",
             "puzzle": "3x3",
-            "moves": "U R U' R' U' R U' R' U R U' R'"
+            "moves": "(U R U' R' U')(R U' R' U)(R U' R')",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-5-10",
             "name": "连在一起 9",
             "puzzle": "3x3",
-            "moves": "F U R U' R' F' R U' R'"
+            "moves": "(F U R U' R' F')(R U' R')",
+            "practice": true,
+            "group": "连在一起"
           },
           {
             "id": "f2l-6-1",
             "name": "都在槽里 1",
             "puzzle": "3x3",
-            "moves": "R U' R' U F' U2 F U2 F' U F"
+            "moves": "(R U' R' U)(F' U2 F U2)(F' U F)",
+            "practice": true,
+            "group": "都在槽里"
           },
           {
             "id": "f2l-6-2",
             "name": "都在槽里 2",
             "puzzle": "3x3",
-            "moves": "R U' R' U' R U R' U2 R U' R'"
+            "moves": "(R U' R' U')(R U R' U2)(R U' R')",
+            "practice": true,
+            "group": "都在槽里"
           },
           {
             "id": "f2l-6-3",
             "name": "都在槽里 3",
             "puzzle": "3x3",
-            "moves": "R U' R' U' R U' R' U F' U' F"
+            "moves": "(R U' R' U' R U' R')(U F' U' F)",
+            "practice": true,
+            "group": "都在槽里"
           },
           {
             "id": "f2l-6-4",
             "name": "都在槽里 4",
             "puzzle": "3x3",
-            "moves": "R U' R' U R U2 R' U R U' R'"
+            "moves": "(R U' R' U)(R U2 R' U)(R U' R')",
+            "practice": true,
+            "group": "都在槽里"
           },
           {
             "id": "f2l-6-5",
             "name": "都在槽里 5",
             "puzzle": "3x3",
-            "moves": "R U' R' U2 F' U' F U' F' U F"
+            "moves": "(R U' R')(U2 F' U' F U')(F' U F)",
+            "practice": true,
+            "group": "都在槽里"
           }
         ]
       },

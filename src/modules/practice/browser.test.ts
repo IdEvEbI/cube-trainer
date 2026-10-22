@@ -228,6 +228,110 @@ describe("practice browser", () => {
     assert.equal(pll.formulas.at(-1)?.id, "pll-gd");
   });
 
+  it("F2L 按分组正确显示", () => {
+    const raw = JSON.parse(readFileSync(samplePath, "utf8"));
+    const cards = formulasForSubclass(
+      parseFormulaCatalog(raw),
+      "cfop",
+      "cfop-f2l",
+    );
+    const group = formulaGroup(loadMethods(), "cfop", "f2l-paired");
+
+    assert.ok(cards);
+    assert.ok(group);
+    const cardGroups = groupFormulas(cards);
+    const names = [
+      "基础插入",
+      "顶层分开",
+      "角在槽里",
+      "棱在槽里",
+      "连在一起",
+      "都在槽里",
+    ];
+    const counts = [8, 10, 4, 6, 9, 5];
+
+    assert.deepEqual(
+      cardGroups.map((item) => item.name),
+      names,
+    );
+    assert.deepEqual(
+      cardGroups.map((item) => item.formulas.length),
+      counts,
+    );
+    assert.equal(cardGroups.flatMap((item) => item.formulas).length, 42);
+
+    const ids = (name: string) =>
+      cardGroups
+        .find((item) => item.name === name)
+        ?.formulas.map((formula) => formula.id) ?? [];
+
+    assert.deepEqual(ids("基础插入"), [
+      "f2l-paired",
+      "f2l-join",
+      "f2l-split",
+      "f2l-white-front",
+      "f2l-white-up",
+      "f2l-side",
+      "f2l-1-2",
+      "f2l-1-4",
+    ]);
+    assert.deepEqual(ids("顶层分开"), [
+      "f2l-2-1",
+      "f2l-2-2",
+      "f2l-2-3",
+      "f2l-2-4",
+      "f2l-2-5",
+      "f2l-2-6",
+      "f2l-2-7",
+      "f2l-2-8",
+      "f2l-2-9",
+      "f2l-2-10",
+    ]);
+    assert.deepEqual(ids("角在槽里"), [
+      "f2l-3-1",
+      "f2l-3-2",
+      "f2l-3-4",
+      "f2l-3-6",
+    ]);
+    assert.deepEqual(ids("棱在槽里"), [
+      "f2l-4-1",
+      "f2l-4-2",
+      "f2l-4-3",
+      "f2l-4-4",
+      "f2l-4-5",
+      "f2l-4-6",
+    ]);
+    assert.deepEqual(ids("连在一起"), [
+      "f2l-5-1",
+      "f2l-5-2",
+      "f2l-5-3",
+      "f2l-5-4",
+      "f2l-5-5",
+      "f2l-5-6",
+      "f2l-5-8",
+      "f2l-5-9",
+      "f2l-5-10",
+    ]);
+    assert.deepEqual(ids("都在槽里"), [
+      "f2l-6-1",
+      "f2l-6-2",
+      "f2l-6-3",
+      "f2l-6-4",
+      "f2l-6-5",
+    ]);
+
+    assert.deepEqual(
+      groupFormulas(practiceList(group)).map((item) => item.name),
+      names,
+    );
+    const paired = cards.find((formula) => formula.id === "f2l-paired");
+    const last = cards.find((formula) => formula.id === "f2l-6-5");
+    assert.ok(paired);
+    assert.ok(last);
+    assert.ok(practiceCase(paired));
+    assert.ok(practiceCase(last));
+  });
+
   it("练习列表分类能正确折叠展开，切换公式后展开选中分类", () => {
     const group = formulaGroup(loadMethods(), "cfop", "oll-sune");
     assert.ok(group);
@@ -271,6 +375,35 @@ describe("practice browser", () => {
     assert.notEqual(suneCase.forward, dotCase.forward);
     assert.equal(suneCase.id, "oll-sune");
     assert.equal(dotCase.id, "oll-wca-1");
+
+    const f2l = formulaGroup(loadMethods(), "cfop", "f2l-paired");
+    assert.ok(f2l);
+    const f2lFormulas = practiceList(f2l);
+    assert.equal(groupFormulas(f2lFormulas).length, 6);
+    assert.equal(groupNameForFormula(f2lFormulas, "f2l-paired"), "基础插入");
+    assert.equal(groupNameForFormula(f2lFormulas, "f2l-4-1"), "棱在槽里");
+
+    openNames = openPracticeGroups([], f2lFormulas, "f2l-paired");
+    assert.deepEqual(openNames, ["基础插入"]);
+    assert.equal(isPracticeGroupOpen(openNames, "基础插入"), true);
+    assert.equal(isPracticeGroupOpen(openNames, "顶层分开"), false);
+
+    openNames = togglePracticeGroup(openNames, "顶层分开");
+    assert.deepEqual(openNames, ["顶层分开"]);
+    assert.equal(isPracticeGroupOpen(openNames, "基础插入"), false);
+
+    openNames = togglePracticeGroup(openNames, "都在槽里");
+    assert.deepEqual(openNames, ["都在槽里"]);
+
+    openNames = togglePracticeGroup(openNames, "都在槽里");
+    assert.deepEqual(openNames, []);
+
+    openNames = openPracticeGroups(["顶层分开"], f2lFormulas, "f2l-6-1");
+    assert.deepEqual(openNames, ["都在槽里"]);
+    assert.equal(isPracticeGroupOpen(openNames, "顶层分开"), false);
+    const separated = f2lFormulas.find((formula) => formula.id === "f2l-2-1");
+    assert.ok(separated);
+    assert.ok(practiceCase(separated));
 
     const pll = formulaGroup(loadMethods(), "cfop", "pll-ua");
     assert.ok(pll);

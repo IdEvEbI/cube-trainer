@@ -17,6 +17,8 @@ export function PracticeHint({
   algorithms = [],
   algorithmIndex = 0,
   onAlgorithm,
+  f2lSimplified,
+  onF2lSimplified,
 }: {
   practice: PracticeCase | null;
   note: string | null;
@@ -24,6 +26,8 @@ export function PracticeHint({
   algorithms?: readonly string[];
   algorithmIndex?: number;
   onAlgorithm?: (index: number) => void;
+  f2lSimplified?: boolean;
+  onF2lSimplified?: (value: boolean) => void;
 }) {
   const pattern = practice ? formulaPattern(practice.id) : null;
   const source = algorithms[algorithmIndex] || practice?.forward || "";
@@ -40,6 +44,7 @@ export function PracticeHint({
               top={pattern.top}
               sides={pattern.sides}
               arrows={pattern.arrows}
+              cube={pattern.cube}
               label={`${practice.name}的顶层图案`}
               large
             />
@@ -90,6 +95,18 @@ export function PracticeHint({
                   </option>
                 ))}
               </select>
+            </label>
+          ) : null}
+          {practice.id.startsWith("f2l-") && onF2lSimplified ? (
+            <label className="f2l-simplify">
+              <input
+                type="checkbox"
+                checked={f2lSimplified ?? true}
+                onChange={(event) => {
+                  onF2lSimplified(event.target.checked);
+                }}
+              />
+              简化显示
             </label>
           ) : null}
         </div>

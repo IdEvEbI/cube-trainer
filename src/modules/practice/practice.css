@@ -229,6 +229,22 @@
   font-size: 0.85rem;
 }
 
+.f2l-simplify {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #8d887d;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.f2l-simplify input {
+  width: 16px;
+  height: 16px;
+  accent-color: #ffd500;
+}
+
 .algorithm-picker select {
   width: 100%;
   padding: 8px 10px;
@@ -254,16 +270,24 @@
 }
 
 .top-pattern {
-  --oll-oriented: #ffd500;
+  /* 与 TwistyPlayer 默认色一致：yellow / white / limegreen / blue / red / orange */
+  --oll-oriented: #ffff00;
+  --oll-white: #ffffff;
   --oll-unoriented: #0a0a0a;
-  --oll-green: #00a651;
-  --oll-blue: #0051ba;
-  --oll-red: #c41e3a;
-  --oll-orange: #ff5800;
+  --oll-dim: #9aa0a8;
+  --oll-green: #32cd32;
+  --oll-blue: #2266ff;
+  --oll-red: #ff0000;
+  --oll-orange: #ffa500;
   display: block;
   flex: none;
   width: 44px;
   height: 44px;
+}
+
+.top-pattern.is-cube {
+  width: 54px;
+  height: 62px;
 }
 
 .top-pattern-frame {
@@ -276,6 +300,15 @@
 .top-pattern-bar {
   stroke: #4a5160;
   stroke-width: 0.4;
+}
+
+.top-pattern-iso-shell {
+  stroke: none;
+}
+
+.top-pattern-iso {
+  stroke: none;
+  stroke-linejoin: round;
 }
 
 .top-pattern-arrow-halo {
@@ -306,11 +339,22 @@
   height: 64px;
 }
 
+.top-pattern.is-card.is-cube {
+  width: 80px;
+  height: 92px;
+}
+
 .top-pattern.is-hint,
 .top-pattern.is-large {
   width: 96px;
   height: 96px;
   margin-top: 12px;
+}
+
+.top-pattern.is-hint.is-cube,
+.top-pattern.is-large.is-cube {
+  width: 120px;
+  height: 138px;
 }
 
 .practice-library {
