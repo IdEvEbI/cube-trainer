@@ -6,7 +6,10 @@
 
 ## 正在做的任务
 
-本轮公式优化已确认可用，正在开 Issue / 分支 / PR，等待合并。
+本轮公式优化已确认可用。Issue #39、PR #40 已开，等待合并。
+
+- Issue：[#39](https://github.com/IdEvEbI/cube-trainer/issues/39)
+- PR：[#40](https://github.com/IdEvEbI/cube-trainer/pull/40)
 
 ## 下一步计划
 
