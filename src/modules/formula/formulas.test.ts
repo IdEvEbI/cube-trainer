@@ -134,6 +134,89 @@ describe("parseFormulaLibrary", () => {
     );
   });
 
+  it("按可选的 order 排列公式，没有 order 时保持原顺序", () => {
+    const ordered = parseFormulaLibrary([
+      {
+        id: "cfop",
+        name: "CFOP",
+        subclasses: [
+          {
+            id: "cfop-pll",
+            name: "PLL",
+            formulas: [
+              {
+                id: "pll-t",
+                name: "T 排列",
+                moves: "R U R' U' R' F R2 U' R' U' R U R' F'",
+                order: 2,
+              },
+              {
+                id: "pll-ua",
+                name: "Ua 排列",
+                moves: "M2 U M U2 M' U M2",
+                order: 1,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const kept = parseFormulaLibrary([
+      {
+        id: "cfop",
+        name: "CFOP",
+        subclasses: [
+          {
+            id: "cfop-oll",
+            name: "OLL",
+            formulas: [
+              { id: "oll-line", name: "一字", moves: "F R U R' U' F'" },
+              { id: "oll-l", name: "小拐弯", moves: "F U R U' R' F'" },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    assert.deepEqual(
+      ordered[0]?.subclasses[0]?.formulas.map((formula) => formula.id),
+      ["pll-ua", "pll-t"],
+    );
+    assert.deepEqual(
+      kept[0]?.subclasses[0]?.formulas.map((formula) => formula.id),
+      ["oll-line", "oll-l"],
+    );
+    assert.throws(
+      () =>
+        parseFormulaLibrary([
+          {
+            id: "cfop",
+            name: "CFOP",
+            subclasses: [
+              {
+                id: "cfop-pll",
+                name: "PLL",
+                formulas: [
+                  {
+                    id: "pll-ua",
+                    name: "Ua 排列",
+                    moves: "M2 U M U2 M' U M2",
+                    order: 1,
+                  },
+                  {
+                    id: "pll-ub",
+                    name: "Ub 排列",
+                    moves: "M2 U' M U2 M' U' M2",
+                  },
+                ],
+              },
+            ],
+          },
+        ]),
+      /顺序不完整/,
+    );
+  });
+
   it("省略 puzzle 时默认为 3x3", () => {
     const methods = parseFormulaLibrary([
       {

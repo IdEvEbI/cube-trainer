@@ -725,130 +725,151 @@
         "note": "全部 21 种排列",
         "formulas": [
           {
-            "id": "pll-t",
-            "name": "T 排列",
-            "puzzle": "3x3",
-            "moves": "R U R' U' R' F R2 U' R' U' R U R' F'"
-          },
-          {
-            "id": "pll-y",
-            "name": "Y 排列",
-            "puzzle": "3x3",
-            "moves": "F R U' R' U' R U R' F' R U R' U' R' F R F'"
-          },
-          {
-            "id": "pll-jb",
-            "name": "Jb 排列",
-            "puzzle": "3x3",
-            "moves": "R U R' F' R U R' U' R' F R2 U' R'"
-          },
-          {
             "id": "pll-ua",
             "name": "Ua 排列",
             "puzzle": "3x3",
-            "moves": "M2 U M U2 M' U M2"
+            "moves": "M2 U M U2 M' U M2",
+            "order": 1
           },
           {
             "id": "pll-ub",
             "name": "Ub 排列",
             "puzzle": "3x3",
-            "moves": "M2 U' M U2 M' U' M2"
+            "moves": "M2 U' M U2 M' U' M2",
+            "order": 2
           },
           {
             "id": "pll-h",
             "name": "H 排列",
             "puzzle": "3x3",
-            "moves": "M2 U M2 U2 M2 U M2"
+            "moves": "M2 U M2 U2 M2 U M2",
+            "order": 3
           },
           {
             "id": "pll-z",
             "name": "Z 排列",
             "puzzle": "3x3",
-            "moves": "M2 U M2 U M' U2 M2 U2 M'"
-          },
-          {
-            "id": "pll-ja",
-            "name": "Ja 排列",
-            "puzzle": "3x3",
-            "moves": "L' U' L F L' U' L U L F' L2 U L"
+            "moves": "M2 U M2 U M' U2 M2 U2 M'",
+            "order": 4
           },
           {
             "id": "pll-aa",
             "name": "Aa 排列",
             "puzzle": "3x3",
-            "moves": "R' F R' B2 R F' R' B2 R2"
+            "moves": "R' F R' B2 R F' R' B2 R2",
+            "order": 5
           },
           {
             "id": "pll-ab",
             "name": "Ab 排列",
             "puzzle": "3x3",
-            "moves": "R2 B2 R F R' B2 R F' R"
+            "moves": "R2 B2 R F R' B2 R F' R",
+            "order": 6
           },
           {
             "id": "pll-e",
             "name": "E 排列",
             "puzzle": "3x3",
-            "moves": "R B' R' F R B R' F' R B R' F R B' R' F'"
+            "moves": "R B' R' F R B R' F' R B R' F R B' R' F'",
+            "order": 7
+          },
+          {
+            "id": "pll-t",
+            "name": "T 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' U' R' F R2 U' R' U' R U R' F'",
+            "order": 8
           },
           {
             "id": "pll-f",
             "name": "F 排列",
             "puzzle": "3x3",
-            "moves": "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R"
-          },
-          {
-            "id": "pll-ra",
-            "name": "Ra 排列",
-            "puzzle": "3x3",
-            "moves": "R U' R' U' R U R D R' U' R D' R' U2 R'"
-          },
-          {
-            "id": "pll-rb",
-            "name": "Rb 排列",
-            "puzzle": "3x3",
-            "moves": "R2 F R U R U' R' F' R U2 R' U2 R"
-          },
-          {
-            "id": "pll-na",
-            "name": "Na 排列",
-            "puzzle": "3x3",
-            "moves": "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'"
-          },
-          {
-            "id": "pll-nb",
-            "name": "Nb 排列",
-            "puzzle": "3x3",
-            "moves": "R' U R U' R' F' U' F R U R' F R' F' R U' R"
+            "moves": "R' U' F' R U R' U' R' F R2 U' R' U' R U R' U R",
+            "order": 9
           },
           {
             "id": "pll-v",
             "name": "V 排列",
             "puzzle": "3x3",
-            "moves": "R' U R' U' R D' R' D R' U D' R2 U' R2 D R2"
+            "moves": "R' U R' U' R D' R' D R' U D' R2 U' R2 D R2",
+            "order": 10
+          },
+          {
+            "id": "pll-y",
+            "name": "Y 排列",
+            "puzzle": "3x3",
+            "moves": "F R U' R' U' R U R' F' R U R' U' R' F R F'",
+            "order": 11
+          },
+          {
+            "id": "pll-ja",
+            "name": "Ja 排列",
+            "puzzle": "3x3",
+            "moves": "L' U' L F L' U' L U L F' L2 U L",
+            "order": 12
+          },
+          {
+            "id": "pll-jb",
+            "name": "Jb 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' F' R U R' U' R' F R2 U' R'",
+            "order": 13
+          },
+          {
+            "id": "pll-ra",
+            "name": "Ra 排列",
+            "puzzle": "3x3",
+            "moves": "R U' R' U' R U R D R' U' R D' R' U2 R'",
+            "order": 14
+          },
+          {
+            "id": "pll-rb",
+            "name": "Rb 排列",
+            "puzzle": "3x3",
+            "moves": "R2 F R U R U' R' F' R U2 R' U2 R",
+            "order": 15
+          },
+          {
+            "id": "pll-na",
+            "name": "Na 排列",
+            "puzzle": "3x3",
+            "moves": "R U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R'",
+            "order": 16
+          },
+          {
+            "id": "pll-nb",
+            "name": "Nb 排列",
+            "puzzle": "3x3",
+            "moves": "R' U R U' R' F' U' F R U R' F R' F' R U' R",
+            "order": 17
           },
           {
             "id": "pll-ga",
             "name": "Ga 排列",
             "puzzle": "3x3",
-            "moves": "R2 U R' U R' U' R U' R2 D U' R' U R D'"
+            "moves": "R2 U R' U R' U' R U' R2 D U' R' U R D'",
+            "order": 18
           },
           {
             "id": "pll-gb",
             "name": "Gb 排列",
             "puzzle": "3x3",
-            "moves": "D R' U' R U D' R2 U R' U R U' R U' R2"
+            "moves": "D R' U' R U D' R2 U R' U R U' R U' R2",
+            "order": 19
           },
           {
             "id": "pll-gc",
             "name": "Gc 排列",
             "puzzle": "3x3",
-            "moves": "D R2 U' R U' R U R' U R2 D' U R U' R'"
+            "moves": "D R2 U' R U' R U R' U R2 D' U R U' R'",
+            "order": 20
           },
           {
             "id": "pll-gd",
             "name": "Gd 排列",
             "puzzle": "3x3",
-            "moves": "R U R' U' D R2 U' R U' R' U R' U R2 D'"
+            "moves": "R U R' U' D R2 U' R U' R' U R' U R2 D'",
+            "order": 21
           }
         ]
       }
