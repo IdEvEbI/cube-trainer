@@ -10,6 +10,9 @@ export type CatalogFormula = {
   subclassId: string | null;
   subclassName: string | null;
   moves: string;
+  algs?: string[];
+  group?: string;
+  practice?: boolean;
 };
 
 export type CatalogSubclass = {
@@ -42,6 +45,9 @@ export function parseFormulaCatalog(input: unknown): CatalogMethod[] {
         subclassId: subclass.id,
         subclassName: subclass.name,
         moves: formula.moves,
+        algs: formula.algs,
+        group: formula.group,
+        practice: formula.practice,
       })),
     })),
   }));
@@ -53,6 +59,9 @@ export function toPracticeFormula(formula: CatalogFormula): Formula {
     name: formula.name,
     puzzle: formula.puzzle,
     moves: formula.moves,
+    algs: formula.algs,
+    group: formula.group,
+    practice: formula.practice,
   };
 }
 

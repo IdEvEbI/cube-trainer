@@ -1,9 +1,11 @@
 import {
   formulasForMethod,
   toPracticeFormula,
+  type CatalogFormula,
   type CatalogMethod,
 } from "../../data/catalog.ts";
 import type { Formula } from "../formula/types.ts";
+import { groupFormulas } from "./browser.ts";
 import { PatternIcon } from "./PatternIcon.tsx";
 import { formulaPattern } from "./pattern.ts";
 import { practiceCase } from "./setup.ts";
@@ -39,6 +41,38 @@ export function MethodPicker({
   );
 }
 
+function FormulaCard({
+  formula,
+  selected,
+  onSelect,
+}: {
+  formula: CatalogFormula;
+  selected: boolean;
+  onSelect: (formula: Formula) => void;
+}) {
+  const practiceFormula = toPracticeFormula(formula);
+  const supported = practiceCase(practiceFormula) !== null;
+  const pattern = formulaPattern(formula.id);
+  return (
+    <button
+      type="button"
+      className={supported ? "formula-card" : "formula-card is-unsupported"}
+      aria-pressed={selected}
+      onClick={() => onSelect(practiceFormula)}
+    >
+      {pattern ? (
+        <PatternIcon
+          top={pattern.top}
+          label={`${formula.name}的顶层图案`}
+          size="card"
+        />
+      ) : null}
+      <span>{formula.name}</span>
+      {supported ? null : <small>暂不支持</small>}
+    </button>
+  );
+}
+
 export function FormulaBoard({
   methods,
   methodId,
@@ -67,34 +101,24 @@ export function FormulaBoard({
           {subclass.formulas.length === 0 ? (
             <p className="practice-unsupported">暂不支持</p>
           ) : (
-            <div className="formula-grid">
-              {subclass.formulas.map((formula) => {
-                const practiceFormula = toPracticeFormula(formula);
-                const supported = practiceCase(practiceFormula) !== null;
-                const pattern = formulaPattern(formula.id);
-                return (
-                  <button
-                    key={formula.id}
-                    type="button"
-                    className={
-                      supported ? "formula-card" : "formula-card is-unsupported"
-                    }
-                    aria-pressed={selectedId === formula.id}
-                    onClick={() => onSelect(practiceFormula)}
-                  >
-                    {pattern ? (
-                      <PatternIcon
-                        top={pattern.top}
-                        label={`${formula.name}的顶层图案`}
-                        size="card"
-                      />
-                    ) : null}
-                    <span>{formula.name}</span>
-                    {supported ? null : <small>暂不支持</small>}
-                  </button>
-                );
-              })}
-            </div>
+            groupFormulas(subclass.formulas).map((group) => (
+              <div
+                key={group.name ?? subclass.id}
+                className={group.name ? "practice-group" : undefined}
+              >
+                {group.name ? <h3>{group.name}</h3> : null}
+                <div className="formula-grid">
+                  {group.formulas.map((formula) => (
+                    <FormulaCard
+                      key={formula.id}
+                      formula={formula}
+                      selected={selectedId === formula.id}
+                      onSelect={onSelect}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
           )}
         </div>
       ))}

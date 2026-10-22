@@ -5,6 +5,9 @@ export interface Formula {
   name: string;
   puzzle: Puzzle;
   moves: string;
+  algs?: string[];
+  group?: string;
+  practice?: boolean;
 }
 
 export interface FormulaSubclass {

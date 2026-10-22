@@ -5,10 +5,11 @@ import {
   formulasForSubclass,
   parseFormulaCatalog,
 } from "../../data/catalog.ts";
-import { parseFormulaLibrary } from "../formula/formulas.ts";
+import { parseAlgorithm, parseFormulaLibrary } from "../formula/formulas.ts";
 import type { FormulaMethod } from "../formula/types.ts";
 import {
   formulaGroup,
+  groupFormulas,
   practiceList,
   formulasForMethod,
   methodNames,
@@ -79,10 +80,13 @@ describe("practice browser", () => {
     assert.ok(nextFormula);
     assert.equal(current?.id, "pll-t");
     assert.equal(current?.name, "T 排列");
-    assert.equal(current?.forward, currentFormula.moves);
+    assert.equal(
+      current?.forward,
+      parseAlgorithm(currentFormula.moves).join(" "),
+    );
     assert.equal(next?.id, "pll-y");
     assert.equal(next?.name, "Y 排列");
-    assert.equal(next?.forward, nextFormula.moves);
+    assert.equal(next?.forward, parseAlgorithm(nextFormula.moves).join(" "));
     assert.notEqual(next?.name, current?.name);
     assert.notEqual(next?.forward, current?.forward);
     assert.equal(next?.inverse, invertAlgorithm(nextFormula.moves));
@@ -135,7 +139,7 @@ describe("practice browser", () => {
     );
     const ua = cards[0];
     assert.equal(ua?.name, "Ua 排列");
-    assert.equal(ua?.moves, "M2 U M U2 M' U M2");
+    assert.equal(ua?.moves, "(M2)(U M U2 M' U)(M2)");
     assert.equal(practiceList(group)[0]?.moves, ua?.moves);
     assert.deepEqual(
       practiceList(oll).map((formula) => formula.id),
@@ -143,16 +147,90 @@ describe("practice browser", () => {
     );
   });
 
-  it("OLL 分组里未支持的公式仍不能练习", () => {
+  it("OLL 按形状分类，卡片和练习列表分组一致", () => {
+    const raw = JSON.parse(readFileSync(samplePath, "utf8"));
+    const cards = formulasForSubclass(
+      parseFormulaCatalog(raw),
+      "cfop",
+      "cfop-oll",
+    );
+    const group = formulaGroup(loadMethods(), "cfop", "oll-line");
+    const pll = formulaGroup(loadMethods(), "cfop", "pll-ua");
+
+    assert.ok(cards);
+    assert.ok(group);
+    assert.ok(pll);
+    const cardGroups = groupFormulas(cards);
+    const practiceGroups = groupFormulas(practiceList(group));
+    const names = [
+      "点",
+      "小拐弯",
+      "一字",
+      "十字",
+      "T 形",
+      "小鱼",
+      "闪电",
+      "方块",
+      "P 形",
+      "C 形",
+      "W 形",
+      "骑士",
+      "别扭",
+      "角块已朝向",
+    ];
+
+    assert.deepEqual(
+      cardGroups.map((item) => item.name),
+      names,
+    );
+    assert.deepEqual(
+      practiceGroups.map((item) => item.name),
+      names,
+    );
+    assert.deepEqual(
+      cardGroups.map((item) => item.formulas.map((formula) => formula.id)),
+      practiceGroups.map((item) => item.formulas.map((formula) => formula.id)),
+    );
+    const ids = (name: string) =>
+      cardGroups
+        .find((item) => item.name === name)
+        ?.formulas.map((formula) => formula.id) ?? [];
+    assert.deepEqual(ids("点").slice(0, 1), ["oll-dot"]);
+    assert.ok(ids("一字").includes("oll-line"));
+    assert.ok(ids("小拐弯").includes("oll-l"));
+    assert.ok(ids("十字").includes("oll-h"));
+    assert.deepEqual(ids("T 形"), ["oll-t"]);
+    assert.ok(ids("小鱼").includes("oll-sune"));
+    assert.ok(ids("小鱼").includes("oll-antisune"));
+    assert.equal(cardGroups.flatMap((item) => item.formulas).length, 57);
+    assert.deepEqual(
+      groupFormulas(pll.formulas).map((item) => item.name),
+      [null],
+    );
+    assert.equal(pll.formulas[0]?.id, "pll-ua");
+    assert.equal(pll.formulas.at(-1)?.id, "pll-gd");
+  });
+
+  it("原先暂不支持的 OLL 现在可以练习，分组不变", () => {
     const group = formulaGroup(loadMethods(), "cfop", "oll-sune");
-    const dot = group?.formulas.find((formula) => formula.id === "oll-dot");
+    const dotCase = group?.formulas.find(
+      (formula) => formula.id === "oll-wca-1",
+    );
     const sune = group?.formulas.find((formula) => formula.id === "oll-sune");
 
     assert.equal(group?.name, "OLL");
     assert.ok(sune);
-    assert.ok(practiceCase(sune));
-    assert.ok(dot);
-    assert.equal(practiceCase(dot), null);
+    assert.equal(sune.group, "小鱼");
+    assert.deepEqual(practiceCase(sune), {
+      id: "oll-sune",
+      name: "右手小鱼",
+      forward: "R U R' U R U2 R'",
+      inverse: "R U2 R' U' R U' R'",
+    });
+    assert.ok(dotCase);
+    assert.equal(dotCase.group, "点");
+    assert.equal(dotCase.name, "OLL 1");
+    assert.ok(practiceCase(dotCase));
     assert.equal(formulaGroup(loadMethods(), "cfop", "missing"), null);
   });
 

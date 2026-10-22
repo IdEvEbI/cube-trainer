@@ -22,6 +22,31 @@ const sune = practiceCase({
 });
 
 describe("practice playback", () => {
+  it("括号不改变上一步、下一步和自动播放的步骤", () => {
+    const grouped = practiceCase({
+      id: "oll-sune",
+      name: "右手小鱼",
+      puzzle: "3x3",
+      moves: "(R U R' U)(R U2 R')",
+    });
+
+    assert.ok(sune);
+    assert.ok(grouped);
+    assert.equal(grouped.forward, sune.forward);
+    assert.equal(grouped.inverse, sune.inverse);
+    const plainCursor = createPracticeCursor(sune);
+    const groupedCursor = createPracticeCursor(grouped);
+    assert.deepEqual(groupedCursor.forward, plainCursor.forward);
+    assert.deepEqual(
+      playbackSteps(groupedCursor).map((step) => displayedMoves(step)),
+      playbackSteps(plainCursor).map((step) => displayedMoves(step)),
+    );
+    assert.deepEqual(
+      playbackSteps(groupedCursor).map((step) => highlightedStep(step)),
+      playbackSteps(plainCursor).map((step) => highlightedStep(step)),
+    );
+  });
+
   it("下一步执行后状态正确，上一步可以退回", async () => {
     assert.ok(sune);
     const cursor = createPracticeCursor(sune);

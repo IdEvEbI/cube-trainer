@@ -179,6 +179,7 @@
 }
 
 .focus[data-focus="练习"] .practice-name,
+.focus[data-focus="练习"] .practice-length,
 .focus[data-focus="练习"] .practice-moves,
 .focus[data-focus="练习"] .practice-hint > p {
   margin: 0;
@@ -227,6 +228,11 @@
 
 .focus[data-focus="练习"] .practice-moves {
   font-size: 1.2rem;
+}
+
+.focus[data-focus="练习"] .algorithm-picker {
+  flex: 1 1 100%;
+  margin: 4px 0 0;
 }
 
 .focus[data-focus="练习"] .top-pattern.is-hint,
