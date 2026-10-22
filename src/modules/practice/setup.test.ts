@@ -29,6 +29,15 @@ function ollFormulas(): Formula[] {
   );
 }
 
+function pllFormulas(): Formula[] {
+  const methods = parseFormulaLibrary(
+    JSON.parse(readFileSync(samplePath, "utf8")),
+  );
+  const cfop = methods.find((method) => method.id === "cfop");
+  const pll = cfop?.subclasses.find((subclass) => subclass.id === "cfop-pll");
+  return pll?.formulas ?? [];
+}
+
 async function signature(moves: string): Promise<string> {
   const puzzle = await cube3x3x3.kpuzzle();
   let pattern = puzzle
@@ -48,6 +57,7 @@ function pieceSignature(pattern: KPattern): string {
     cornerOrientation: corners?.orientation,
     edges: edges?.pieces,
     edgeOrientation: edges?.orientation,
+    centers: pattern.patternData.CENTERS?.pieces,
   });
 }
 
@@ -83,9 +93,57 @@ describe("practiceCase", () => {
     }
   });
 
-  it("当前不生成 OLL 以外的练习状态", () => {
-    const other = loadFormulas().find((formula) => formula.id === "f2l-paired");
-    assert.ok(other);
-    assert.equal(practiceCase(other), null);
+  it("T 排列从复原出发，应用的是逆公式", () => {
+    const tPerm = pllFormulas().find((formula) => formula.id === "pll-t");
+    assert.ok(tPerm);
+
+    const setup = practiceCase(tPerm);
+
+    assert.deepEqual(setup, {
+      id: "pll-t",
+      name: "T 排列",
+      forward: "R U R' U' R' F R2 U' R' U' R U R' F'",
+      inverse: "F R U' R' U R U R2 F' R U R U' R'",
+    });
+    assert.equal(setup?.inverse, invertAlgorithm(tPerm.moves));
+  });
+
+  it("CFOP 的 PLL 都会离开复原，再执行正向公式后回到复原", async () => {
+    const solved = await signature("");
+    const formulas = pllFormulas();
+
+    assert.equal(formulas.length, 21);
+    for (const formula of formulas) {
+      const setup = practiceCase(formula);
+      assert.ok(setup);
+      assert.equal(setup.forward, formula.moves);
+      const scrambled = await signature(setup.inverse);
+      const restored = await signature(`${setup.inverse} ${setup.forward}`);
+
+      assert.notEqual(scrambled, solved);
+      assert.equal(restored, solved);
+    }
+  });
+
+  it("F2L、其余 OLL 和其他方法仍不生成练习状态", () => {
+    const methods = parseFormulaLibrary(
+      JSON.parse(readFileSync(samplePath, "utf8")),
+    );
+    const ollIds = ["oll-line", "oll-l", "oll-sune", "oll-antisune"];
+
+    for (const method of methods) {
+      for (const subclass of method.subclasses) {
+        for (const formula of subclass.formulas) {
+          const allowed =
+            ollIds.includes(formula.id) ||
+            (method.id === "cfop" && subclass.id === "cfop-pll");
+          if (allowed) {
+            assert.ok(practiceCase(formula));
+          } else {
+            assert.equal(practiceCase(formula), null, formula.id);
+          }
+        }
+      }
+    }
   });
 });

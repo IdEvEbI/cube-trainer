@@ -135,6 +135,7 @@ describe("formula catalog", () => {
       (formula) => formula.id === "pll-t",
     );
     assert.ok(tPerm);
-    assert.equal(practiceCase(toPracticeFormula(tPerm)), null);
+    assert.equal(tPerm.subclassName, "PLL");
+    assert.ok(practiceCase(toPracticeFormula(tPerm)));
   });
 });

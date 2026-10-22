@@ -16,8 +16,7 @@ export function PracticeHint({
     <section className="practice-hint" aria-label="步骤提示">
       <h2>步骤提示</h2>
       {practice ? (
-        <>
-          <p className="practice-name">{practice.name}</p>
+        <div className="practice-summary">
           {pattern ? (
             <PatternIcon
               top={pattern.top}
@@ -25,8 +24,9 @@ export function PracticeHint({
               large
             />
           ) : null}
+          <p className="practice-name">{practice.name}</p>
           <p className="practice-moves">{practice.forward}</p>
-        </>
+        </div>
       ) : (
         <p>{note ?? "选择一条公式后，步骤会显示在这里。"}</p>
       )}
