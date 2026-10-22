@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
-import { TwistyPlayer } from "cubing/twisty";
+import { TwistyPlayer, type ExperimentalStickering } from "cubing/twisty";
 import { parseAlgorithm } from "../formula/formulas.ts";
 import { scrambleDisplayAlgorithm } from "../scramble/scramble.ts";
 import { CUBE_ORIENTATION_ALG, isLayerMove } from "./cube.ts";
@@ -19,6 +19,12 @@ export type CubeHandle = {
     quarterTurnMs: number,
   ): Promise<void>;
   cancelAnimation(): void;
+  /**
+   * Twisty 贴纸：full 全色；或传入序列化 mask（黄上 F2L 简化时忽略黄层块）。
+   */
+  setStickering(
+    stickering: { mode: "full" } | { mode: "mask"; mask: string },
+  ): void;
 };
 
 const QUARTER_TURN_TIMELINE_MS = 1000;
@@ -155,6 +161,8 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
       visualization: "3D",
       background: "none",
       controlPanel: "none",
+      // 关闭背面浮动提示面，避免「散架」和多余色块干扰 F2L 观察
+      hintFacelets: "none",
       experimentalDragInput: "auto",
       cameraLatitude: 35,
       cameraLongitude: 28,
@@ -229,6 +237,22 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
     },
     cancelAnimation() {
       generation.current += 1;
+    },
+    setStickering(stickering) {
+      queue.current = queue.current.then(async () => {
+        const twisty = player.current;
+        if (!twisty) {
+          return;
+        }
+        if (stickering.mode === "mask") {
+          twisty.experimentalStickeringMaskOrbits = stickering.mask;
+          return;
+        }
+        // 全 Regular 遮罩，避免残留自定义 mask
+        twisty.experimentalStickeringMaskOrbits =
+          "EDGES:------------,CORNERS:--------,CENTERS:------";
+        twisty.experimentalStickering = "full" as ExperimentalStickering;
+      });
     },
   }));
 

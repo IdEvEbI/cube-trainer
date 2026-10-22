@@ -8,6 +8,7 @@ import { parseFormulaLibrary } from "../formula/formulas.ts";
 import type { Formula } from "../formula/types.ts";
 import {
   formulaPattern,
+  hasF2lPattern,
   hasOllPattern,
   hasPllPattern,
   type TopSticker,
@@ -82,6 +83,10 @@ function loadCfopOll(): Formula[] {
 
 function loadCfopPll(): Formula[] {
   return loadCfopSubclass("cfop-pll");
+}
+
+function loadCfopF2l(): Formula[] {
+  return loadCfopSubclass("cfop-f2l");
 }
 
 function rememberYellow(pattern: KPattern): Map<string, number> {
@@ -217,10 +222,75 @@ describe("formulaPattern", () => {
     assert.equal(signatures.size, 21);
   });
 
+  it("F2L 缩略图能正常显示", () => {
+    const f2l = loadCfopF2l();
+    const signatures = new Set<string>();
+
+    assert.equal(f2l.length, 42);
+    for (const formula of f2l) {
+      const pattern = formulaPattern(formula.id);
+      assert.ok(pattern, formula.id);
+      assert.equal(hasF2lPattern(formula.id), true);
+      assert.equal(hasOllPattern(formula.id), false);
+      assert.equal(hasPllPattern(formula.id), false);
+      assert.equal(pattern.name, formula.name);
+      assert.equal(pattern.top.length, 9);
+      assert.equal(pattern.sides.length, 12);
+      assert.ok(pattern.cube, formula.id);
+      assert.equal(pattern.cube.U.length, 9, formula.id);
+      assert.equal(pattern.cube.F.length, 9, formula.id);
+      assert.equal(pattern.cube.R.length, 9, formula.id);
+      assert.equal(pattern.arrows, undefined);
+      // U 黄心；F 左下 2×2、R 右下 2×2（含中心）非灰，便于看出空槽
+      assert.equal(pattern.cube.U[4], "黄", formula.id);
+      for (const index of [3, 4, 6, 7] as const) {
+        assert.notEqual(pattern.cube.F[index], "灰", `${formula.id}:F${index}`);
+      }
+      for (const index of [4, 5, 7, 8] as const) {
+        assert.notEqual(pattern.cube.R[index], "灰", `${formula.id}:R${index}`);
+      }
+      signatures.add(
+        `U${pattern.cube.U.join("")}|F${pattern.cube.F.join("")}|R${pattern.cube.R.join("")}`,
+      );
+    }
+    // 顶层插入与侧面插入：目标块在 U/F/R 上外观相同
+    assert.equal(signatures.size, 41);
+    const join = formulaPattern("f2l-join");
+    const side = formulaPattern("f2l-side");
+    assert.ok(join?.cube && side?.cube);
+    assert.deepEqual(join.cube, side.cube);
+
+    const paired = formulaPattern("f2l-paired");
+    assert.ok(paired?.cube);
+    assert.deepEqual(paired.cube.F, [
+      "灰",
+      "灰",
+      "绿",
+      "绿",
+      "绿",
+      "灰",
+      "绿",
+      "绿",
+      "灰",
+    ]);
+    assert.deepEqual(paired.cube.R, [
+      "白",
+      "灰",
+      "灰",
+      "灰",
+      "橙",
+      "橙",
+      "灰",
+      "橙",
+      "橙",
+    ]);
+  });
+
   it("未支持的公式没有图案，也不报错", () => {
-    assert.equal(formulaPattern("f2l-paired"), null);
     assert.equal(formulaPattern(""), null);
+    assert.equal(formulaPattern("lbl-corner-insert"), null);
     assert.equal(hasOllPattern("pll-t"), false);
     assert.equal(hasPllPattern("oll-sune"), false);
+    assert.equal(hasF2lPattern("oll-sune"), false);
   });
 });

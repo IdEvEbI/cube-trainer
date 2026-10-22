@@ -39,6 +39,7 @@ import {
   practiceCase,
   type PracticeCase,
 } from "./modules/practice/setup.ts";
+import { practiceStickering } from "./modules/practice/stickering.ts";
 import {
   browserScoreStorage,
   createScoreLog,
@@ -78,6 +79,7 @@ export default function App() {
   );
   const [cursor, setCursor] = useState<PracticeCursor | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [f2lSimplified, setF2lSimplified] = useState(true);
   const cursorRef = useRef<PracticeCursor | null>(null);
   const playingRef = useRef(false);
   const playRun = useRef(0);
@@ -163,6 +165,11 @@ export default function App() {
       }
     }
   }, [focus]);
+
+  useEffect(() => {
+    const id = focus.kind === "练习" ? practice?.id : null;
+    cube.current?.setStickering(practiceStickering(id, f2lSimplified));
+  }, [focus.kind, practice?.id, f2lSimplified]);
 
   useEffect(
     () => () => {
@@ -391,6 +398,8 @@ export default function App() {
             algorithms={algorithms}
             algorithmIndex={algorithmIndex}
             onAlgorithm={onAlgorithm}
+            f2lSimplified={f2lSimplified}
+            onF2lSimplified={setF2lSimplified}
           />
           {focus.kind === "练习" && practice && cursor ? (
             <PracticeControls

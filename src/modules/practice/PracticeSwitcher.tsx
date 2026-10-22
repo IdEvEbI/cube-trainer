@@ -106,6 +106,7 @@ export function PracticeSwitcher({
                                   top={pattern.top}
                                   sides={pattern.sides}
                                   arrows={pattern.arrows}
+                                  cube={pattern.cube}
                                   label={`${formula.name}的顶层图案`}
                                 />
                               ) : null}
@@ -139,6 +140,7 @@ export function PracticeSwitcher({
                         top={pattern.top}
                         sides={pattern.sides}
                         arrows={pattern.arrows}
+                        cube={pattern.cube}
                         label={`${formula.name}的顶层图案`}
                       />
                     ) : null}

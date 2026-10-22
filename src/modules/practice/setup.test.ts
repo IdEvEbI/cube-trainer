@@ -469,7 +469,50 @@ describe("practiceCase", () => {
     );
   });
 
-  it("F2L 和其他方法仍不生成练习状态", () => {
+  it("F2L 公式点击后能生成练习状态", async () => {
+    const methods = parseFormulaLibrary(
+      JSON.parse(readFileSync(samplePath, "utf8")),
+    );
+    const f2l = methods
+      .find((method) => method.id === "cfop")
+      ?.subclasses.find((subclass) => subclass.id === "cfop-f2l")?.formulas;
+    const solved = await signature("");
+
+    assert.ok(f2l);
+    assert.equal(f2l.length, 42);
+    for (const formula of f2l) {
+      const setup = practiceCase(formula);
+      assert.equal(formula.practice, true, formula.id);
+      assert.ok(setup, formula.id);
+      assert.equal(setup.id, formula.id);
+      assert.equal(setup.name, formula.name);
+      assert.equal(setup.forward, parseAlgorithm(formula.moves).join(" "));
+      assert.equal(setup.inverse, invertAlgorithm(formula.moves));
+      const scrambled = await signature(setup.inverse);
+      const restored = await signature(`${setup.inverse} ${setup.forward}`);
+      assert.notEqual(scrambled, solved, formula.id);
+      assert.equal(restored, solved, formula.id);
+    }
+
+    const keyed = f2l.find((formula) => formula.id === "f2l-4-1");
+    assert.ok(keyed?.algs);
+    assert.equal(keyed.algs[0], keyed.moves);
+    const defaults = practiceCase(keyed);
+    const alternate = practiceCase(keyed, 1);
+    assert.ok(defaults);
+    assert.ok(alternate);
+    assert.notEqual(defaults.forward, alternate.forward);
+    assert.equal(
+      await signature(`${defaults.inverse} ${defaults.forward}`),
+      solved,
+    );
+    assert.equal(
+      await signature(`${alternate.inverse} ${alternate.forward}`),
+      solved,
+    );
+  });
+
+  it("OLL 和 PLL 仍正常，其他方法仍不生成练习状态", () => {
     const methods = parseFormulaLibrary(
       JSON.parse(readFileSync(samplePath, "utf8")),
     );
@@ -478,6 +521,7 @@ describe("practiceCase", () => {
       for (const subclass of method.subclasses) {
         for (const formula of subclass.formulas) {
           const allowed =
+            subclass.id === "cfop-f2l" ||
             subclass.id === "cfop-oll" ||
             (method.id === "cfop" && subclass.id === "cfop-pll");
           if (allowed) {

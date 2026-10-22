@@ -33,6 +33,7 @@ function canPractice(formula: Formula): boolean {
   return (
     formula.practice === true ||
     OLL_PRACTICE_IDS.has(formula.id) ||
+    formula.id.startsWith("f2l-") ||
     formula.id.startsWith("pll-")
   );
 }
