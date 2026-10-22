@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-OLL / PLL SVG 顶层缩略图。Issue #44，PR 待合并。
+OLL / PLL SVG 顶层缩略图。Issue #44，[PR #45](https://github.com/IdEvEbI/cube-trainer/pull/45) 待合并。
 
 ## 下一步计划
 
