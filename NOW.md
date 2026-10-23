@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-产品规划文档更新（PRD / NOW / AGENTS）。等待合并（Issue #48）。
+产品规划文档更新。等待合并 [PR #49](https://github.com/IdEvEbI/cube-trainer/pull/49)（Closes #48）。
 
 ## 下一步计划
 
