@@ -1,6 +1,18 @@
 /** Hold delay before arming, to reduce accidental starts. */
 export const ARM_HOLD_MS = 300;
 
+/** Pointer / touch keep the hold delay; keyboard Space arms immediately. */
+export type TimingInputSource = "keyboard" | "pointer";
+
+/**
+ * Home tools stack: gap between time digits and local stats.
+ * Keep in sync with `.focus[data-focus="计时"] .slot-tools` in app.css.
+ */
+export const TIMER_HOME_TOOLS_GAP_PX = 20;
+
+/** Align tools to the top of the slot so the timer sits higher on the home screen. */
+export const TIMER_HOME_TOOLS_ALIGN = "start" as const;
+
 export type SessionPhase = "idle" | "arming" | "armed" | "running" | "stopped";
 
 export type SessionEvent =
@@ -10,6 +22,44 @@ export type SessionEvent =
   | { type: "hold_release" }
   | { type: "stop" }
   | { type: "reset" };
+
+/**
+ * Keyboard Space must arm on keydown so one press (down + up) starts.
+ * Soft-key taps are shorter than {@link ARM_HOLD_MS} and would cancel otherwise.
+ */
+export function armHoldDelayMs(source: TimingInputSource): number {
+  return source === "keyboard" ? 0 : ARM_HOLD_MS;
+}
+
+/**
+ * Apply hold_start, and for keyboard immediately hold_ready (armed).
+ * Pointer stays in arming until the hold timer fires.
+ */
+export function reduceHoldStart(
+  phase: SessionPhase,
+  source: TimingInputSource,
+): SessionPhase {
+  let next = reduceSession(phase, { type: "hold_start" });
+  if (source === "keyboard" && next === "arming") {
+    next = reduceSession(next, { type: "hold_ready" });
+  }
+  return next;
+}
+
+/** Comfortable gap between timer and stats (wide + narrow home). */
+export function isTimerHomeToolsGapComfortable(gapPx: number): boolean {
+  return gapPx >= 16;
+}
+
+export function timerHomeToolsLayout(): {
+  gapPx: number;
+  alignContent: typeof TIMER_HOME_TOOLS_ALIGN;
+} {
+  return {
+    gapPx: TIMER_HOME_TOOLS_GAP_PX,
+    alignContent: TIMER_HOME_TOOLS_ALIGN,
+  };
+}
 
 /** Pure phase transitions for scramble-timer session (prepare → run → stop). */
 export function reduceSession(

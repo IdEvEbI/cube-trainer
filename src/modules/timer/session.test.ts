@@ -2,14 +2,19 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   ARM_HOLD_MS,
+  TIMER_HOME_TOOLS_GAP_PX,
+  armHoldDelayMs,
   displayPhase,
+  isTimerHomeToolsGapComfortable,
   isTimingChromeHidden,
   isTimingPointerOnControl,
   keepElapsedOnScrambleRefresh,
   nextCubePreviewMode,
+  reduceHoldStart,
   reduceSession,
   releaseTimingFocus,
   showCubeLayerControls,
+  timerHomeToolsLayout,
   timingPreviewExclusive,
   timingShellVisible,
   type SessionPhase,
@@ -31,6 +36,32 @@ describe("reduceSession", () => {
   it("未满延迟松手则取消，不进入准备", () => {
     let phase: SessionPhase = "idle";
     phase = reduceSession(phase, { type: "hold_start" });
+    phase = reduceSession(phase, { type: "hold_cancel" });
+    assert.equal(phase, "idle");
+  });
+
+  it("空格一次启动：keydown 即 armed，keyup 进入计时中", () => {
+    assert.equal(armHoldDelayMs("keyboard"), 0);
+    assert.equal(armHoldDelayMs("pointer"), ARM_HOLD_MS);
+
+    let phase: SessionPhase = "idle";
+    phase = reduceHoldStart(phase, "keyboard");
+    assert.equal(phase, "armed");
+    phase = reduceSession(phase, { type: "hold_release" });
+    assert.equal(phase, "running");
+
+    // stopped 后同样一次空格即可再开
+    phase = reduceSession(phase, { type: "stop" });
+    phase = reduceHoldStart(phase, "keyboard");
+    assert.equal(phase, "armed");
+    phase = reduceSession(phase, { type: "hold_release" });
+    assert.equal(phase, "running");
+  });
+
+  it("触控仍需长按预备，短按不启动", () => {
+    let phase: SessionPhase = "idle";
+    phase = reduceHoldStart(phase, "pointer");
+    assert.equal(phase, "arming");
     phase = reduceSession(phase, { type: "hold_cancel" });
     assert.equal(phase, "idle");
   });
@@ -216,6 +247,16 @@ describe("releaseTimingFocus", () => {
     assert.equal(phase, "running");
     phase = reduceSession(phase, { type: "stop" });
     assert.equal(phase, "stopped");
+  });
+});
+
+describe("timerHomeToolsLayout", () => {
+  it("间距调整后布局正常：计时器与成绩有舒适间距且靠上", () => {
+    const layout = timerHomeToolsLayout();
+    assert.equal(layout.gapPx, TIMER_HOME_TOOLS_GAP_PX);
+    assert.equal(layout.alignContent, "start");
+    assert.equal(isTimerHomeToolsGapComfortable(layout.gapPx), true);
+    assert.equal(isTimerHomeToolsGapComfortable(2), false);
   });
 });
 

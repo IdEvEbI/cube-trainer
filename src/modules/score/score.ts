@@ -13,6 +13,15 @@ export type ScoreStorage = {
   write(value: string): void;
 };
 
+export type ScoreSummary = {
+  count: number;
+  bestMs: number | null;
+  worstMs: number | null;
+  avgMs: number | null;
+  /** WCA-style Ao5 over the five newest attempts; null if fewer than 5. */
+  ao5Ms: number | null;
+};
+
 const STORAGE_KEY = "cube-trainer-scores";
 const SCORE_LIMIT = 100;
 
@@ -35,6 +44,53 @@ export function browserScoreStorage(): ScoreStorage {
   };
 }
 
+/**
+ * WCA Ao5: five newest times, drop best and worst, mean of the middle three.
+ */
+export function averageOf5(timesNewestFirst: readonly number[]): number | null {
+  if (timesNewestFirst.length < 5) {
+    return null;
+  }
+  const five = timesNewestFirst.slice(0, 5);
+  const sorted = [...five].sort((a, b) => a - b);
+  const mid = sorted.slice(1, 4);
+  return Math.round((mid[0]! + mid[1]! + mid[2]!) / 3);
+}
+
+export function summarizeAttempts(
+  timesNewestFirst: readonly number[],
+): ScoreSummary {
+  const count = timesNewestFirst.length;
+  if (count === 0) {
+    return {
+      count: 0,
+      bestMs: null,
+      worstMs: null,
+      avgMs: null,
+      ao5Ms: null,
+    };
+  }
+  let best = timesNewestFirst[0]!;
+  let worst = timesNewestFirst[0]!;
+  let sum = 0;
+  for (const time of timesNewestFirst) {
+    if (time < best) {
+      best = time;
+    }
+    if (time > worst) {
+      worst = time;
+    }
+    sum += time;
+  }
+  return {
+    count,
+    bestMs: best,
+    worstMs: worst,
+    avgMs: Math.round(sum / count),
+    ao5Ms: averageOf5(timesNewestFirst),
+  };
+}
+
 export function createScoreLog(
   storage: ScoreStorage,
   now: () => Date = () => new Date(),
@@ -42,6 +98,11 @@ export function createScoreLog(
   return {
     list(): Score[] {
       return readScores(storage.read());
+    },
+    summary(): ScoreSummary {
+      return summarizeAttempts(
+        readScores(storage.read()).map((score) => score.timeMs),
+      );
     },
     record(input: { timeMs: number; scramble: string }): Score {
       const score = createScore(input, now());
