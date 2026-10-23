@@ -1,12 +1,18 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { TwistyPlayer, type ExperimentalStickering } from "cubing/twisty";
 import { parseAlgorithm } from "../formula/formulas.ts";
-import { scrambleDisplayAlgorithm } from "../scramble/scramble.ts";
+import {
+  scrambleDisplayAlgorithm,
+  scrambleViewAlgorithm,
+} from "../scramble/scramble.ts";
 import { CUBE_ORIENTATION_ALG, isLayerMove } from "./cube.ts";
 import { LAYER_MOVES, type LayerMove } from "./types.ts";
 import "./cube.css";
 
 export type CubeMotion = "forward" | "back";
+
+/** scramble = white U (timer); solve = yellow U (practice). */
+export type CubeViewOrientation = "scramble" | "solve";
 
 export type CubeHandle = {
   applyAlgorithm(moves: string): void;
@@ -143,11 +149,23 @@ async function animatePracticeMove(
   twisty.timestamp = "end";
 }
 
-export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
+export function CubeView({
+  ref,
+  showLayerControls = true,
+  viewOrientation = "solve",
+}: {
+  ref?: Ref<CubeHandle>;
+  /** Scramble-timer home hides the U/D/… pad; practice keeps it. */
+  showLayerControls?: boolean;
+  /** Timer first screen: white-up; practice: yellow-up. */
+  viewOrientation?: CubeViewOrientation;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<TwistyPlayer | null>(null);
   const queue = useRef(Promise.resolve());
   const generation = useRef(0);
+  const viewOrientationRef = useRef(viewOrientation);
+  viewOrientationRef.current = viewOrientation;
 
   useEffect(() => {
     const mount = host.current;
@@ -157,7 +175,8 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
     const twisty = new TwistyPlayer({
       puzzle: "3x3x3",
       alg: "",
-      experimentalSetupAlg: CUBE_ORIENTATION_ALG,
+      experimentalSetupAlg:
+        viewOrientation === "scramble" ? "" : CUBE_ORIENTATION_ALG,
       visualization: "3D",
       background: "none",
       controlPanel: "none",
@@ -174,7 +193,7 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
       twisty.remove();
       player.current = null;
     };
-  }, []);
+  }, [viewOrientation]);
 
   useImperativeHandle(ref, () => ({
     applyAlgorithm(moves: string) {
@@ -190,7 +209,10 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
       });
     },
     setAlgorithm(moves: string) {
-      const parsed = scrambleDisplayAlgorithm(moves);
+      const parsed =
+        viewOrientationRef.current === "scramble"
+          ? scrambleViewAlgorithm(moves)
+          : scrambleDisplayAlgorithm(moves);
       queue.current = queue.current.then(async () => {
         const twisty = player.current;
         if (!twisty) {
@@ -267,14 +289,18 @@ export function CubeView({ ref }: { ref?: Ref<CubeHandle> }) {
     <section className="cube-view">
       <h2>三阶魔方</h2>
       <div className="cube-stage" ref={host} />
-      <div className="cube-moves">
-        {LAYER_MOVES.map((move) => (
-          <button key={move} type="button" onClick={() => turn(move)}>
-            {move}
-          </button>
-        ))}
-      </div>
-      <p className="cube-hint">拖动层面，或点击按钮转动</p>
+      {showLayerControls ? (
+        <>
+          <div className="cube-moves">
+            {LAYER_MOVES.map((move) => (
+              <button key={move} type="button" onClick={() => turn(move)}>
+                {move}
+              </button>
+            ))}
+          </div>
+          <p className="cube-hint">拖动层面，或点击按钮转动</p>
+        </>
+      ) : null}
     </section>
   );
 }

@@ -28,6 +28,15 @@ function pick<T>(items: readonly T[], random: () => number): T {
   return item;
 }
 
+/** White-up scramble view (CSTimer-style); use for timer 3D + net. */
+export function scrambleViewAlgorithm(moves: string): string {
+  return parseScramble(moves).join(" ");
+}
+
+/**
+ * Yellow-up view: scramble in white-up frame, then z2 for solve orientation.
+ * Practice / restore still use yellow-up; timer first screen uses scrambleViewAlgorithm.
+ */
 export function scrambleDisplayAlgorithm(moves: string): string {
   return `z2 ${parseScramble(moves).join(" ")} z2`;
 }

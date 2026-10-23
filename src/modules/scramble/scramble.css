@@ -9,37 +9,53 @@
 }
 
 .scramble-bar {
+  position: relative;
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  justify-items: center;
 }
 
-.scramble button {
-  flex-shrink: 0;
-  min-width: 88px;
-  min-height: 44px;
-  padding: 0 18px;
+.scramble-icon {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
   border: 0;
   border-radius: 999px;
-  background: #f3f0e8;
-  color: #12141a;
+  background: #1c1f27;
+  color: #f3f0e8;
   font: inherit;
-  font-size: 1rem;
   cursor: pointer;
+}
+
+.scramble-icon-svg {
+  display: block;
 }
 
 .scramble-moves,
 .scramble-hint {
+  box-sizing: border-box;
   margin: 0;
   min-width: 0;
+  width: 100%;
+  padding: 0 44px;
+  text-align: center;
 }
 
 .scramble-moves {
   font-size: clamp(1.05rem, 2.1vw, 1.35rem);
-  font-weight: 560;
+  font-weight: 400;
   line-height: 1.45;
 }
 
@@ -51,13 +67,14 @@
 .scramble-net {
   display: grid;
   grid-template-columns: repeat(4, max-content);
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
+  justify-items: center;
 }
 
 .scramble-net-face {
   display: grid;
-  grid-template-columns: repeat(3, 22px);
+  grid-template-columns: repeat(3, var(--net-sticker, 22px));
   gap: 1px;
 }
 
@@ -92,33 +109,34 @@
 }
 
 .scramble-sticker {
-  width: 22px;
-  height: 22px;
+  width: var(--net-sticker, 22px);
+  height: var(--net-sticker, 22px);
   border-radius: 1px;
 }
 
+/* Match Twisty / cubing PGColors so 3D and net share the same shades. */
 .scramble-sticker[data-color="白"] {
   background: #ffffff;
 }
 
 .scramble-sticker[data-color="黄"] {
-  background: #ffd500;
+  background: #f4f400;
 }
 
 .scramble-sticker[data-color="绿"] {
-  background: #00a651;
+  background: #44ee00;
 }
 
 .scramble-sticker[data-color="蓝"] {
-  background: #0051ba;
+  background: #2266ff;
 }
 
 .scramble-sticker[data-color="红"] {
-  background: #c41e3a;
+  background: #ff0000;
 }
 
 .scramble-sticker[data-color="橙"] {
-  background: #ff5800;
+  background: #ff8000;
 }
 
 .scramble-net-error {

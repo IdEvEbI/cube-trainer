@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import formulas from "./data/formula-catalog.json";
 import { parseFormulaCatalog } from "./data/catalog.ts";
 import { CubeView, type CubeHandle } from "./modules/cube/CubeView.tsx";
@@ -27,7 +34,6 @@ import {
 import {
   back,
   showFormulas,
-  showLibrary,
   showMethods,
   showPractice,
   showTiming,
@@ -40,15 +46,28 @@ import {
   type PracticeCase,
 } from "./modules/practice/setup.ts";
 import { practiceStickering } from "./modules/practice/stickering.ts";
-import {
-  browserScoreStorage,
-  createScoreLog,
-  type Score,
-} from "./modules/score/score.ts";
-import { ScoreList } from "./modules/score/ScoreList.tsx";
+import { browserScoreStorage, createScoreLog } from "./modules/score/score.ts";
 import { ScrambleNet } from "./modules/scramble/ScrambleNet.tsx";
 import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
-import type { Scramble } from "./modules/scramble/types.ts";
+import { randomScramble3x3 } from "./modules/scramble/scramble.ts";
+import {
+  createPendingSolve,
+  resolveResultConfirm,
+  type PendingSolve,
+} from "./modules/timer/resultConfirm.ts";
+import { ResultConfirmDialog } from "./modules/timer/ResultConfirmDialog.tsx";
+import {
+  isTimingChromeHidden,
+  isTimingPointerOnControl,
+  keepElapsedOnScrambleRefresh,
+  nextCubePreviewMode,
+  releaseTimingFocus,
+  showCubeLayerControls,
+  timingPreviewExclusive,
+  timingShellVisible,
+  type CubePreviewMode,
+  type SessionPhase,
+} from "./modules/timer/session.ts";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
 import "./app.css";
 
@@ -67,9 +86,11 @@ export default function App() {
   const focusRef = useRef<Focus>({ kind: "计时" });
   const scoreLog = useMemo(() => createScoreLog(browserScoreStorage()), []);
   const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
-  const [scores, setScores] = useState<Score[]>(() => scoreLog.list());
-  const [scoresOpen, setScoresOpen] = useState(false);
-  const [netOpen, setNetOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState<CubePreviewMode>("cube");
+  const [timerPhase, setTimerPhase] = useState<SessionPhase>("idle");
+  const timerPhaseRef = useRef<SessionPhase>("idle");
+  timerPhaseRef.current = timerPhase;
+  const [pendingResult, setPendingResult] = useState<PendingSolve | null>(null);
   const [focus, setFocus] = useState<Focus>({ kind: "计时" });
   const [practice, setPractice] = useState<PracticeCase | null>(null);
   const [practiceNote, setPracticeNote] = useState<string | null>(null);
@@ -264,12 +285,36 @@ export default function App() {
     cube.current?.showMoves(setup.inverse);
   }
 
-  function onScramble(scramble: Scramble) {
-    cube.current?.setAlgorithm(scramble.moves);
-    timer.current?.prepare();
-    setScrambleMoves(scramble.moves);
-    setNetOpen(false);
+  function applyScramble(moves: string, resetTimer: boolean) {
+    cube.current?.setAlgorithm(moves);
+    setScrambleMoves(moves);
+    if (resetTimer) {
+      timer.current?.prepare();
+      setTimerPhase("idle");
+      timerPhaseRef.current = "idle";
+    }
   }
+
+  function refreshScramble(resetTimer = true) {
+    applyScramble(randomScramble3x3().moves, resetTimer);
+  }
+
+  function onTimerPhase(phase: SessionPhase) {
+    timerPhaseRef.current = phase;
+    setTimerPhase(phase);
+  }
+
+  useEffect(() => {
+    if (focus.kind !== "计时") {
+      return;
+    }
+    if (!scrambleMoves) {
+      refreshScramble();
+      return;
+    }
+    // Re-apply after CubeView remount (e.g. back from practice).
+    cube.current?.setAlgorithm(scrambleMoves);
+  }, [focus.kind, scrambleMoves]);
 
   function onMode(event: MouseEvent<HTMLButtonElement>) {
     const next = switchMode(mode).mode;
@@ -284,12 +329,75 @@ export default function App() {
 
   function onTimerStop(timeMs: number) {
     const kind = focusRef.current.kind;
-    if ((kind !== "计时" && kind !== "公式库") || !scrambleMoves) {
+    if (kind !== "计时" || !scrambleMoves) {
       return;
     }
-    scoreLog.record({ timeMs, scramble: scrambleMoves });
-    setScores(scoreLog.list());
+    // Ask keep/discard before recording or refreshing scramble.
+    setPendingResult(createPendingSolve({ timeMs, scramble: scrambleMoves }));
   }
+
+  function settlePendingResult(choice: "keep" | "discard") {
+    if (!pendingResult) {
+      return;
+    }
+    const decision = resolveResultConfirm(pendingResult, choice);
+    if (decision.shouldRecord) {
+      scoreLog.record({
+        timeMs: decision.timeMs,
+        scramble: decision.scramble,
+      });
+    }
+    setPendingResult(null);
+    // Keep the stopped time on screen; only refresh scramble / cube / net.
+    refreshScramble(!keepElapsedOnScrambleRefresh(timerPhaseRef.current));
+  }
+
+  const timingHoldRef = useRef(false);
+
+  function onTimingPointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (focus.kind !== "计时" || event.button !== 0 || pendingResult) {
+      return;
+    }
+    if (isTimingPointerOnControl(event.target)) {
+      return;
+    }
+    event.preventDefault();
+    timingHoldRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    timer.current?.pressDown();
+  }
+
+  function onTimingPointerUp(event: ReactPointerEvent<HTMLElement>) {
+    if (focus.kind !== "计时") {
+      return;
+    }
+    if (!timingHoldRef.current) {
+      return;
+    }
+    timingHoldRef.current = false;
+    timer.current?.pressUp();
+    try {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    } catch {
+      /* already released */
+    }
+  }
+
+  function onTimingPointerCancel() {
+    if (focus.kind !== "计时") {
+      return;
+    }
+    if (!timingHoldRef.current) {
+      return;
+    }
+    timingHoldRef.current = false;
+    timer.current?.pressCancel();
+  }
+
+  const timingRunning =
+    focus.kind === "计时" && isTimingChromeHidden(timerPhase);
+  const preview = timingPreviewExclusive(previewMode);
+  const showTimingHome = focus.kind === "计时" && !timingRunning;
 
   const backLabel =
     focus.kind === "公式库"
@@ -302,59 +410,126 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      {pendingResult ? (
+        <ResultConfirmDialog
+          timeMs={pendingResult.timeMs}
+          onKeep={() => settlePendingResult("keep")}
+          onDiscard={() => settlePendingResult("discard")}
+        />
+      ) : null}
+      <header
+        className="topbar"
+        hidden={
+          focus.kind === "计时"
+            ? !timingShellVisible(timerPhase, "topbar")
+            : false
+        }
+      >
         {backLabel ? (
           <button type="button" className="nav-back" onClick={onBack}>
             {backLabel}
           </button>
         ) : null}
-        <button type="button" className="mode-switch" onClick={onMode}>
-          {mode === "打乱计时" ? "练习模式" : "打乱计时"}
+        <button
+          type="button"
+          className={
+            mode === "打乱计时"
+              ? "mode-switch mode-switch-practice"
+              : "mode-switch"
+          }
+          onClick={onMode}
+        >
+          <span className="mode-switch-label">
+            {mode === "打乱计时" ? "练习" : "打乱计时"}
+          </span>
         </button>
-        {focus.kind === "计时" ? (
-          <button
-            type="button"
-            className="library-entry"
-            onClick={(event) => {
-              setFocus(showLibrary());
-              event.currentTarget.blur();
-            }}
-          >
-            公式库
-          </button>
-        ) : null}
         {methodName && focus.kind === "练习" ? (
           <span className="topbar-title">{methodName}</span>
         ) : null}
       </header>
-      <main className="focus" data-focus={focus.kind}>
-        <div className="slot-scramble" hidden={focus.kind !== "计时"}>
-          <ScramblePanel onScramble={onScramble} />
+      <main
+        className="focus"
+        data-focus={focus.kind}
+        data-timer-phase={focus.kind === "计时" ? timerPhase : undefined}
+        data-preview={showTimingHome ? previewMode : undefined}
+        onPointerDown={focus.kind === "计时" ? onTimingPointerDown : undefined}
+        onPointerUp={focus.kind === "计时" ? onTimingPointerUp : undefined}
+        onPointerCancel={
+          focus.kind === "计时" ? onTimingPointerCancel : undefined
+        }
+      >
+        <div
+          className="slot-scramble"
+          hidden={
+            focus.kind !== "计时" || !timingShellVisible(timerPhase, "scramble")
+          }
+        >
+          <ScramblePanel moves={scrambleMoves} onRescramble={refreshScramble} />
         </div>
-        <div className="slot-cube" hidden={!showCube}>
-          <CubeView ref={cube} />
+        <div
+          className="slot-cube"
+          hidden={
+            focus.kind === "计时"
+              ? !timingShellVisible(timerPhase, "preview")
+              : !showCube
+          }
+        >
+          {focus.kind === "计时" ? (
+            <>
+              <div
+                className="preview-stage"
+                data-preview="cube"
+                hidden={!preview.showCube}
+              >
+                <CubeView
+                  ref={cube}
+                  showLayerControls={showCubeLayerControls(focus.kind)}
+                  viewOrientation="scramble"
+                />
+              </div>
+              <div
+                className="preview-stage preview-net"
+                data-preview="net"
+                hidden={!preview.showNet || !scrambleMoves}
+              >
+                {scrambleMoves ? <ScrambleNet moves={scrambleMoves} /> : null}
+              </div>
+              <button
+                type="button"
+                className="preview-toggle"
+                aria-label={
+                  previewMode === "cube" ? "切换到平面图" : "切换到 3D 魔方"
+                }
+                onClick={(event) => {
+                  setPreviewMode((mode) => nextCubePreviewMode(mode));
+                  releaseTimingFocus(event.currentTarget);
+                }}
+              >
+                {previewMode === "cube" ? "平面图" : "3D"}
+              </button>
+            </>
+          ) : (
+            <CubeView
+              ref={cube}
+              showLayerControls={showCubeLayerControls(focus.kind)}
+            />
+          )}
         </div>
-        <div className="slot-tools" hidden={focus.kind !== "计时"}>
+        <div
+          className="slot-tools"
+          hidden={
+            focus.kind !== "计时" || !timingShellVisible(timerPhase, "timer")
+          }
+        >
           {showScrambleTimer ? (
-            <TimerView ref={timer} onStop={onTimerStop} />
-          ) : null}
-          <ScoreList
-            scores={scores}
-            open={scoresOpen}
-            onToggle={() => setScoresOpen((open) => !open)}
-          />
-          {scrambleMoves ? (
-            <button
-              type="button"
-              className="net-toggle"
-              aria-expanded={netOpen}
-              onClick={() => setNetOpen((open) => !open)}
-            >
-              平面图
-            </button>
-          ) : null}
-          {netOpen && scrambleMoves ? (
-            <ScrambleNet moves={scrambleMoves} />
+            <TimerView
+              ref={timer}
+              onStop={onTimerStop}
+              onPhaseChange={onTimerPhase}
+              showControls={false}
+              showChrome={false}
+              inputEnabled={!pendingResult}
+            />
           ) : null}
         </div>
         <div className="slot-library" hidden={focus.kind !== "公式库"}>
