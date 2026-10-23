@@ -66,6 +66,7 @@ import {
   type CubePreviewMode,
   type SessionPhase,
 } from "./modules/timer/session.ts";
+import { TimerStats } from "./modules/timer/TimerStats.tsx";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
 import "./app.css";
 
@@ -81,6 +82,7 @@ export default function App() {
   const timer = useRef<TimerHandle>(null);
   const focusRef = useRef<Focus>({ kind: "计时" });
   const scoreLog = useMemo(() => createScoreLog(browserScoreStorage()), []);
+  const [scoreRevision, setScoreRevision] = useState(0);
   const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<CubePreviewMode>("cube");
   const [timerPhase, setTimerPhase] = useState<SessionPhase>("idle");
@@ -115,6 +117,10 @@ export default function App() {
       (formula) => formula.id === practiceFormulaId,
     ) ?? null;
   const algorithms = practiceFormula ? formulaAlgorithms(practiceFormula) : [];
+  const scoreSummary = useMemo(
+    () => scoreLog.summary(),
+    [scoreLog, scoreRevision],
+  );
 
   function stopPlay() {
     playRun.current += 1;
@@ -361,6 +367,7 @@ export default function App() {
         timeMs: decision.timeMs,
         scramble: decision.scramble,
       });
+      setScoreRevision((current) => current + 1);
     }
     setPendingResult(null);
     // Keep the stopped time on screen; only refresh scramble / cube / net.
@@ -556,14 +563,17 @@ export default function App() {
           }
         >
           {showScrambleTimer ? (
-            <TimerView
-              ref={timer}
-              onStop={onTimerStop}
-              onPhaseChange={onTimerPhase}
-              showControls={false}
-              showChrome={false}
-              inputEnabled={!pendingResult}
-            />
+            <>
+              <TimerView
+                ref={timer}
+                onStop={onTimerStop}
+                onPhaseChange={onTimerPhase}
+                showControls={false}
+                showChrome={false}
+                inputEnabled={!pendingResult}
+              />
+              {showTimingHome ? <TimerStats summary={scoreSummary} /> : null}
+            </>
           ) : null}
         </div>
         <div className="slot-session" hidden={focus.kind !== "练习"}>

@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createScoreLog, type ScoreStorage } from "./score.ts";
+import {
+  averageOf5,
+  createScoreLog,
+  summarizeAttempts,
+  type ScoreStorage,
+} from "./score.ts";
 
-function memoryStorage(): ScoreStorage {
-  let raw: string | null = null;
+function memoryStorage(initial: string | null = null): ScoreStorage {
+  let raw: string | null = initial;
   return {
     read: () => raw,
     write: (value) => {
@@ -11,6 +16,42 @@ function memoryStorage(): ScoreStorage {
     },
   };
 }
+
+describe("averageOf5", () => {
+  it("不足 5 次时没有 Ao5", () => {
+    assert.equal(averageOf5([1000, 2000, 3000, 4000]), null);
+  });
+
+  it("去掉最好与最差后对中间三次取平均", () => {
+    // newest first: 3, 1, 5, 2, 4 → sorted 1,2,3,4,5 → mid 2+3+4 = 3
+    assert.equal(averageOf5([3000, 1000, 5000, 2000, 4000]), 3000);
+  });
+});
+
+describe("summarizeAttempts", () => {
+  it("空列表统计为空", () => {
+    assert.deepEqual(summarizeAttempts([]), {
+      count: 0,
+      bestMs: null,
+      worstMs: null,
+      avgMs: null,
+      ao5Ms: null,
+    });
+  });
+
+  it("记录后最好 / 最差 / 平均 / Ao5 计算正确", () => {
+    const times = [2500, 1000, 4000, 2000, 3000, 9000];
+    const summary = summarizeAttempts(times);
+    assert.equal(summary.count, 6);
+    assert.equal(summary.bestMs, 1000);
+    assert.equal(summary.worstMs, 9000);
+    assert.equal(
+      summary.avgMs,
+      Math.round((2500 + 1000 + 4000 + 2000 + 3000 + 9000) / 6),
+    );
+    assert.equal(summary.ao5Ms, averageOf5(times));
+  });
+});
 
 describe("createScoreLog", () => {
   it("停止后把时间、打乱、日期和模式存到本机", () => {
@@ -53,10 +94,34 @@ describe("createScoreLog", () => {
     assert.equal(scores[1]?.mode, "非蓝牙");
   });
 
+  it("记录后 summary 最好 / 最差 / 平均 / Ao5 正确", () => {
+    const log = createScoreLog(
+      memoryStorage(),
+      () => new Date("2026-10-23T00:00:00.000Z"),
+    );
+    for (const timeMs of [9000, 3000, 2000, 4000, 1000, 2500]) {
+      log.record({ timeMs, scramble: "R U" });
+    }
+    // newest first after records: 2500, 1000, 4000, 2000, 3000, 9000
+    const summary = log.summary();
+    assert.equal(summary.count, 6);
+    assert.equal(summary.bestMs, 1000);
+    assert.equal(summary.worstMs, 9000);
+    assert.equal(summary.avgMs, Math.round(21500 / 6));
+    assert.equal(summary.ao5Ms, averageOf5([2500, 1000, 4000, 2000, 3000]));
+  });
+
   it("损坏的记录读出来是空的", () => {
     const storage = memoryStorage();
     storage.write("{");
     assert.deepEqual(createScoreLog(storage).list(), []);
+    assert.deepEqual(createScoreLog(storage).summary(), {
+      count: 0,
+      bestMs: null,
+      worstMs: null,
+      avgMs: null,
+      ao5Ms: null,
+    });
   });
 
   it("没有打乱或时间无效时不保存", () => {

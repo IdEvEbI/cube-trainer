@@ -6,17 +6,19 @@ import {
   type Ref,
 } from "react";
 import {
-  ARM_HOLD_MS,
+  armHoldDelayMs,
   displayPhase,
+  reduceHoldStart,
   reduceSession,
   type SessionPhase,
+  type TimingInputSource,
 } from "./session.ts";
 import { createTimer, formatElapsed } from "./timer.ts";
 import "./timer.css";
 
 export type TimerHandle = {
   prepare(): void;
-  pressDown(): void;
+  pressDown(source?: TimingInputSource): void;
   pressUp(): void;
   pressCancel(): void;
 };
@@ -80,7 +82,7 @@ export function TimerView({
     }
   }
 
-  function beginHold() {
+  function beginHold(source: TimingInputSource) {
     const current = phaseRef.current;
     if (current === "running") {
       return;
@@ -89,11 +91,16 @@ export function TimerView({
       return;
     }
     clearHold();
-    apply({ type: "hold_start" });
-    holdTimer.current = setTimeout(() => {
-      holdTimer.current = null;
-      apply({ type: "hold_ready" });
-    }, ARM_HOLD_MS);
+    const next = reduceHoldStart(current, source);
+    moveTo(next);
+    // Keyboard arms synchronously; pointer still waits out the hold delay.
+    const delayMs = armHoldDelayMs(source);
+    if (delayMs > 0 && next === "arming") {
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        apply({ type: "hold_ready" });
+      }, delayMs);
+    }
   }
 
   function endHold() {
@@ -140,7 +147,7 @@ export function TimerView({
     apply({ type: "reset" });
   }
 
-  function pressDown() {
+  function pressDown(source: TimingInputSource = "pointer") {
     if (!inputEnabledRef.current) {
       return;
     }
@@ -149,7 +156,7 @@ export function TimerView({
       ignoreNextRelease.current = true;
       return;
     }
-    beginHold();
+    beginHold(source);
   }
 
   function pressUp() {
@@ -199,7 +206,7 @@ export function TimerView({
         return;
       }
       event.preventDefault();
-      pressDown();
+      pressDown("keyboard");
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
@@ -259,7 +266,7 @@ export function TimerView({
       {showChrome ? (
         <p className="timer-hint">
           {showControls
-            ? "按住空格预备，松开开始，再按空格停止"
+            ? "空格开始，再按空格停止；触控仍长按预备"
             : "长按预备，松手开始；计时中点击停止"}
         </p>
       ) : null}

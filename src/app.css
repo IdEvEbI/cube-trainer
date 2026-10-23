@@ -193,10 +193,11 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   width: 100%;
   min-height: 0;
   display: grid;
-  align-content: center;
+  /* Keep in sync with TIMER_HOME_TOOLS_* in session.ts */
+  align-content: start;
   justify-items: center;
-  gap: 2px;
-  padding: 0;
+  gap: 20px;
+  padding: 4px 0 12px;
 }
 
 .focus[data-focus="计时"][data-timer-phase="running"] {
@@ -561,8 +562,9 @@ body:has(.focus[data-focus="练习"]),
 
   .focus[data-focus="计时"] .slot-tools {
     grid-row: 3;
-    align-content: center;
+    align-content: start;
     justify-items: center;
+    gap: 20px;
   }
 
   .focus[data-focus="计时"][data-timer-phase="running"] {
