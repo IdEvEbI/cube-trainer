@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-[Issue #52](https://github.com/IdEvEbI/cube-trainer/issues/52)：练习页布局优化。本地 UI 已确认；提交并开 PR 后等待维护者合并。合并前不继续下一件。
+[Issue #52](https://github.com/IdEvEbI/cube-trainer/issues/52) / [PR #53](https://github.com/IdEvEbI/cube-trainer/pull/53)：练习页布局优化。本地 UI 已确认；已开 PR，等待维护者合并。合并前不继续下一件。
 
 ## 下一步计划
 
