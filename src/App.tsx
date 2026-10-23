@@ -9,17 +9,16 @@ import {
 import formulas from "./data/formula-catalog.json";
 import { parseFormulaCatalog } from "./data/catalog.ts";
 import { CubeView, type CubeHandle } from "./modules/cube/CubeView.tsx";
-import { FormulaList } from "./modules/formula/FormulaList.tsx";
 import { parseFormulaLibrary } from "./modules/formula/formulas.ts";
 import type { Formula } from "./modules/formula/types.ts";
+import { formulaGroup } from "./modules/practice/browser.ts";
 import {
-  FormulaBoard,
-  MethodPicker,
-} from "./modules/practice/PracticeLibrary.tsx";
-import { formulaGroup, practiceList } from "./modules/practice/browser.ts";
+  defaultPracticeFormula,
+  toPickerFormula,
+} from "./modules/practice/formulaPicker.ts";
 import { PracticeControls } from "./modules/practice/PracticeControls.tsx";
+import { PracticeFormulaPicker } from "./modules/practice/PracticeFormulaPicker.tsx";
 import { PracticeHint } from "./modules/practice/PracticeHint.tsx";
-import { PracticeSwitcher } from "./modules/practice/PracticeSwitcher.tsx";
 import {
   PLAYBACK_STEP_MS,
   atStart,
@@ -33,13 +32,12 @@ import {
 } from "./modules/practice/playback.ts";
 import {
   back,
-  showFormulas,
-  showMethods,
   showPractice,
   showTiming,
   type Focus,
 } from "./modules/practice/focus.ts";
 import { switchMode } from "./modules/practice/mode.ts";
+import { modeSwitchPresentation } from "./modules/practice/practiceLayout.ts";
 import {
   formulaAlgorithms,
   practiceCase,
@@ -75,9 +73,7 @@ const formulaLibrary = parseFormulaLibrary(formulas);
 const formulaCatalog = parseFormulaCatalog(formulas);
 
 function modeOf(focus: Focus) {
-  return focus.kind === "计时" || focus.kind === "公式库"
-    ? "打乱计时"
-    : "公式练习";
+  return focus.kind === "计时" ? "打乱计时" : "公式练习";
 }
 
 export default function App() {
@@ -107,16 +103,12 @@ export default function App() {
   focusRef.current = focus;
 
   const mode = modeOf(focus);
-  const methodId =
-    focus.kind === "公式" || focus.kind === "练习" ? focus.methodId : null;
-  const methodName = formulaCatalog.find(
-    (method) => method.id === methodId,
-  )?.name;
+  const methodId = focus.kind === "练习" ? focus.methodId : null;
   const showCube = focus.kind === "计时" || focus.kind === "练习";
-  const showScrambleTimer = focus.kind === "计时" || focus.kind === "公式库";
+  const showScrambleTimer = focus.kind === "计时";
   const practiceGroup =
     methodId && practiceFormulaId
-      ? formulaGroup(formulaCatalog, methodId, practiceFormulaId)
+      ? formulaGroup(formulaLibrary, methodId, practiceFormulaId)
       : null;
   const practiceFormula =
     practiceGroup?.formulas.find(
@@ -192,6 +184,31 @@ export default function App() {
     cube.current?.setStickering(practiceStickering(id, f2lSimplified));
   }, [focus.kind, practice?.id, f2lSimplified]);
 
+  // Entering practice with no selection defaults to the first F2L formula.
+  useEffect(() => {
+    if (focus.kind !== "练习" || practiceFormulaId) {
+      return;
+    }
+    const first = defaultPracticeFormula(formulaCatalog);
+    if (!first) {
+      return;
+    }
+    const formula = toPickerFormula(first);
+    stopPlay();
+    cube.current?.cancelAnimation();
+    setPracticeFormulaId(formula.id);
+    setAlgorithmIndex(0);
+    const setup = practiceCase(formula);
+    if (!setup) {
+      setPractice(null);
+      setPracticeNote(`${formula.name} 还不能练习。`);
+      return;
+    }
+    setPracticeNote(null);
+    setPractice(setup);
+    cube.current?.showMoves(setup.inverse);
+  }, [focus.kind, practiceFormulaId]);
+
   useEffect(
     () => () => {
       playRun.current += 1;
@@ -247,8 +264,7 @@ export default function App() {
   }
 
   function onFormula(formula: Formula) {
-    if (mode !== "公式练习") {
-      cube.current?.applyAlgorithm(formula.moves);
+    if (focus.kind !== "练习") {
       return;
     }
     stopPlay();
@@ -264,7 +280,6 @@ export default function App() {
     setPracticeNote(null);
     setPractice(setup);
     cube.current?.showMoves(setup.inverse);
-    setFocus((current) => showPractice(current));
   }
 
   function onAlgorithm(index: number) {
@@ -318,7 +333,7 @@ export default function App() {
 
   function onMode(event: MouseEvent<HTMLButtonElement>) {
     const next = switchMode(mode).mode;
-    setFocus(next === "公式练习" ? showMethods() : showTiming());
+    setFocus(next === "公式练习" ? showPractice() : showTiming());
     event.currentTarget.blur();
   }
 
@@ -398,15 +413,7 @@ export default function App() {
     focus.kind === "计时" && isTimingChromeHidden(timerPhase);
   const preview = timingPreviewExclusive(previewMode);
   const showTimingHome = focus.kind === "计时" && !timingRunning;
-
-  const backLabel =
-    focus.kind === "公式库"
-      ? "返回计时"
-      : focus.kind === "公式"
-        ? "返回方法"
-        : focus.kind === "练习"
-          ? "返回公式"
-          : null;
+  const modeEntry = modeSwitchPresentation(mode);
 
   return (
     <div className="app">
@@ -425,27 +432,57 @@ export default function App() {
             : false
         }
       >
-        {backLabel ? (
-          <button type="button" className="nav-back" onClick={onBack}>
-            {backLabel}
+        {focus.kind === "练习" ? (
+          <button
+            type="button"
+            className="nav-back nav-back-icon"
+            aria-label="返回"
+            title="返回"
+            onClick={onBack}
+          >
+            <svg
+              className="nav-back-svg"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              aria-hidden="true"
+            >
+              <path
+                fill="currentColor"
+                d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"
+              />
+            </svg>
           </button>
-        ) : null}
-        <button
-          type="button"
-          className={
-            mode === "打乱计时"
-              ? "mode-switch mode-switch-practice"
-              : "mode-switch"
-          }
-          onClick={onMode}
-        >
-          <span className="mode-switch-label">
-            {mode === "打乱计时" ? "练习" : "打乱计时"}
-          </span>
-        </button>
-        {methodName && focus.kind === "练习" ? (
-          <span className="topbar-title">{methodName}</span>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            className={
+              modeEntry.kind === "icon"
+                ? "mode-switch mode-switch-practice"
+                : "mode-switch"
+            }
+            aria-label={modeEntry.ariaLabel}
+            title={modeEntry.ariaLabel}
+            onClick={onMode}
+          >
+            {modeEntry.kind === "icon" ? (
+              <svg
+                className="mode-switch-icon"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm0 3a5 5 0 1 0 5 5 5 5 0 0 0-5-5zm0 2a3 3 0 1 1-3 3 3 3 0 0 1 3-3zm0 2a1 1 0 1 0 1 1 1 1 0 0 0-1-1z"
+                />
+              </svg>
+            ) : (
+              <span className="mode-switch-label">{modeEntry.text}</span>
+            )}
+          </button>
+        )}
       </header>
       <main
         className="focus"
@@ -509,10 +546,7 @@ export default function App() {
               </button>
             </>
           ) : (
-            <CubeView
-              ref={cube}
-              showLayerControls={showCubeLayerControls(focus.kind)}
-            />
+            <CubeView ref={cube} showLayerControls={false} />
           )}
         </div>
         <div
@@ -532,39 +566,13 @@ export default function App() {
             />
           ) : null}
         </div>
-        <div className="slot-library" hidden={focus.kind !== "公式库"}>
-          <FormulaList methods={formulaLibrary} onSelect={onFormula} />
-        </div>
-        <div className="slot-methods" hidden={focus.kind !== "方法"}>
-          <MethodPicker
-            methods={formulaCatalog}
-            onSelect={(id) => {
-              setPracticeNote(null);
-              setFocus(showFormulas(id));
-            }}
-          />
-        </div>
-        <div className="slot-formulas" hidden={focus.kind !== "公式"}>
-          {focus.kind === "公式" ? (
-            <FormulaBoard
-              methods={formulaCatalog}
-              methodId={focus.methodId}
-              selectedId={practice?.id ?? null}
-              note={practiceNote}
-              onSelect={onFormula}
-            />
-          ) : null}
-        </div>
         <div className="slot-session" hidden={focus.kind !== "练习"}>
           <div className="practice-rail">
-            {practiceGroup ? (
-              <PracticeSwitcher
-                title={practiceGroup.name}
-                formulas={practiceList(practiceGroup)}
-                selectedId={practice?.id ?? null}
-                onSelect={onFormula}
-              />
-            ) : null}
+            <PracticeFormulaPicker
+              methods={formulaCatalog}
+              selectedId={practice?.id ?? null}
+              onSelect={onFormula}
+            />
           </div>
           <PracticeHint
             practice={practice}
@@ -587,9 +595,6 @@ export default function App() {
               onNext={() => moveCursor(stepNext, "forward")}
               onTarget={() => moveCursor(atTarget, "snap")}
             />
-          ) : null}
-          {focus.kind === "练习" ? (
-            <TimerView key={practice?.id ?? "idle"} />
           ) : null}
         </div>
       </main>

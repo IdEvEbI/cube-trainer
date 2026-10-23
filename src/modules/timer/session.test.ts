@@ -79,8 +79,8 @@ describe("showCubeLayerControls", () => {
     assert.equal(showCubeLayerControls("计时"), false);
   });
 
-  it("练习模式仍显示转面按钮", () => {
-    assert.equal(showCubeLayerControls("练习"), true);
+  it("练习模式也不显示转面按钮", () => {
+    assert.equal(showCubeLayerControls("练习"), false);
   });
 
   it("去掉转面后交互状态闭环仍正常", () => {

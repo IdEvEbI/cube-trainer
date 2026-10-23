@@ -64,9 +64,9 @@ export function isTimingChromeHidden(phase: SessionPhase): boolean {
   return phase === "running";
 }
 
-/** Scramble-timer home has no manual layer turn pad; practice keeps it. */
+/** Timing and practice both hide the manual layer turn pad. */
 export function showCubeLayerControls(focusKind: string): boolean {
-  return focusKind !== "计时";
+  return focusKind !== "计时" && focusKind !== "练习";
 }
 
 export type CubePreviewMode = "cube" | "net";

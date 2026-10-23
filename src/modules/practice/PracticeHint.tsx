@@ -50,36 +50,38 @@ export function PracticeHint({
             />
           ) : null}
           <p className="practice-name">{practice.name}</p>
-          <p className="practice-length">{moveCount(source)} 步</p>
-          <p className="practice-moves">
-            {tokens.map((token, index) => {
-              const gap = formulaTokenGap(tokens[index - 1], token);
-              if (token.step === null) {
+          <div className="practice-moves">
+            <p className="practice-moves-scroll">
+              {tokens.map((token, index) => {
+                const gap = formulaTokenGap(tokens[index - 1], token);
+                if (token.step === null) {
+                  return (
+                    <span key={`${index}-${token.text}`}>
+                      {gap}
+                      <span className="group">{token.text}</span>
+                    </span>
+                  );
+                }
                 return (
                   <span key={`${index}-${token.text}`}>
                     {gap}
-                    <span className="group">{token.text}</span>
+                    <span
+                      className={
+                        token.step === active ? "step is-current" : "step"
+                      }
+                      aria-current={token.step === active ? "step" : undefined}
+                    >
+                      {token.text}
+                    </span>
                   </span>
                 );
-              }
-              return (
-                <span key={`${index}-${token.text}`}>
-                  {gap}
-                  <span
-                    className={
-                      token.step === active ? "step is-current" : "step"
-                    }
-                    aria-current={token.step === active ? "step" : undefined}
-                  >
-                    {token.text}
-                  </span>
-                </span>
-              );
-            })}
-          </p>
+              })}
+            </p>
+            <span className="practice-length">{moveCount(source)} 步</span>
+          </div>
           {algorithms.length > 1 && onAlgorithm ? (
             <label className="algorithm-picker">
-              算法
+              <span className="algorithm-picker-label">算法</span>
               <select
                 aria-label="选择算法"
                 value={algorithmIndex}

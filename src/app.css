@@ -17,7 +17,6 @@
 
 .mode-switch,
 .nav-back,
-.library-entry,
 .net-toggle,
 .preview-toggle {
   flex: none;
@@ -35,16 +34,25 @@
 }
 
 .mode-switch-practice {
+  width: 40px;
   min-width: 40px;
-  padding: 0 14px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mode-switch-label {
   font-weight: 600;
 }
 
+.mode-switch-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 .nav-back,
-.library-entry,
 .net-toggle,
 .preview-toggle {
   padding: 0 16px;
@@ -279,40 +287,70 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   font-weight: 600;
 }
 
-.focus[data-focus="方法"],
-.focus[data-focus="公式"],
-.focus[data-focus="公式库"] {
-  display: grid;
-  min-height: 0;
-  touch-action: auto;
+/* Practice: soft-blue home; cube upper-middle; picker overlays (does not push layout). */
+body:has(.focus[data-focus="练习"]),
+.app:has(.focus[data-focus="练习"]),
+.app:has(.focus[data-focus="练习"]) .topbar,
+.app:has(.focus[data-focus="练习"]) .focus[data-focus="练习"] {
+  background: #4a7eb5;
 }
 
-.slot-methods,
-.slot-formulas,
-.slot-library {
-  min-height: 0;
-  overflow: auto;
+.app:has(.focus[data-focus="练习"]) .nav-back {
+  background: transparent;
+  border: 1px solid rgb(247 251 255 / 42%);
+  color: #f7fbff;
+  box-shadow: none;
 }
 
-.slot-library .formula-list {
-  max-height: none;
-  overflow: visible;
+.app:has(.focus[data-focus="练习"]) .nav-back-icon {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app:has(.focus[data-focus="练习"]) .nav-back-svg {
+  display: block;
+}
+
+.app:has(.focus[data-focus="练习"]) .practice-name,
+.app:has(.focus[data-focus="练习"]) .practice-moves,
+.app:has(.focus[data-focus="练习"]) .practice-moves-scroll,
+.app:has(.focus[data-focus="练习"]) .practice-moves .group,
+.app:has(.focus[data-focus="练习"]) .practice-moves .step,
+.app:has(.focus[data-focus="练习"]) .practice-length {
+  color: #f7fbff;
+}
+
+.app:has(.focus[data-focus="练习"]) .practice-moves .step.is-current {
+  background: #ffd500;
+  color: #12141a;
+}
+
+.app:has(.focus[data-focus="练习"]) .algorithm-picker-label {
+  color: #f7fbff;
+}
+
+.app:has(.focus[data-focus="练习"]) .practice-hint h2,
+.app:has(.focus[data-focus="练习"]) .practice-hint > p {
+  color: rgb(247 251 255 / 78%);
 }
 
 .focus[data-focus="练习"] {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(
-      220px,
-      300px
-    );
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   grid-template-areas:
-    "formula hint timer"
-    "formula cube timer"
-    "formula controls timer";
+    "cube"
+    "hint"
+    "controls";
   align-items: stretch;
-  gap: 12px;
-  padding: 0 20px 16px;
+  justify-items: center;
+  gap: 10px;
+  padding: 0 12px 16px;
   touch-action: auto;
 }
 
@@ -322,38 +360,50 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
 
 .focus[data-focus="练习"] .slot-cube {
   grid-area: cube;
+  width: 100%;
+  max-width: 560px;
   min-width: 0;
   min-height: 0;
   height: 100%;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  padding-top: 12px;
 }
 
 .focus[data-focus="练习"] .practice-rail {
-  grid-area: formula;
-  align-self: stretch;
-  width: 100%;
+  position: absolute;
+  z-index: 6;
+  top: 8px;
+  left: 0;
+  right: 0;
+  width: min(calc(100% - 24px), 960px);
+  max-width: 960px;
   min-width: 0;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  margin-inline: auto;
+  pointer-events: none;
+}
+
+.focus[data-focus="练习"] .practice-rail .formula-picker {
+  pointer-events: auto;
 }
 
 .focus[data-focus="练习"] .practice-hint {
   grid-area: hint;
-  align-self: stretch;
   width: 100%;
+  max-width: 640px;
   min-height: 0;
   margin: 0;
-  padding: 10px 16px;
+  padding: 10px 14px;
   display: grid;
   align-content: center;
   gap: 4px;
-  border-style: solid;
+  border: 1px solid rgb(247 251 255 / 28%);
+  border-radius: 14px;
+  background: rgb(18 28 42 / 22%);
 }
 
 .focus[data-focus="练习"] .practice-hint h2 {
-  color: #8d887d;
   font-size: 0.75rem;
 }
 
@@ -361,47 +411,52 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
+  gap: 14px 24px;
   min-width: 0;
 }
 
+.focus[data-focus="练习"] .practice-summary .top-pattern {
+  margin-right: 4px;
+}
+
 .focus[data-focus="练习"] .practice-name,
-.focus[data-focus="练习"] .practice-length,
 .focus[data-focus="练习"] .practice-moves,
 .focus[data-focus="练习"] .practice-hint > p {
   margin: 0;
 }
 
 .focus[data-focus="练习"] .practice-name {
-  color: #f3f0e8;
   font-size: 1.15rem;
   font-weight: 600;
 }
 
 .focus[data-focus="练习"] .practice-controls {
   grid-area: controls;
+  width: 100%;
+  max-width: 640px;
   align-self: center;
-}
-
-.focus[data-focus="练习"] .timer {
-  grid-area: timer;
-  align-self: center;
+  justify-self: center;
 }
 
 .focus[data-focus="练习"] .cube-view {
-  height: 100%;
+  width: 100%;
+  height: auto;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
 }
 
 .focus[data-focus="练习"] .cube-view h2,
-.focus[data-focus="练习"] .cube-hint {
+.focus[data-focus="练习"] .cube-hint,
+.focus[data-focus="练习"] .cube-moves {
   display: none;
 }
 
 .focus[data-focus="练习"] .cube-stage {
-  height: 100%;
-  min-height: 140px;
+  width: min(100%, 360px);
+  height: min(46vh, 360px);
+  min-height: 220px;
+  margin: 0 auto;
 }
 
 .focus .timer,
@@ -411,11 +466,26 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
 
 .focus[data-focus="练习"] .practice-moves {
   font-size: 1.2rem;
+  width: 100%;
+}
+
+.focus[data-focus="练习"] .practice-moves-scroll {
+  max-width: 100%;
 }
 
 .focus[data-focus="练习"] .algorithm-picker {
   flex: 1 1 100%;
-  margin: 4px 0 0;
+  margin: 8px 0 0;
+}
+
+.focus[data-focus="练习"] .algorithm-picker-label {
+  color: #f7fbff;
+}
+
+.focus[data-focus="练习"] .algorithm-picker select {
+  border-color: rgb(247 251 255 / 55%);
+  background-color: rgb(12 20 32 / 72%);
+  color: #f7fbff;
 }
 
 .focus[data-focus="练习"] .top-pattern.is-hint,
@@ -423,6 +493,7 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   width: 112px;
   height: 112px;
   margin-top: 0;
+  margin-right: 8px;
 }
 
 @media (min-width: 901px) {
@@ -564,6 +635,60 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   .focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
     font-size: clamp(5.5rem, 12vw, 9rem);
   }
+
+  /* Wide practice: cube upper-middle; compact picker overlays less. */
+  .focus[data-focus="练习"] {
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    gap: 14px;
+    padding: 0 32px 24px;
+  }
+
+  .focus[data-focus="练习"] .slot-cube {
+    max-width: 640px;
+    padding-top: 48px;
+  }
+
+  .focus[data-focus="练习"] .practice-rail {
+    top: 16px;
+    width: min(calc(100% - 64px), 720px);
+  }
+
+  .focus[data-focus="练习"] .formula-picker-panel {
+    max-height: min(42vh, 320px);
+    width: min(100%, 640px);
+    margin-top: 8px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .focus[data-focus="练习"] .formula-picker-card {
+    width: 100px;
+    min-height: 118px;
+    padding: 6px 4px;
+  }
+
+  .focus[data-focus="练习"] .practice-hint,
+  .focus[data-focus="练习"] .practice-controls {
+    max-width: 720px;
+  }
+
+  .focus[data-focus="练习"] .practice-hint {
+    padding: 14px 18px;
+  }
+
+  .focus[data-focus="练习"] .practice-summary {
+    gap: 16px 28px;
+  }
+
+  .focus[data-focus="练习"] .cube-stage {
+    width: min(100%, 480px);
+    height: min(50vh, 440px);
+    min-height: 280px;
+  }
+
+  .focus[data-focus="练习"] .formula-picker-scroller {
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 900px) {
@@ -575,6 +700,19 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   .mode-switch,
   .nav-back {
     min-height: 36px;
+  }
+
+  .focus[data-focus="练习"] .formula-picker-panel {
+    max-height: min(38vh, 240px);
+  }
+
+  .focus[data-focus="练习"] .formula-picker-card {
+    width: 96px;
+    min-height: 112px;
+  }
+
+  .focus[data-focus="练习"] .slot-cube {
+    padding-top: 8px;
   }
 
   /* Narrow scramble-timer: match wide soft blue + outline controls. */
@@ -619,30 +757,5 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   .focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
     font-size: clamp(3.8rem, 18vw, 5.5rem);
     font-weight: 700;
-  }
-
-  .focus[data-focus="练习"] {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      "formula"
-      "hint"
-      "cube"
-      "controls"
-      "timer";
-    gap: 8px;
-    padding: 0 12px 12px;
-  }
-
-  .focus[data-focus="练习"] .practice-rail {
-    height: auto;
-  }
-
-  .focus[data-focus="练习"] .practice-hint {
-    padding: 10px 12px;
-  }
-
-  .mode-switch-practice {
-    padding: 0 12px;
   }
 }
