@@ -166,8 +166,7 @@ function stickerColor(
   return color;
 }
 
-export async function scrambleNet(moves: string): Promise<CubeNet> {
-  const alg = parseScramble(moves).join(" ");
+async function netFromAlg(alg: string): Promise<CubeNet> {
   const puzzle = await kpuzzle();
   const pattern = puzzle.defaultPattern().applyAlg(alg);
   const net = {} as CubeNet;
@@ -189,3 +188,50 @@ export async function scrambleNet(moves: string): Promise<CubeNet> {
 
   return net;
 }
+
+/**
+ * Scramble orientation: white U, green F (CSTimer-style).
+ * Timer 3D and net both use this so the scramble is easy to verify.
+ */
+export async function scrambleNet(moves: string): Promise<CubeNet> {
+  return netFromAlg(parseScramble(moves).join(" "));
+}
+
+/** Optional yellow-up net (solve orientation); timer UI does not use this. */
+export async function scrambleDisplayNet(moves: string): Promise<CubeNet> {
+  const scramble = parseScramble(moves).join(" ");
+  return netFromAlg(`${scramble} z2`);
+}
+
+/** Center colors for white-up scramble net / 3D (aligned with CSTimer). */
+export const SCRAMBLE_NET_CENTER: Record<NetFace, FaceColor> = {
+  U: "白",
+  L: "橙",
+  F: "绿",
+  R: "红",
+  B: "蓝",
+  D: "黄",
+};
+
+/** @deprecated Use SCRAMBLE_NET_CENTER; kept as alias for yellow-up experiments. */
+export const DISPLAY_NET_CENTER: Record<NetFace, FaceColor> = {
+  U: "黄",
+  L: "红",
+  F: "绿",
+  R: "橙",
+  B: "蓝",
+  D: "白",
+};
+
+/**
+ * Hex stickers for the flat net — same values as cubing `PGColors`
+ * used by Twisty 3D, so toggle views match in shade as well as face.
+ */
+export const FACE_COLOR_HEX: Record<FaceColor, string> = {
+  白: "#ffffff",
+  橙: "#ff8000",
+  绿: "#44ee00",
+  红: "#ff0000",
+  蓝: "#2266ff",
+  黄: "#f4f400",
+};

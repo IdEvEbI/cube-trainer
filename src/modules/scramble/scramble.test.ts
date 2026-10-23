@@ -6,6 +6,7 @@ import {
   parseScramble,
   randomScramble3x3,
   scrambleDisplayAlgorithm,
+  scrambleViewAlgorithm,
 } from "./scramble.ts";
 
 const FACE_TURN = /^[UDLRFB](?:2'|2|')?$/;
@@ -38,6 +39,12 @@ describe("parseScramble", () => {
     assert.throws(() => parseScramble("   "), /打乱是空的/);
     assert.throws(() => parseScramble("R U M"), /无法打乱：M/);
     assert.throws(() => parseScramble("R U x"), /无法打乱：x/);
+  });
+});
+
+describe("scrambleViewAlgorithm", () => {
+  it("计时首屏按白上展示打乱，不加 z2", () => {
+    assert.equal(scrambleViewAlgorithm("R U R'"), "R U R'");
   });
 });
 

@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-产品结构与首屏范围文档已确认。等待合并 [PR #49](https://github.com/IdEvEbI/cube-trainer/pull/49)（Closes #48）。合并后再开发打乱计时响应式首屏。
+[Issue #50](https://github.com/IdEvEbI/cube-trainer/issues/50)：打乱计时响应式首屏。本地 UI 已确认；已提交并开 PR，等待维护者合并。合并前不继续下一件。
 
 ## 下一步计划
 

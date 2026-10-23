@@ -12,13 +12,14 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  padding: 10px 16px;
+  padding: 10px 12px;
 }
 
 .mode-switch,
 .nav-back,
 .library-entry,
-.net-toggle {
+.net-toggle,
+.preview-toggle {
   flex: none;
   min-height: 40px;
   border: 0;
@@ -33,9 +34,19 @@
   color: #12141a;
 }
 
+.mode-switch-practice {
+  min-width: 40px;
+  padding: 0 14px;
+}
+
+.mode-switch-label {
+  font-weight: 600;
+}
+
 .nav-back,
 .library-entry,
-.net-toggle {
+.net-toggle,
+.preview-toggle {
   padding: 0 16px;
   background: #1c1f27;
   color: #f3f0e8;
@@ -53,48 +64,219 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  touch-action: none;
 }
 
 .focus[data-focus="计时"] {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px 20px;
-  align-items: center;
-  padding: 0 20px 16px;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: stretch;
+  justify-items: center;
+  padding: 0 10px 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
+.app:has(.focus[data-focus="计时"][data-timer-phase="running"]) {
+  background: #4a7eb5;
+}
+
+/* Topbar is display:none while running; use one full-height row so the
+   timer can center in the viewport (not stick to the top auto row). */
+.app:has(.focus[data-focus="计时"][data-timer-phase="running"]) {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app:has(.focus[data-focus="计时"][data-timer-phase="running"])
+  .focus[data-focus="计时"] {
+  background: #4a7eb5;
+  height: 100%;
+  place-content: center;
+  place-items: center;
+}
+
+.app:has(.focus[data-focus="计时"][data-timer-phase="running"]) .timer-time {
+  color: #f7fbff;
+}
+
+.app:has(.focus[data-focus="计时"][data-timer-phase="running"]) .topbar {
+  background: #4a7eb5;
 }
 
 .focus[data-focus="计时"] .slot-scramble {
-  grid-column: 1 / -1;
+  grid-column: 1;
   grid-row: 1;
+  width: 100%;
+  min-width: 0;
 }
 
 .focus[data-focus="计时"] .slot-cube {
+  position: relative;
   grid-column: 1;
   grid-row: 2;
-}
-
-.focus[data-focus="计时"] .slot-tools {
-  grid-column: 2;
-  grid-row: 2;
-}
-
-.focus[data-focus="计时"] .slot-cube,
-.focus[data-focus="练习"] .slot-cube {
+  width: 100%;
   min-width: 0;
   min-height: 0;
   height: 100%;
+  display: grid;
+  place-items: center;
+  justify-items: center;
+  align-content: center;
+}
+
+.focus[data-focus="计时"] .preview-stage {
+  min-width: 0;
+  min-height: 0;
+  width: min(100%, 360px);
+  height: 100%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  background: transparent;
+}
+
+/* Author `display: grid` on slots beats UA `[hidden]`; force hide. */
+.focus[data-focus="计时"] .slot-scramble[hidden],
+.focus[data-focus="计时"] .slot-cube[hidden],
+.focus[data-focus="计时"] .slot-tools[hidden],
+.focus[data-focus="计时"] .preview-stage[hidden],
+.app .topbar[hidden] {
+  display: none !important;
+}
+
+/* Running: only the timer remains (wide + narrow). */
+.focus[data-focus="计时"][data-timer-phase="running"] .slot-scramble,
+.focus[data-focus="计时"][data-timer-phase="running"] .slot-cube,
+.focus[data-focus="计时"][data-timer-phase="running"] .preview-toggle {
+  display: none !important;
+}
+
+.focus[data-focus="计时"] .preview-net {
+  --net-sticker: clamp(16px, 6.5vw, 24px);
+  box-sizing: border-box;
+  width: min(100%, 360px);
+  height: 100%;
+  align-content: center;
+  justify-items: center;
+  overflow: auto;
+  margin: 0 auto;
+  padding: 4px;
+  background: transparent;
+}
+
+.focus[data-focus="计时"] .preview-toggle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 2;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.85rem;
 }
 
 .focus[data-focus="计时"] .slot-tools {
+  grid-column: 1;
+  grid-row: 3;
   box-sizing: border-box;
+  width: 100%;
   min-height: 0;
-  max-height: 100%;
-  overflow: auto;
   display: grid;
   align-content: center;
   justify-items: center;
-  gap: 10px;
+  gap: 2px;
+  padding: 0;
+}
+
+.focus[data-focus="计时"][data-timer-phase="running"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  padding: 0 12px;
+}
+
+.focus[data-focus="计时"][data-timer-phase="running"] .slot-tools {
+  grid-row: 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-content: center;
+  place-items: center;
+}
+
+.focus[data-focus="计时"][data-timer-phase="running"] .timer-surface {
+  width: auto;
+  height: auto;
+  place-content: center;
+  place-items: center;
+}
+
+.focus[data-focus="计时"] .cube-view {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  place-items: center;
+}
+
+.focus[data-focus="计时"] .cube-view h2,
+.focus[data-focus="计时"] .cube-hint,
+.focus[data-focus="计时"] .cube-moves {
+  display: none;
+}
+
+.focus[data-focus="计时"] .cube-stage {
+  width: min(100%, 320px);
+  height: min(42vh, 300px);
+  min-height: 160px;
+  margin: 0 auto;
+}
+
+.focus[data-focus="计时"] .cube-player {
+  filter: contrast(1.1) saturate(1.12) drop-shadow(0 0 0.6px rgb(0 0 0 / 65%))
+    drop-shadow(0 1px 2px rgb(0 0 0 / 35%));
+}
+
+.focus[data-focus="计时"] .scramble {
+  gap: 4px;
+  width: 100%;
+}
+
+.focus[data-focus="计时"] .scramble-bar {
+  gap: 6px;
+}
+
+.focus[data-focus="计时"] .scramble-moves {
+  font-size: clamp(0.95rem, 2.8vw, 1.15rem);
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.focus[data-focus="计时"] .timer {
+  width: min(100%, 420px);
+  gap: 0;
+  padding: 0;
+}
+
+.focus[data-focus="计时"] .timer-surface {
+  width: 100%;
+  pointer-events: none;
+}
+
+.focus[data-focus="计时"] .timer-surface .timer-time {
+  margin: 4px 0;
+  font-size: clamp(2.8rem, 12vw, 4rem);
+}
+
+.focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
+  font-size: clamp(4.2rem, 22vw, 7.5rem);
+  font-weight: 600;
 }
 
 .focus[data-focus="方法"],
@@ -102,6 +284,7 @@
 .focus[data-focus="公式库"] {
   display: grid;
   min-height: 0;
+  touch-action: auto;
 }
 
 .slot-methods,
@@ -130,6 +313,7 @@
   align-items: stretch;
   gap: 12px;
   padding: 0 20px 16px;
+  touch-action: auto;
 }
 
 .focus[data-focus="练习"] .slot-session {
@@ -138,6 +322,9 @@
 
 .focus[data-focus="练习"] .slot-cube {
   grid-area: cube;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
 
 .focus[data-focus="练习"] .practice-rail {
@@ -201,21 +388,17 @@
   align-self: center;
 }
 
-.focus[data-focus="计时"] .cube-view,
 .focus[data-focus="练习"] .cube-view {
   height: 100%;
   min-height: 0;
   grid-template-rows: minmax(0, 1fr) auto;
 }
 
-.focus[data-focus="计时"] .cube-view h2,
-.focus[data-focus="计时"] .cube-hint,
 .focus[data-focus="练习"] .cube-view h2,
 .focus[data-focus="练习"] .cube-hint {
   display: none;
 }
 
-.focus[data-focus="计时"] .cube-stage,
 .focus[data-focus="练习"] .cube-stage {
   height: 100%;
   min-height: 140px;
@@ -242,18 +425,54 @@
   margin-top: 0;
 }
 
-@media (max-width: 900px) {
+@media (min-width: 901px) {
+  .topbar {
+    padding: 10px 16px;
+  }
+
+  /* Wide scramble-timer: soft blue home matches running; outline controls. */
+  body:has(.focus[data-focus="计时"]),
+  .app:has(.focus[data-focus="计时"]),
+  .app:has(.focus[data-focus="计时"]) .topbar,
+  .app:has(.focus[data-focus="计时"]) .focus[data-focus="计时"] {
+    background: #4a7eb5;
+  }
+
+  .app:has(.focus[data-focus="计时"]) .scramble-moves,
+  .app:has(.focus[data-focus="计时"]) .scramble-hint,
+  .app:has(.focus[data-focus="计时"]) .timer-time {
+    color: #f7fbff;
+  }
+
+  .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .scramble-icon,
+  .app:has(.focus[data-focus="计时"]) .preview-toggle {
+    background: transparent;
+    border: 1px solid rgb(247 251 255 / 42%);
+    color: #f7fbff;
+    box-shadow: none;
+  }
+
+  .app:has(.focus[data-focus="计时"]) .mode-switch:hover,
+  .app:has(.focus[data-focus="计时"]) .scramble-icon:hover,
+  .app:has(.focus[data-focus="计时"]) .preview-toggle:hover {
+    background: rgb(247 251 255 / 12%);
+    border-color: rgb(247 251 255 / 70%);
+  }
+
   .focus[data-focus="计时"] {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 8px;
-    padding: 0 12px 12px;
+    gap: 12px;
+    padding: 8px 28px 20px;
+    justify-items: center;
   }
 
   .focus[data-focus="计时"] .slot-scramble,
   .focus[data-focus="计时"] .slot-cube,
   .focus[data-focus="计时"] .slot-tools {
     grid-column: 1;
+    width: min(100%, 960px);
   }
 
   .focus[data-focus="计时"] .slot-scramble {
@@ -262,12 +481,144 @@
 
   .focus[data-focus="计时"] .slot-cube {
     grid-row: 2;
+    width: min(100%, 720px);
+    height: 100%;
+    place-items: center;
+    justify-items: center;
+    align-content: center;
   }
 
   .focus[data-focus="计时"] .slot-tools {
     grid-row: 3;
-    max-height: 42vh;
-    align-content: start;
+    align-content: center;
+    justify-items: center;
+  }
+
+  .focus[data-focus="计时"][data-timer-phase="running"] {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    padding: 0 28px;
+  }
+
+  .focus[data-focus="计时"][data-timer-phase="running"] .slot-tools {
+    grid-column: 1;
+    grid-row: 1;
+    width: min(100%, 960px);
+    height: 100%;
+    place-content: center;
+    place-items: center;
+  }
+
+  .focus[data-focus="计时"] .preview-toggle {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .focus[data-focus="计时"] .preview-stage[data-preview="cube"] {
+    width: min(100%, 520px);
+    height: min(100%, 480px);
+    margin: 0 auto;
+    place-items: center;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .focus[data-focus="计时"] .preview-net {
+    --net-sticker: clamp(24px, 3.4vw, 36px);
+    box-sizing: border-box;
+    width: min(100%, 520px);
+    margin: 0 auto;
+    padding: 8px;
+    background: transparent;
+    place-items: center;
+  }
+
+  .focus[data-focus="计时"] .cube-view {
+    width: 100%;
+    height: 100%;
+    place-items: center;
+  }
+
+  .focus[data-focus="计时"] .cube-stage {
+    width: min(100%, 480px);
+    min-height: 280px;
+    height: min(48vh, 440px);
+    margin: 0 auto;
+  }
+
+  /* Edge definition without a dark panel behind the cube. */
+  .focus[data-focus="计时"] .cube-player {
+    filter: contrast(1.1) saturate(1.12) drop-shadow(0 0 0.6px rgb(0 0 0 / 65%))
+      drop-shadow(0 1px 2px rgb(0 0 0 / 35%));
+  }
+
+  .focus[data-focus="计时"] .scramble-moves {
+    font-size: clamp(1.15rem, 1.6vw, 1.45rem);
+  }
+
+  .focus[data-focus="计时"] .timer-surface .timer-time {
+    font-size: clamp(3.6rem, 7vw, 5.6rem);
+  }
+
+  .focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
+    font-size: clamp(5.5rem, 12vw, 9rem);
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .mode-switch,
+  .nav-back {
+    min-height: 36px;
+  }
+
+  /* Narrow scramble-timer: match wide soft blue + outline controls. */
+  body:has(.focus[data-focus="计时"]),
+  .app:has(.focus[data-focus="计时"]),
+  .app:has(.focus[data-focus="计时"]) .topbar,
+  .app:has(.focus[data-focus="计时"]) .focus[data-focus="计时"] {
+    background: #4a7eb5;
+  }
+
+  .app:has(.focus[data-focus="计时"]) .scramble-moves,
+  .app:has(.focus[data-focus="计时"]) .scramble-hint,
+  .app:has(.focus[data-focus="计时"]) .timer-time {
+    color: #f7fbff;
+  }
+
+  .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .scramble-icon,
+  .app:has(.focus[data-focus="计时"]) .preview-toggle {
+    background: transparent;
+    border: 1px solid rgb(247 251 255 / 42%);
+    color: #f7fbff;
+    box-shadow: none;
+  }
+
+  .focus[data-focus="计时"] .slot-scramble,
+  .focus[data-focus="计时"] .slot-cube,
+  .focus[data-focus="计时"] .slot-tools {
+    width: 100%;
+    max-width: 420px;
+  }
+
+  .focus[data-focus="计时"] .preview-toggle {
+    min-height: 36px;
+    padding: 0 14px;
+  }
+
+  .focus[data-focus="计时"] .timer-surface .timer-time {
+    font-size: clamp(2.6rem, 11vw, 3.6rem);
+  }
+
+  .focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
+    font-size: clamp(3.8rem, 18vw, 5.5rem);
+    font-weight: 700;
   }
 
   .focus[data-focus="练习"] {
@@ -289,5 +640,9 @@
 
   .focus[data-focus="练习"] .practice-hint {
     padding: 10px 12px;
+  }
+
+  .mode-switch-practice {
+    padding: 0 12px;
   }
 }
