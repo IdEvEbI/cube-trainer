@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-[Issue #50](https://github.com/IdEvEbI/cube-trainer/issues/50)：打乱计时响应式首屏。本地 UI 已确认；已提交并开 PR，等待维护者合并。合并前不继续下一件。
+[Issue #50](https://github.com/IdEvEbI/cube-trainer/issues/50) / [PR #51](https://github.com/IdEvEbI/cube-trainer/pull/51)：打乱计时响应式首屏。本地 UI 已确认；已开 PR，等待维护者合并。合并前不继续下一件。
 
 ## 下一步计划
 
