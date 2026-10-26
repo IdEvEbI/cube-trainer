@@ -264,16 +264,39 @@
 
 .algorithm-picker {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   margin-top: 12px;
   color: #f7fbff;
   font-size: 0.9rem;
+}
+
+.algorithm-picker-field {
+  display: grid;
+  gap: 6px;
 }
 
 .algorithm-picker-label {
   color: #f7fbff;
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+.algorithm-default-btn {
+  justify-self: start;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgb(247 251 255 / 42%);
+  border-radius: 999px;
+  background: rgb(18 28 42 / 28%);
+  color: #f7fbff;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.algorithm-default-btn:disabled {
+  color: rgb(247 251 255 / 55%);
+  cursor: default;
 }
 
 .f2l-simplify {
@@ -293,7 +316,7 @@
   accent-color: #ffd500;
 }
 
-.algorithm-picker select {
+.algorithm-picker-field select {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -313,7 +336,7 @@
   cursor: pointer;
 }
 
-.algorithm-picker select option {
+.algorithm-picker-field select option {
   background: #1c1f27;
   color: #f7fbff;
 }
