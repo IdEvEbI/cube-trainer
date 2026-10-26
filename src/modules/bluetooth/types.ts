@@ -9,3 +9,5 @@ export interface BluetoothCube {
   onMove(cb: (e: CubeMoveEvent) => void): () => void;
   getName(): string | undefined;
 }
+
+/** 魔域明文协议解析见 `./moyu/`（不依赖实时 BLE）。 */
