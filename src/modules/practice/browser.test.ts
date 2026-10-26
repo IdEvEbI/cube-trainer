@@ -143,7 +143,7 @@ describe("practice browser", () => {
     );
     const ua = cards[0];
     assert.equal(ua?.name, "Ua 排列");
-    assert.equal(ua?.moves, "(M2)(U M U2 M' U)(M2)");
+    assert.equal(ua?.moves, "(M'2)(U M U2 M' U)(M'2)");
     assert.equal(practiceList(group)[0]?.moves, ua?.moves);
     assert.deepEqual(
       practiceList(oll).map((formula) => formula.id),
