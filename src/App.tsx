@@ -72,6 +72,12 @@ import {
 } from "./modules/timer/session.ts";
 import { TimerStats } from "./modules/timer/TimerStats.tsx";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
+import {
+  connectMoyuCube,
+  formatMoyuConnectError,
+  formatMoyuConnectedLabel,
+  type MoyuBleConnection,
+} from "./modules/bluetooth/moyu/index.ts";
 import "./app.css";
 
 const formulaLibrary = parseFormulaLibrary(formulas);
@@ -108,10 +114,23 @@ export default function App() {
   const [cursor, setCursor] = useState<PracticeCursor | null>(null);
   const [playing, setPlaying] = useState(false);
   const [f2lSimplified, setF2lSimplified] = useState(true);
+  const [moyuSession, setMoyuSession] = useState<MoyuBleConnection | null>(
+    null,
+  );
+  const [moyuBusy, setMoyuBusy] = useState(false);
+  const [moyuNote, setMoyuNote] = useState<string | null>(null);
+  const moyuSessionRef = useRef<MoyuBleConnection | null>(null);
+  moyuSessionRef.current = moyuSession;
   const cursorRef = useRef<PracticeCursor | null>(null);
   const playingRef = useRef(false);
   const playRun = useRef(0);
   focusRef.current = focus;
+
+  useEffect(() => {
+    return () => {
+      moyuSessionRef.current?.disconnect();
+    };
+  }, []);
 
   const mode = modeOf(focus);
   const methodId = focus.kind === "练习" ? focus.methodId : null;
@@ -452,6 +471,46 @@ export default function App() {
   const showTimingHome = focus.kind === "计时" && !timingRunning;
   const modeEntry = modeSwitchPresentation(mode);
 
+  async function onMoyuConnectClick() {
+    if (moyuBusy) {
+      return;
+    }
+    if (moyuSession) {
+      moyuSession.disconnect();
+      setMoyuSession(null);
+      setMoyuNote(null);
+      return;
+    }
+    setMoyuBusy(true);
+    setMoyuNote(null);
+    try {
+      const session = await connectMoyuCube({
+        onDisconnected: () => {
+          setMoyuSession(null);
+          setMoyuNote("魔方已断开");
+        },
+        askMacAddress: (deviceName) => {
+          const entered = window.prompt(
+            `请输入魔方 MAC（可在官方 App 查看）\n设备：${deviceName}`,
+            "CF:30:16:00:00:00",
+          );
+          return entered;
+        },
+      });
+      setMoyuSession(session);
+      setMoyuNote(`${formatMoyuConnectedLabel(session.name)} · 同步中…`);
+      const status = await session.requestStatus();
+      // 计时首屏白上：setupAlg 可直接展示物理魔方状态（不改打乱公式文案）
+      cube.current?.setAbsoluteAlg(status.setupAlg);
+      setMoyuNote(`${formatMoyuConnectedLabel(session.name)} · 已同步状态`);
+    } catch (error) {
+      setMoyuSession(null);
+      setMoyuNote(formatMoyuConnectError(error));
+    } finally {
+      setMoyuBusy(false);
+    }
+  }
+
   return (
     <div className="app">
       {pendingResult ? (
@@ -520,6 +579,31 @@ export default function App() {
             )}
           </button>
         )}
+        {focus.kind === "计时" ? (
+          <div className="topbar-bt">
+            <button
+              type="button"
+              className="bt-connect"
+              disabled={moyuBusy}
+              aria-busy={moyuBusy}
+              onClick={() => {
+                void onMoyuConnectClick();
+              }}
+            >
+              {moyuBusy ? "连接中…" : moyuSession ? "断开魔方" : "连接魔方"}
+            </button>
+            {moyuNote ? (
+              <span
+                className={
+                  moyuSession ? "bt-status is-connected" : "bt-status is-note"
+                }
+                role="status"
+              >
+                {moyuNote}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </header>
       <main
         className="focus"
