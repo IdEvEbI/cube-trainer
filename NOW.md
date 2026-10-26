@@ -10,7 +10,7 @@
 
 - Issue：#62
 - 分支：`feat/#62-moyu-protocol`
-- PR：待创建后回填
+- PR：[#63](https://github.com/IdEvEbI/cube-trainer/pull/63)
 
 ## 下一步计划
 
@@ -20,7 +20,7 @@
 4. ~~公式更新与默认算法~~（A #57 / B #59 已合入）
 5. ~~公式目录 Wiki 对齐 + 空槽~~（已合入 #61）
 6. 转向适配（手动设置前面色 MVP）
-7. **蓝牙魔方对接**（协议层 PR 待合并；真机联调待 Android / Bluefy）
+7. **蓝牙魔方对接**（协议层 PR #63 待合并；真机联调待 Android / Bluefy）
 
 ## 已确认但暂不做
 
