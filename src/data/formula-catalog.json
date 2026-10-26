@@ -664,11 +664,7 @@
             "id": "oll-wca-56",
             "name": "OLL 56",
             "puzzle": "3x3",
-            "moves": "(R M' U R' M)(U R U' R')(U R U' R')(R M' U' R' M)",
-            "algs": [
-              "(R M' U R' M)(U R U' R')(U R U' R')(R M' U' R' M)",
-              "(r U r')(U R U' R')(U R U' R')(r U' r')"
-            ],
+            "moves": "(r U r')(U R U' R')(U R U' R')(r U' r')",
             "group": "直线 OLL",
             "practice": true
           },
@@ -724,11 +720,10 @@
             "id": "oll-wca-18",
             "name": "OLL 18",
             "puzzle": "3x3",
-            "moves": "(R M' U R' U R U2 R' M)(R' M U' R U' R' U2 R M')",
+            "moves": "(r U R' U R U2 r')(r' U' R U' R' U2 r)",
             "algs": [
-              "(R M' U R' U R U2 R' M)(R' M U' R U' R' U2 R M')",
-              "(U2 R U R2 F' U' F)(U R U2 R' F R F')",
-              "(r U R' U R U2 r')(r' U' R U' R' U2 r)"
+              "(r U R' U R U2 r')(r' U' R U' R' U2 r)",
+              "(U2 R U R2 F' U' F)(U R U2 R' F R F')"
             ],
             "group": "点 OLL",
             "practice": true
@@ -757,12 +752,8 @@
             "id": "oll-wca-28",
             "name": "OLL 28",
             "puzzle": "3x3",
-            "moves": "(R M' U R' U')(M U R U' R')",
-            "algs": [
-              "(R M' U R' U')(M U R U' R')",
-              "(U2)(M' U M)(U2)(M' U M)",
-              "(r U R' U')(M U R U' R')"
-            ],
+            "moves": "(r U R' U')(M U R U' R')",
+            "algs": ["(r U R' U')(M U R U' R')", "(U2)(M' U M)(U2)(M' U M)"],
             "group": "点 OLL",
             "practice": true
           },
@@ -822,11 +813,7 @@
             "id": "oll-wca-49",
             "name": "OLL 49",
             "puzzle": "3x3",
-            "moves": "(R M' U')(R2 M2 U)(R2 M2 U)(R2 M2 U')(R M')",
-            "algs": [
-              "(R M' U')(R2 M2 U)(R2 M2 U)(R2 M2 U')(R M')",
-              "(r U')(r2 U)(r2 U)(r2 U')(r)"
-            ],
+            "moves": "(r U')(r2 U)(r2 U)(r2 U')(r)",
             "group": "拐角 OLL",
             "practice": true
           },
@@ -834,11 +821,7 @@
             "id": "oll-wca-50",
             "name": "OLL 50",
             "puzzle": "3x3",
-            "moves": "(R' M U)(R2 M2 U')(R2 M2 U')(R2 M2 U)(R' M)",
-            "algs": [
-              "(R' M U)(R2 M2 U')(R2 M2 U')(R2 M2 U)(R' M)",
-              "(r' U)(r2 U')(r2 U')(r2 U)(r')"
-            ],
+            "moves": "(r' U)(r2 U')(r2 U')(r2 U)(r')",
             "group": "拐角 OLL",
             "practice": true
           },
@@ -846,11 +829,7 @@
             "id": "oll-wca-53",
             "name": "OLL 53",
             "puzzle": "3x3",
-            "moves": "(L' M' U2)(L U L' U')(L U L' U)(L M)",
-            "algs": [
-              "(L' M' U2)(L U L' U')(L U L' U)(L M)",
-              "(l' U2)(L U L' U')(L U L' U)(l)"
-            ],
+            "moves": "(l' U2)(L U L' U')(L U L' U)(l)",
             "group": "拐角 OLL",
             "practice": true
           },
@@ -858,11 +837,7 @@
             "id": "oll-wca-54",
             "name": "OLL 54",
             "puzzle": "3x3",
-            "moves": "(R M' U)(R' U R U')(R' U R U2 R')(M)",
-            "algs": [
-              "(R M' U)(R' U R U')(R' U R U2 R')(M)",
-              "(r U)(R' U R U')(R' U R U2 r')"
-            ],
+            "moves": "(r U)(R' U R U')(R' U R U2 r')",
             "group": "拐角 OLL",
             "practice": true
           },
@@ -870,8 +845,7 @@
             "id": "oll-wca-5",
             "name": "OLL 5",
             "puzzle": "3x3",
-            "moves": "(R' M U2)(R U R' U R)(M')",
-            "algs": ["(R' M U2)(R U R' U R)(M')", "(r' U2)(R U R' U r)"],
+            "moves": "(r' U2)(R U R' U r)",
             "group": "肥鱼 OLL",
             "practice": true
           },
@@ -879,8 +853,7 @@
             "id": "oll-wca-6",
             "name": "OLL 6",
             "puzzle": "3x3",
-            "moves": "(R M' U2)(R' U' R U' R')(M)",
-            "algs": ["(R M' U2)(R' U' R U' R')(M)", "(r U2)(R' U' R U' r')"],
+            "moves": "(r U2)(R' U' R U' r')",
             "group": "肥鱼 OLL",
             "practice": true
           },
@@ -888,8 +861,7 @@
             "id": "oll-wca-7",
             "name": "OLL 7",
             "puzzle": "3x3",
-            "moves": "(R M' U)(R' U R U2 R')(M)",
-            "algs": ["(R M' U)(R' U R U2 R')(M)", "(r U)(R' U R U2 r')"],
+            "moves": "(r U)(R' U R U2 r')",
             "group": "肥鱼 OLL",
             "practice": true
           },
@@ -897,8 +869,7 @@
             "id": "oll-wca-8",
             "name": "OLL 8",
             "puzzle": "3x3",
-            "moves": "(R' F' R)(M' U' R' M)(F2 R)",
-            "algs": ["(R' F' R)(M' U' R' M)(F2 R)", "(R' F')(r U' r')(F2 R)"],
+            "moves": "(R' F')(r U' r')(F2 R)",
             "group": "肥鱼 OLL",
             "practice": true
           },
@@ -1036,9 +1007,9 @@
             "id": "pll-ua",
             "name": "Ua 排列",
             "puzzle": "3x3",
-            "moves": "(M2)(U M U2 M' U)(M2)",
+            "moves": "(M'2)(U M U2 M' U)(M'2)",
             "algs": [
-              "(M2)(U M U2 M' U)(M2)",
+              "(M'2)(U M U2 M' U)(M'2)",
               "(R U' R U)(R U)(R U' R')(U' R2)"
             ],
             "order": 1
@@ -1047,9 +1018,9 @@
             "id": "pll-ub",
             "name": "Ub 排列",
             "puzzle": "3x3",
-            "moves": "(M2)(U' M U2 M' U')(M2)",
+            "moves": "(M'2)(U' M U2 M' U')(M'2)",
             "algs": [
-              "(M2)(U' M U2 M' U')(M2)",
+              "(M'2)(U' M U2 M' U')(M'2)",
               "(R2 U)(R U R' U')(R' U' R' U R')"
             ],
             "order": 2
@@ -1058,9 +1029,9 @@
             "id": "pll-h",
             "name": "H 排列",
             "puzzle": "3x3",
-            "moves": "(M2 U M2)(U2)(M2 U M2)",
+            "moves": "(M'2 U M'2)(U2)(M'2 U M'2)",
             "algs": [
-              "(M2 U M2)(U2)(M2 U M2)",
+              "(M'2 U M'2)(U2)(M'2 U M'2)",
               "(R2 U2 R U2 R2)(U2 R2 U2 R U2 R2)"
             ],
             "order": 3
@@ -1069,10 +1040,10 @@
             "id": "pll-z",
             "name": "Z 排列",
             "puzzle": "3x3",
-            "moves": "(M2 U M2 U)(M' U2 M2 U2 M')",
+            "moves": "(M'2 U M'2 U)(M' U2 M'2 U2 M')",
             "algs": [
-              "(M2 U M2 U)(M' U2 M2 U2 M')",
-              "(U)(M2 U' M2 U')(M' U2 M2 U2 M')(U')"
+              "(M'2 U M'2 U)(M' U2 M'2 U2 M')",
+              "(U)(M'2 U' M'2 U')(M' U2 M'2 U2 M')(U')"
             ],
             "order": 4
           },
@@ -1299,7 +1270,7 @@
             "id": "lse-l4e",
             "name": "最后四棱",
             "puzzle": "3x3",
-            "moves": "M2 U2 M2"
+            "moves": "M'2 U2 M'2"
           }
         ]
       }
@@ -1329,7 +1300,7 @@
             "id": "bld-m2",
             "name": "中层对调",
             "puzzle": "3x3",
-            "moves": "M2"
+            "moves": "M'2"
           }
         ]
       },

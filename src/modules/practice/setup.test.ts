@@ -258,7 +258,7 @@ describe("practiceCase", () => {
     const crownAlternate = practiceCase(crown, 1);
     assert.ok(crownDefault);
     assert.ok(crownAlternate);
-    assert.equal(moveCount(crown.moves), 18);
+    assert.equal(moveCount(crown.moves), 14);
     assert.equal(moveCount(crown.algs[1] ?? ""), 14);
     assert.equal(crownDefault.forward, parseAlgorithm(crown.moves).join(" "));
     assert.equal(
@@ -275,51 +275,48 @@ describe("practiceCase", () => {
     );
   });
 
-  it("宽层转优化后的备选算法能练习，原有 R M' 写法仍可用", async () => {
+  it("宽边去重后默认宽层仍可练习，R M' 解析仍可用", async () => {
     const solved = await signature("");
     const crown = loadFormulas().find((formula) => formula.id === "oll-wca-18");
     const edges = loadFormulas().find((formula) => formula.id === "oll-wca-28");
     assert.ok(crown?.algs);
     assert.ok(edges?.algs);
-    assert.equal(crown.algs.length, 3);
-    assert.equal(edges.algs.length, 3);
+    assert.equal(crown.algs.length, 2);
+    assert.equal(edges.algs.length, 2);
+    assert.match(crown.moves, /\br\b/);
+    assert.doesNotMatch(crown.moves, /R M'/);
 
     const crownDefault = practiceCase(crown);
-    const crownWide = practiceCase(crown, 2);
+    const crownAlternate = practiceCase(crown, 1);
     assert.ok(crownDefault);
-    assert.ok(crownWide);
-    assert.match(crown.algs[0] ?? "", /R M'/);
-    assert.match(crown.algs[2] ?? "", /\br\b/);
-    assert.equal(moveCount(crown.algs[2] ?? ""), 14);
-    assert.equal(
-      orientation(await signature(crownDefault.inverse)),
-      orientation(await signature(crownWide.inverse)),
-    );
+    assert.ok(crownAlternate);
+    assert.equal(moveCount(crown.moves), 14);
     assert.equal(
       await signature(`${crownDefault.inverse} ${crownDefault.forward}`),
       solved,
     );
     assert.equal(
-      await signature(`${crownWide.inverse} ${crownWide.forward}`),
+      await signature(`${crownAlternate.inverse} ${crownAlternate.forward}`),
       solved,
     );
 
-    const edgesDefault = practiceCase(edges);
-    const edgesWide = practiceCase(edges, 2);
-    assert.ok(edgesDefault);
-    assert.ok(edgesWide);
-    assert.match(edges.algs[0] ?? "", /R M'/);
-    assert.match(edges.algs[2] ?? "", /\br\b/);
-    assert.equal(
-      orientation(await signature(edgesDefault.inverse)),
-      orientation(await signature(edgesWide.inverse)),
+    // Legacy R+M twin is no longer in the catalog but remains parseable.
+    const legacy = parseAlgorithm(
+      "(R M' U R' U R U2 R' M)(R' M U' R U' R' U2 R M')",
     );
+    assert.ok(legacy.includes("M'"));
+
+    const edgesDefault = practiceCase(edges);
+    const edgesAlternate = practiceCase(edges, 1);
+    assert.ok(edgesDefault);
+    assert.ok(edgesAlternate);
+    assert.match(edges.moves, /\br\b/);
     assert.equal(
       await signature(`${edgesDefault.inverse} ${edgesDefault.forward}`),
       solved,
     );
     assert.equal(
-      await signature(`${edgesWide.inverse} ${edgesWide.forward}`),
+      await signature(`${edgesAlternate.inverse} ${edgesAlternate.forward}`),
       solved,
     );
 
@@ -335,25 +332,13 @@ describe("practiceCase", () => {
       "oll-wca-56",
     ]) {
       const formula = loadFormulas().find((item) => item.id === id);
-      assert.ok(formula?.algs, id);
-      assert.match(formula.algs[0] ?? "", /M/, id);
-      assert.match(formula.algs[1] ?? "", /\b[rl]\b/, id);
+      assert.ok(formula, id);
+      assert.equal(formula.algs, undefined, id);
+      assert.match(formula.moves, /\b[rl]\b/, id);
       const defaults = practiceCase(formula);
-      const wide = practiceCase(formula, 1);
       assert.ok(defaults, id);
-      assert.ok(wide, id);
-      assert.equal(
-        orientation(await signature(defaults.inverse)),
-        orientation(await signature(wide.inverse)),
-        id,
-      );
       assert.equal(
         await signature(`${defaults.inverse} ${defaults.forward}`),
-        solved,
-        id,
-      );
-      assert.equal(
-        await signature(`${wide.inverse} ${wide.forward}`),
         solved,
         id,
       );
@@ -366,7 +351,7 @@ describe("practiceCase", () => {
       formula.id.startsWith("oll-"),
     );
     const multi = oll.filter((formula) => formula.algs);
-    assert.equal(multi.length, 35);
+    assert.equal(multi.length, 26);
 
     for (const formula of multi) {
       const defaults = practiceCase(formula);
@@ -397,7 +382,7 @@ describe("practiceCase", () => {
     }
 
     const single = oll.filter((formula) => !formula.algs);
-    assert.equal(single.length, 22);
+    assert.equal(single.length, 31);
     for (const formula of single) {
       const setup = practiceCase(formula);
       assert.ok(setup, formula.id);
@@ -460,7 +445,7 @@ describe("practiceCase", () => {
     const oll = formulas.filter(
       (formula) => formula.id.startsWith("oll-") && formula.algs,
     );
-    assert.equal(oll.length, 35);
+    assert.equal(oll.length, 26);
     const sune = oll.find((formula) => formula.id === "oll-sune");
     assert.ok(sune?.algs);
     assert.equal(

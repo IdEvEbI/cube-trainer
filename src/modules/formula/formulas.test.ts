@@ -253,8 +253,9 @@ describe("parseFormulaLibrary", () => {
     ]);
     assert.equal(sune.algs[0], sune.moves);
     assert.ok(crown?.algs);
-    assert.equal(crown.algs.length, 3);
+    assert.equal(crown.algs.length, 2);
     assert.equal(crown.algs[0], crown.moves);
+    assert.match(crown.moves, /\br\b/);
     assert.equal(dot?.algs, undefined);
   });
 
@@ -262,7 +263,7 @@ describe("parseFormulaLibrary", () => {
     const formulas = collectFormulas(loadSample());
     const oll = formulas.filter((formula) => formula.id.startsWith("oll-"));
     const multi = oll.filter((formula) => formula.algs);
-    assert.equal(multi.length, 35);
+    assert.equal(multi.length, 26);
     for (const formula of multi) {
       assert.ok(formula.algs);
       assert.equal(formula.algs[0], formula.moves);
@@ -314,7 +315,7 @@ describe("parseFormulaLibrary", () => {
       formulas.filter(
         (formula) => formula.id.startsWith("oll-") && formula.algs,
       ).length,
-      35,
+      26,
     );
   });
 
@@ -413,7 +414,7 @@ describe("parseFormulaLibrary", () => {
         (formula.id.startsWith("oll-") || formula.id.startsWith("pll-")) &&
         !formula.algs,
     );
-    assert.equal(formulas.length, 31);
+    assert.equal(formulas.length, 40);
     for (const formula of formulas) {
       assert.match(formula.moves, /[()]/, formula.id);
       assert.match(formulaDisplay(formula.moves), /\) \(/, formula.id);
@@ -475,7 +476,26 @@ describe("parseFormulaLibrary", () => {
     ]);
   });
 
-  it("宽层转可以解析，R M' 写法仍保留可用", () => {
+  it("写法优化：M'2 解析为 M2'（保留 M' 转动方向，与裸 M2 区分）", () => {
+    assert.deepEqual(parseAlgorithm("M'2"), ["M2'"]);
+    assert.deepEqual(parseAlgorithm("M2"), ["M2"]);
+    assert.notDeepEqual(parseAlgorithm("M'2"), parseAlgorithm("M2"));
+    assert.deepEqual(parseAlgorithm("(M'2)(U M U2 M' U)(M'2)"), [
+      "M2'",
+      "U",
+      "M",
+      "U2",
+      "M'",
+      "U",
+      "M2'",
+    ]);
+    assert.equal(
+      formulaDisplay("(M'2)(U M U2 M' U)(M'2)"),
+      "(M'2) (U M U2 M' U) (M'2)",
+    );
+  });
+
+  it("宽边去重后默认保留宽层，R M' 仍可解析", () => {
     assert.deepEqual(parseAlgorithm("r U R' U R U2 r'"), [
       "r",
       "U",
@@ -485,6 +505,7 @@ describe("parseFormulaLibrary", () => {
       "U2",
       "r'",
     ]);
+    assert.deepEqual(parseAlgorithm("R M' U R'"), ["R", "M'", "U", "R'"]);
     assert.equal(moveCount("(r U R' U R U2 r')(r' U' R U' R' U2 r)"), 14);
     assert.equal(
       formulaDisplay("(r U R' U R U2 r')(r' U' R U' R' U2 r)"),
@@ -496,19 +517,15 @@ describe("parseFormulaLibrary", () => {
     const edges = formulas.find((formula) => formula.id === "oll-wca-28");
     assert.ok(crown?.algs);
     assert.ok(edges?.algs);
-    assert.equal(
-      crown.algs[0],
-      "(R M' U R' U R U2 R' M)(R' M U' R U' R' U2 R M')",
-    );
-    assert.equal(crown.algs[2], "(r U R' U R U2 r')(r' U' R U' R' U2 r)");
-    assert.equal(edges.algs[0], "(R M' U R' U')(M U R U' R')");
-    assert.equal(edges.algs[2], "(r U R' U')(M U R U' R')");
-    assert.notEqual(
-      parseAlgorithm(crown.algs[0]).join(" "),
-      parseAlgorithm(crown.algs[2] ?? "").join(" "),
-    );
+    assert.equal(crown.moves, "(r U R' U R U2 r')(r' U' R U' R' U2 r)");
+    assert.equal(crown.algs[0], crown.moves);
+    assert.equal(crown.algs[1], "(U2 R U R2 F' U' F)(U R U2 R' F R F')");
+    assert.equal(edges.moves, "(r U R' U')(M U R U' R')");
+    assert.equal(edges.algs[1], "(U2)(M' U M)(U2)(M' U M)");
+    assert.match(edges.moves, /\br\b/);
+    assert.doesNotMatch(crown.moves, /R M'/);
 
-    const moreWide = [
+    const wideOnly = [
       ["oll-wca-7", "(r U)(R' U R U2 r')"],
       ["oll-wca-5", "(r' U2)(R U R' U r)"],
       ["oll-wca-6", "(r U2)(R' U' R U' r')"],
@@ -519,13 +536,13 @@ describe("parseFormulaLibrary", () => {
       ["oll-wca-8", "(R' F')(r U' r')(F2 R)"],
       ["oll-wca-56", "(r U r')(U R U' R')(U R U' R')(r U' r')"],
     ] as const;
-    for (const [id, wide] of moreWide) {
+    for (const [id, wide] of wideOnly) {
       const formula = formulas.find((item) => item.id === id);
-      assert.ok(formula?.algs, id);
-      assert.equal(formula.algs[0], formula.moves, id);
-      assert.equal(formula.algs[1], wide, id);
-      assert.match(formula.moves, /M/, id);
-      assert.match(wide, /\b[rl]\b/, id);
+      assert.ok(formula, id);
+      assert.equal(formula.moves, wide, id);
+      assert.equal(formula.algs, undefined, id);
+      assert.match(formula.moves, /\b[rl]\b/, id);
+      assert.doesNotMatch(formula.moves, /R M'|L M/, id);
     }
   });
 

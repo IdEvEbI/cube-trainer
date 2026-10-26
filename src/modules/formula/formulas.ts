@@ -6,7 +6,8 @@ import type {
   Puzzle,
 } from "./types.ts";
 
-const LAYER_MOVE = /^(?:[UDLRFBudlrfb]|[MES])(?:2'|2|')?$/;
+/** Suffix order: 2' / '2 before bare 2 / '. Catalog prefers M'2; Alg normalizes to M2. */
+const LAYER_MOVE = /^(?:[UDLRFBudlrfb]|[MES])(?:2'|'2|2|')?$/;
 const PUZZLES = new Set<Puzzle>(["2x2", "3x3", "4x4", "5x5"]);
 
 function isNonEmptyString(value: unknown): value is string {
@@ -231,7 +232,18 @@ export type FormulaToken = {
   step: number | null;
 };
 
-const MOVE_TOKEN = /(?:[UDLRFBudlrfb]|[MES])(?:2'|2|')?/y;
+const MOVE_TOKEN = /(?:[UDLRFBudlrfb]|[MES])(?:2'|'2|2|')?/y;
+
+/**
+ * Rewrite face+'2 (e.g. M'2) to face+2' for cubing/Alg.
+ * Same 180° end state as face+2, but keeps the ' turning direction in animation
+ * (catalog writes M'2; Twisty/SiGN uses M2').
+ */
+export function normalizeLayerNotation(source: string): string {
+  return source.replace(/([UDLRFBudlrfbMES])'2/g, (_match, face: string) => {
+    return `${face}2'`;
+  });
+}
 
 function withoutGroups(source: string): string {
   const open: boolean[] = [];
@@ -323,9 +335,11 @@ export function formulaDisplay(source: string): string {
 }
 
 export function parseAlgorithm(source: string): string[] {
-  const moves = [...new Alg(withoutGroups(source)).experimentalLeafMoves()].map(
-    (move) => move.toString(),
-  );
+  const moves = [
+    ...new Alg(
+      normalizeLayerNotation(withoutGroups(source)),
+    ).experimentalLeafMoves(),
+  ].map((move) => move.toString());
   if (moves.length === 0) {
     throw new Error("算法是空的");
   }
