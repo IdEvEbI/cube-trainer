@@ -1,6 +1,6 @@
-/** 魔域 WCU_MY32 GATT：连接、加密收发、请求状态（不同步转动流）。 */
+/** 魔域 WCU_MY32 GATT：连接、加密收发、请求状态与陀螺仪。 */
 
-import { MOYU_MSG } from "./constants.ts";
+import { MOYU_MSG, type MoyuMove } from "./constants.ts";
 import {
   decryptMoyuPacket,
   deriveMoyuKeyIv,
@@ -9,7 +9,9 @@ import {
   parseMacAddress,
   type MoyuKeyIv,
 } from "./crypto.ts";
-import { emptyPacket, parseMoyuPacket } from "./packets.ts";
+import { takeNewMoves } from "./moves.ts";
+import type { MoyuQuat } from "./orientation.ts";
+import { emptyPacket, parseMoyuPacket, requestGyroControl } from "./packets.ts";
 import { faceletsToSetupAlg } from "./pattern.ts";
 
 export const MOYU_GATT = {
@@ -136,11 +138,19 @@ export type MoyuBleConnection = {
   disconnect(): void;
   /** 写 A1 初始化后请求 A3，解密并解析为 facelets / setupAlg。 */
   requestStatus(): Promise<MoyuCubeStatus>;
+  /** 开启陀螺仪上报（0xAC）；应在 requestStatus 之后调用。 */
+  enableGyro(): Promise<void>;
+  /** 关闭陀螺仪上报。 */
+  disableGyro(): Promise<void>;
 };
 
 export type ConnectMoyuOptions = {
   bluetooth?: MoyuBluetoothRequestApi;
   onDisconnected?: () => void;
+  /** 状态同步完成后，每次新转动按时间正序回调（可连续多步）。 */
+  onMoves?: (moves: readonly MoyuMove[]) => void;
+  /** 陀螺仪姿态（0xAB），连接并 enableGyro 后持续回调。 */
+  onOrientation?: (quaternion: MoyuQuat) => void;
   /** 无法从设备名推断时询问 MAC（返回 `AA:BB:…`）。 */
   askMacAddress?: (
     deviceName: string,
@@ -232,18 +242,50 @@ export async function connectMoyuCube(
     timer: ReturnType<typeof setTimeout>;
   };
   let pending: Pending | null = null;
+  /** -1：尚未完成状态同步，忽略 A5。 */
+  let prevMoveCnt = -1;
+
+  const applyMoveMessage = (plain: Uint8Array) => {
+    const parsed = parseMoyuPacket(plain);
+    if (parsed.type !== "move") {
+      return;
+    }
+    const { nextCounter, moves } = takeNewMoves(prevMoveCnt, parsed);
+    if (moves.length === 0) {
+      return;
+    }
+    prevMoveCnt = nextCounter;
+    options.onMoves?.(moves);
+  };
+
+  const applyOrientation = (plain: Uint8Array): boolean => {
+    const parsed = parseMoyuPacket(plain);
+    if (parsed.type !== "gyro") {
+      return false;
+    }
+    options.onOrientation?.(parsed.quaternion);
+    return true;
+  };
 
   const onNotify = (event: Event) => {
     void (async () => {
       try {
         const raw = bufferFromEvent(event);
         const plain = await decryptMoyuPacket(keyIv, raw);
+        // 陀螺仪高频；绝不拿来结束 waitPlain，也不打断状态请求
+        if (applyOrientation(plain)) {
+          return;
+        }
         if (pending) {
           const wait = pending;
           pending = null;
           clearTimeout(wait.timer);
           wait.resolve(plain);
+          // 等待状态期间若夹带 A5，仍尝试记账（prev 未就绪则忽略）
+          applyMoveMessage(plain);
+          return;
         }
+        applyMoveMessage(plain);
       } catch (error) {
         if (pending) {
           const wait = pending;
@@ -271,10 +313,17 @@ export async function connectMoyuCube(
       pending = { resolve, reject, timer };
     });
 
-  const sendOpcode = async (opcode: number) => {
-    const plain = emptyPacket(opcode);
+  const sendPlain = async (plain: Uint8Array) => {
     const cipher = await encryptMoyuPacket(keyIv, plain);
     await writeCharacteristic(writeChar, cipher);
+  };
+
+  const sendOpcode = async (opcode: number) => {
+    await sendPlain(emptyPacket(opcode));
+  };
+
+  const setGyroEnabled = async (enabled: boolean) => {
+    await sendPlain(requestGyroControl(enabled));
   };
 
   const onGone = () => {
@@ -320,6 +369,7 @@ export async function connectMoyuCube(
         const parsed = parseMoyuPacket(plain);
         if (parsed.type === "status") {
           const setupAlg = await faceletsToSetupAlg(parsed.facelets);
+          prevMoveCnt = parsed.moveCounter;
           return {
             facelets: parsed.facelets,
             setupAlg,
@@ -328,6 +378,12 @@ export async function connectMoyuCube(
         }
       }
       throw new Error("等待魔方状态超时");
+    },
+    async enableGyro() {
+      await setGyroEnabled(true);
+    },
+    async disableGyro() {
+      await setGyroEnabled(false);
     },
   };
 }

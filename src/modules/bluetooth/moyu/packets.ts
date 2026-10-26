@@ -10,6 +10,7 @@ import {
   faceletsToUrfDlB,
   type MoyuColor,
 } from "./facelets.ts";
+import type { MoyuQuat } from "./orientation.ts";
 
 export type MoyuPacket = Uint8Array;
 
@@ -29,6 +30,35 @@ export function requestCubeStatus(): MoyuPacket {
 
 export function requestCubePower(): MoyuPacket {
   return emptyPacket(MOYU_MSG.power);
+}
+
+/** 开启 / 关闭陀螺仪上报（第三字节 1 / 0）。 */
+export function requestGyroControl(enabled: boolean): MoyuPacket {
+  const packet = emptyPacket(MOYU_MSG.gyroControl);
+  packet[2] = enabled ? 1 : 0;
+  return packet;
+}
+
+const GYRO_SCALE = 1 / (1 << 30);
+
+/**
+ * 从已解密的 0xAB 包解析四元数。
+ * 协议顺序为 LE int32 `(w, x, -z, y)`，各分量除以 2^30。
+ */
+export function parseGyroQuaternion(bytes: ArrayLike<number>): MoyuQuat {
+  if (bytes.length < 17) {
+    throw new Error("陀螺仪包过短");
+  }
+  const copy = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  if (view.getUint8(0) !== MOYU_MSG.gyro) {
+    throw new Error("非陀螺仪包");
+  }
+  const w = view.getInt32(1, true) * GYRO_SCALE;
+  const x = view.getInt32(5, true) * GYRO_SCALE;
+  const negZ = view.getInt32(9, true) * GYRO_SCALE;
+  const y = view.getInt32(13, true) * GYRO_SCALE;
+  return { x, y, z: -negZ, w };
 }
 
 /** 把字节序列转成高位优先的 bit 串（与 csTimer 一致）。 */
@@ -86,11 +116,17 @@ export type MoyuMoveMessage = {
   history: MoyuMoveSample[];
 };
 
+export type MoyuGyroMessage = {
+  type: "gyro";
+  quaternion: MoyuQuat;
+};
+
 export type MoyuParsedMessage =
   | MoyuInfoMessage
   | MoyuStatusMessage
   | MoyuPowerMessage
   | MoyuMoveMessage
+  | MoyuGyroMessage
   | { type: "unknown"; opcode: number };
 
 /**
@@ -165,6 +201,13 @@ export function parseMoyuPacket(bytes: ArrayLike<number>): MoyuParsedMessage {
       });
     }
     return { type: "move", moveCounter, history };
+  }
+
+  if (opcode === MOYU_MSG.gyro) {
+    return {
+      type: "gyro",
+      quaternion: parseGyroQuaternion(bytes),
+    };
   }
 
   return { type: "unknown", opcode };

@@ -51,10 +51,13 @@ export {
   buildStatusPacket,
   bytesToBits,
   emptyPacket,
+  parseGyroQuaternion,
   parseMoyuPacket,
   requestCubeInfo,
   requestCubePower,
   requestCubeStatus,
+  requestGyroControl,
+  type MoyuGyroMessage,
   type MoyuInfoMessage,
   type MoyuMoveMessage,
   type MoyuMoveSample,
@@ -63,4 +66,15 @@ export {
   type MoyuPowerMessage,
   type MoyuStatusMessage,
 } from "./packets.ts";
+export { takeNewMoves } from "./moves.ts";
+export {
+  IDENTITY_QUAT,
+  MOYU_REST_ORBIT,
+  MoyuOrientationTracker,
+  quatInvert,
+  quatMultiply,
+  toTwistyOrientation,
+  type MoyuQuat,
+  type OrbitDegrees,
+} from "./orientation.ts";
 export { faceletsToKPattern, faceletsToSetupAlg } from "./pattern.ts";

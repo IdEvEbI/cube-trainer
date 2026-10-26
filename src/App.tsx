@@ -76,7 +76,10 @@ import {
   connectMoyuCube,
   formatMoyuConnectError,
   formatMoyuConnectedLabel,
+  MOYU_REST_ORBIT,
+  MoyuOrientationTracker,
   type MoyuBleConnection,
+  type MoyuQuat,
 } from "./modules/bluetooth/moyu/index.ts";
 import "./app.css";
 
@@ -121,6 +124,9 @@ export default function App() {
   const [moyuNote, setMoyuNote] = useState<string | null>(null);
   const moyuSessionRef = useRef<MoyuBleConnection | null>(null);
   moyuSessionRef.current = moyuSession;
+  const moyuOrientation = useRef(new MoyuOrientationTracker());
+  const moyuOrbitRaf = useRef(0);
+  const moyuPendingQuat = useRef<MoyuQuat | null>(null);
   const cursorRef = useRef<PracticeCursor | null>(null);
   const playingRef = useRef(false);
   const playRun = useRef(0);
@@ -471,24 +477,76 @@ export default function App() {
   const showTimingHome = focus.kind === "计时" && !timingRunning;
   const modeEntry = modeSwitchPresentation(mode);
 
+  function flushMoyuOrientation() {
+    moyuOrbitRaf.current = 0;
+    const quat = moyuPendingQuat.current;
+    if (!quat) {
+      return;
+    }
+    cube.current?.setOrientation(moyuOrientation.current.toOrientation(quat));
+  }
+
+  function onMoyuOrientation(quat: MoyuQuat) {
+    moyuPendingQuat.current = quat;
+    if (moyuOrbitRaf.current) {
+      return;
+    }
+    moyuOrbitRaf.current = requestAnimationFrame(flushMoyuOrientation);
+  }
+
+  function resetMoyuOrientationFollow() {
+    if (moyuOrbitRaf.current) {
+      cancelAnimationFrame(moyuOrbitRaf.current);
+      moyuOrbitRaf.current = 0;
+    }
+    moyuPendingQuat.current = null;
+    moyuOrientation.current.reset();
+  }
+
+  function onMoyuAlignOrientation() {
+    try {
+      const orientation = moyuOrientation.current.alignToCurrent();
+      cube.current?.setOrientation(orientation);
+      cube.current?.setOrbit(MOYU_REST_ORBIT);
+      setMoyuNote(
+        moyuSession
+          ? `${formatMoyuConnectedLabel(moyuSession.name)} · 已对齐朝向`
+          : "已对齐朝向",
+      );
+    } catch (error) {
+      setMoyuNote(
+        error instanceof Error ? error.message : "尚无朝向数据，请稍候再对齐",
+      );
+    }
+  }
+
   async function onMoyuConnectClick() {
     if (moyuBusy) {
       return;
     }
     if (moyuSession) {
+      void moyuSession.disableGyro().catch(() => undefined);
       moyuSession.disconnect();
+      resetMoyuOrientationFollow();
       setMoyuSession(null);
       setMoyuNote(null);
       return;
     }
     setMoyuBusy(true);
     setMoyuNote(null);
+    resetMoyuOrientationFollow();
     try {
       const session = await connectMoyuCube({
         onDisconnected: () => {
+          resetMoyuOrientationFollow();
           setMoyuSession(null);
           setMoyuNote("魔方已断开");
         },
+        onMoves: (moves) => {
+          // 连续转动：按时间正序追加到当前 3D 状态
+          cube.current?.applyAlgorithm(moves.join(" "));
+        },
+        onOrientation: onMoyuOrientation,
         askMacAddress: (deviceName) => {
           const entered = window.prompt(
             `请输入魔方 MAC（可在官方 App 查看）\n设备：${deviceName}`,
@@ -502,8 +560,13 @@ export default function App() {
       const status = await session.requestStatus();
       // 计时首屏白上：setupAlg 可直接展示物理魔方状态（不改打乱公式文案）
       cube.current?.setAbsoluteAlg(status.setupAlg);
-      setMoyuNote(`${formatMoyuConnectedLabel(session.name)} · 已同步状态`);
+      cube.current?.setOrbit(MOYU_REST_ORBIT);
+      await session.enableGyro();
+      setMoyuNote(
+        `${formatMoyuConnectedLabel(session.name)} · 已同步 · 朝向跟随`,
+      );
     } catch (error) {
+      resetMoyuOrientationFollow();
       setMoyuSession(null);
       setMoyuNote(formatMoyuConnectError(error));
     } finally {
@@ -592,6 +655,16 @@ export default function App() {
             >
               {moyuBusy ? "连接中…" : moyuSession ? "断开魔方" : "连接魔方"}
             </button>
+            {moyuSession ? (
+              <button
+                type="button"
+                className="bt-align"
+                disabled={moyuBusy}
+                onClick={onMoyuAlignOrientation}
+              >
+                对齐朝向
+              </button>
+            ) : null}
             {moyuNote ? (
               <span
                 className={

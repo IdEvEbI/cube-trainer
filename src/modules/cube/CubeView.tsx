@@ -14,6 +14,25 @@ export type CubeMotion = "forward" | "back";
 /** scramble = white U (timer); solve = yellow U (practice). */
 export type CubeViewOrientation = "scramble" | "solve";
 
+export type CubeOrbit = {
+  latitude: number;
+  longitude: number;
+};
+
+export type CubeOrientationQuat = {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+};
+
+type TwistyPuzzle3D = {
+  quaternion: {
+    set(x: number, y: number, z: number, w: number): unknown;
+  };
+  scheduleRenderCallback?: () => void;
+};
+
 export type CubeHandle = {
   applyAlgorithm(moves: string): void;
   setAlgorithm(moves: string): void;
@@ -22,6 +41,12 @@ export type CubeHandle = {
    * 供蓝牙状态同步：朝向与当前 viewOrientation 的 setup 一致。
    */
   setAbsoluteAlg(moves: string): void;
+  /**
+   * 把相对姿态四元数乘到 Twisty Cube3D 上（真·三自由度跟随，含垂直翻转）。
+   */
+  setOrientation(quat: CubeOrientationQuat): void;
+  /** 复位相机球面坐标（对齐朝向时清掉拖动残留）。 */
+  setOrbit(coords: CubeOrbit): void;
   showMoves(moves: string): Promise<void>;
   animateMove(
     before: string,
@@ -167,10 +192,40 @@ export function CubeView({
 }) {
   const host = useRef<HTMLDivElement>(null);
   const player = useRef<TwistyPlayer | null>(null);
+  const puzzle3D = useRef<TwistyPuzzle3D | null>(null);
+  const puzzle3DWait = useRef<Promise<TwistyPuzzle3D | null> | null>(null);
+  const lastOrientation = useRef<CubeOrientationQuat | null>(null);
   const queue = useRef(Promise.resolve());
   const generation = useRef(0);
   const viewOrientationRef = useRef(viewOrientation);
   viewOrientationRef.current = viewOrientation;
+
+  async function resolvePuzzle3D(
+    twisty: TwistyPlayer,
+  ): Promise<TwistyPuzzle3D | null> {
+    if (puzzle3D.current) {
+      return puzzle3D.current;
+    }
+    if (!puzzle3DWait.current) {
+      puzzle3DWait.current = twisty
+        .experimentalCurrentThreeJSPuzzleObject()
+        .then((obj) => {
+          const puzzle = obj as TwistyPuzzle3D;
+          puzzle3D.current = puzzle;
+          return puzzle;
+        })
+        .catch(() => null);
+    }
+    return puzzle3DWait.current;
+  }
+
+  function applyOrientationToPuzzle(
+    puzzle: TwistyPuzzle3D,
+    quat: CubeOrientationQuat,
+  ) {
+    puzzle.quaternion.set(quat.x, quat.y, quat.z, quat.w);
+    puzzle.scheduleRenderCallback?.();
+  }
 
   useEffect(() => {
     const mount = host.current;
@@ -194,9 +249,13 @@ export function CubeView({
     twisty.classList.add("cube-player");
     mount.replaceChildren(twisty);
     player.current = twisty;
+    puzzle3D.current = null;
+    puzzle3DWait.current = null;
     return () => {
       twisty.remove();
       player.current = null;
+      puzzle3D.current = null;
+      puzzle3DWait.current = null;
     };
   }, [viewOrientation]);
 
@@ -236,6 +295,33 @@ export function CubeView({
         }
         twisty.alg = alg;
         twisty.timestamp = "end";
+      });
+    },
+    setOrientation(quat) {
+      lastOrientation.current = quat;
+      const twisty = player.current;
+      if (!twisty) {
+        return;
+      }
+      void resolvePuzzle3D(twisty).then((puzzle) => {
+        if (!puzzle || player.current !== twisty) {
+          return;
+        }
+        const latest = lastOrientation.current;
+        if (!latest) {
+          return;
+        }
+        applyOrientationToPuzzle(puzzle, latest);
+      });
+    },
+    setOrbit(coords) {
+      const twisty = player.current;
+      if (!twisty) {
+        return;
+      }
+      twisty.experimentalModel.twistySceneModel.orbitCoordinatesRequest.set({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       });
     },
     showMoves(moves: string) {
