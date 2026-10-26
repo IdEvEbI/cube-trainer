@@ -398,6 +398,16 @@
   stroke-linejoin: round;
 }
 
+/* 空槽只描边标出，不改贴纸填色，以便与练习 3D 一致 */
+.top-pattern-iso-empty-mark {
+  fill: none;
+  stroke: var(--f2l-empty-mark, #e11d48);
+  stroke-width: 1.35;
+  stroke-dasharray: 2.2 1.4;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
 .top-pattern-arrow-halo {
   fill: none;
   stroke: #fff6a8;

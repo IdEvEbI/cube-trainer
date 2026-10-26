@@ -50,6 +50,7 @@ export function PracticeHint({
               sides={pattern.sides}
               arrows={pattern.arrows}
               cube={pattern.cube}
+              emptySlot={pattern.emptySlot}
               label={`${practice.name}的顶层图案`}
               large
             />

@@ -202,6 +202,7 @@ export function PracticeFormulaPicker({
                       sides={pattern.sides}
                       arrows={pattern.arrows}
                       cube={pattern.cube}
+                      emptySlot={pattern.emptySlot}
                       label={`${formula.name}的顶层图案`}
                       size="card"
                     />

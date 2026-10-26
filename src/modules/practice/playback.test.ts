@@ -15,8 +15,8 @@ import {
 } from "./playback.ts";
 
 const sune = practiceCase({
-  id: "oll-sune",
-  name: "OLL 27（Sune）",
+  id: "oll-wca-27",
+  name: "OLL 27",
   puzzle: "3x3",
   moves: "R U R' U R U2 R'",
 });
@@ -24,8 +24,8 @@ const sune = practiceCase({
 describe("practice playback", () => {
   it("括号不改变上一步、下一步和自动播放的步骤", () => {
     const grouped = practiceCase({
-      id: "oll-sune",
-      name: "OLL 27（Sune）",
+      id: "oll-wca-27",
+      name: "OLL 27",
       puzzle: "3x3",
       moves: "(R U R' U)(R U2 R')",
     });

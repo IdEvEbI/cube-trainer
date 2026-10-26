@@ -12,12 +12,17 @@ import {
 } from "./catalog.ts";
 
 const catalogPath = new URL("./formula-catalog.json", import.meta.url);
-const ollIds = ["oll-line", "oll-l", "oll-sune", "oll-antisune"] as const;
+const ollIds = [
+  "oll-wca-45",
+  "oll-wca-44",
+  "oll-wca-27",
+  "oll-wca-26",
+] as const;
 const ollMoves = {
-  "oll-line": ["OLL 45", "(F)(R U R' U')(F')"],
-  "oll-l": ["OLL 44", "(F)(U R U' R')(F')"],
-  "oll-sune": ["OLL 27（Sune）", "(R U R' U)(R U2 R')"],
-  "oll-antisune": ["OLL 26（Anti-Sune）", "(R U2 R' U')(R U' R')"],
+  "oll-wca-45": ["OLL 45", "(F)(R U R' U')(F')"],
+  "oll-wca-44": ["OLL 44", "(F)(U R U' R')(F')"],
+  "oll-wca-27": ["OLL 27", "(R U R' U)(R U2 R')"],
+  "oll-wca-26": ["OLL 26", "(R U2 R' U')(R U' R')"],
 } as const;
 
 function loadCatalog(): CatalogMethod[] {
@@ -62,20 +67,24 @@ describe("formula catalog", () => {
     const f2l = formulasForSubclass(catalog, "cfop", "cfop-f2l");
     const oll = formulasForSubclass(catalog, "cfop", "cfop-oll");
     const pll = formulasForSubclass(catalog, "cfop", "cfop-pll");
-    assert.equal(f2l?.length, 42);
+    const f2lStandard = f2l?.filter((formula) => !formula.emptySlot);
+    assert.equal(f2lStandard?.length, 41);
+    assert.ok((f2l?.length ?? 0) > 41);
     assert.equal(oll?.length, 57);
     assert.equal(pll?.length, 21);
-    for (const id of ["f2l-split", "f2l-side", "f2l-1-2", "f2l-6-5"]) {
-      assert.ok(f2l?.some((formula) => formula.id === id));
+    for (const id of ["f2l-1", "f2l-4", "f2l-27", "f2l-41"]) {
+      assert.ok(f2lStandard?.some((formula) => formula.id === id));
     }
-    for (const id of ["oll-wca-1", "oll-wca-57", "oll-dot"]) {
+    for (const id of ["oll-wca-1", "oll-wca-57", "oll-wca-15"]) {
       assert.ok(oll?.some((formula) => formula.id === id));
     }
     for (const id of ["pll-t", "pll-aa", "pll-e", "pll-ga", "pll-gd"]) {
       assert.ok(pll?.some((formula) => formula.id === id));
     }
     assert.equal(
-      [...f2l, ...oll, ...pll].every((formula) => formula.puzzle === "3x3"),
+      [...(f2l ?? []), ...(oll ?? []), ...(pll ?? [])].every(
+        (formula) => formula.puzzle === "3x3",
+      ),
       true,
     );
     assert.equal(formulasForSubclass(catalog, "cfop", "cfop-cross")?.length, 0);
@@ -102,6 +111,74 @@ describe("formula catalog", () => {
     assert.equal(formulasForSubclass(catalog, "cfop", "missing"), null);
   });
 
+  it("F2L 标准 41 无重复，空槽单独标记且可解析练习", () => {
+    const catalog = loadCatalog();
+    const f2l = formulasForSubclass(catalog, "cfop", "cfop-f2l");
+    assert.ok(f2l);
+    const standard = f2l.filter((formula) => !formula.emptySlot);
+    const empty = f2l.filter((formula) => formula.emptySlot);
+    assert.equal(standard.length, 41);
+    assert.ok(empty.length > 0);
+
+    const ids = standard.map((formula) => formula.id);
+    assert.equal(new Set(ids).size, 41);
+    assert.equal(ids.includes("f2l-join"), false);
+    assert.equal(ids.includes("f2l-side"), false);
+
+    for (let n = 1; n <= 41; n++) {
+      const formula = standard.find((item) => item.id === `f2l-${n}`);
+      assert.ok(formula, `missing f2l-${n}`);
+      assert.equal(formula.name, `F2L ${n}`);
+      assert.equal(formula.emptySlot, undefined);
+      assert.ok(practiceCase(toPracticeFormula(formula)));
+    }
+
+    for (const formula of empty) {
+      assert.equal(formula.emptySlot, true);
+      assert.equal(formula.group, "空槽插入");
+      assert.ok(practiceCase(toPracticeFormula(formula)), formula.id);
+    }
+
+    const first = standard.find((formula) => formula.id === "f2l-1");
+    assert.ok(first);
+    assert.equal(first.moves, "(U)(R U' R')");
+    assert.deepEqual(first.algs, ["(U)(R U' R')", "(R' F R F')"]);
+    assert.equal(first.group, "基础插入");
+  });
+
+  it("OLL / PLL 编号完整、默认可解析，OLL 57 对齐 Wiki", () => {
+    const catalog = loadCatalog();
+    const oll = formulasForSubclass(catalog, "cfop", "cfop-oll");
+    const pll = formulasForSubclass(catalog, "cfop", "cfop-pll");
+    assert.ok(oll);
+    assert.ok(pll);
+    assert.equal(oll.length, 57);
+    assert.equal(pll.length, 21);
+
+    const nums = oll.map((formula) => {
+      assert.match(formula.id, /^oll-wca-\d+$/);
+      assert.equal(formula.name, `OLL ${formula.id.slice("oll-wca-".length)}`);
+      assert.ok(practiceCase(toPracticeFormula(formula)), formula.id);
+      return Number(formula.id.slice("oll-wca-".length));
+    });
+    assert.deepEqual(
+      [...nums].sort((a, b) => a - b),
+      Array.from({ length: 57 }, (_, i) => i + 1),
+    );
+
+    for (const formula of pll) {
+      assert.ok(practiceCase(toPracticeFormula(formula)), formula.id);
+    }
+
+    const fifteen = oll.find((formula) => formula.id === "oll-wca-15");
+    assert.ok(fifteen);
+    assert.equal(fifteen.moves, "(r' U' r)(R' U' R U)(r' U r)");
+
+    const fiftySeven = oll.find((formula) => formula.id === "oll-wca-57");
+    assert.ok(fiftySeven);
+    assert.equal(fiftySeven.moves, "(R U R' U')(M' U R U' r')");
+  });
+
   it("已支持的四条 OLL 仍能生成练习状态，并且只出现一次", () => {
     const catalog = loadCatalog();
     const oll = formulasForSubclass(catalog, "cfop", "cfop-oll");
@@ -123,11 +200,11 @@ describe("formula catalog", () => {
       assert.equal(all.filter((formula) => formula.id === id).length, 1);
       assert.ok(practiceCase(toPracticeFormula(stored)));
     }
-    const sune = oll?.find((formula) => formula.id === "oll-sune");
+    const sune = oll?.find((formula) => formula.id === "oll-wca-27");
     assert.ok(sune);
     assert.deepEqual(practiceCase(toPracticeFormula(sune)), {
-      id: "oll-sune",
-      name: "OLL 27（Sune）",
+      id: "oll-wca-27",
+      name: "OLL 27",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });

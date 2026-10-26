@@ -5,6 +5,7 @@ import type { FormulaPattern } from "./pattern-types.ts";
 
 export type {
   CubeFaces,
+  F2lEmptySlot,
   FormulaPattern,
   PatternPaint,
   TopSticker,

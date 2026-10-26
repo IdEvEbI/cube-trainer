@@ -47,13 +47,13 @@ describe("practiceCaseFromPicker", () => {
     const groups = practicePickerGroups(oll);
     const sune = groups
       .flatMap((group) => group.formulas)
-      .find((formula) => formula.id === "oll-sune");
+      .find((formula) => formula.id === "oll-wca-27");
     assert.ok(sune);
 
     const setup = practiceCaseFromPicker(sune);
     assert.deepEqual(setup, {
-      id: "oll-sune",
-      name: "OLL 27（Sune）",
+      id: "oll-wca-27",
+      name: "OLL 27",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });
@@ -79,20 +79,20 @@ describe("defaultPracticeFormula + formulaPickerPath", () => {
   it("未选中时默认是 F2L 第一条公式", () => {
     const first = defaultPracticeFormula(catalog);
     assert.ok(first);
-    assert.equal(first.id, "f2l-paired");
+    assert.equal(first.id, "f2l-1");
     assert.ok(practiceCaseFromPicker(first));
   });
 
   it("选中后路径为 步骤 / 分组 / 名称", () => {
-    const path = formulaPickerPath(catalog, "f2l-paired");
-    assert.equal(path, "F2L / 基础插入 / 已配对插入");
+    const path = formulaPickerPath(catalog, "f2l-1");
+    assert.equal(path, "F2L / 基础插入 / F2L 1");
     assert.equal(formulaPickerPath(catalog, null), null);
   });
 });
 
 describe("shouldCloseFormulaPickerOnOutsideClick", () => {
   it("点击外部关闭后当前公式不变", () => {
-    const selectedId = "f2l-paired";
+    const selectedId = "f2l-1";
     const before = formulaPickerPath(catalog, selectedId);
 
     const inside = {} as Node;

@@ -54,6 +54,17 @@ function readPractice(value: unknown, label: string): boolean {
   return value;
 }
 
+function readEmptySlot(item: Record<string, unknown>, label: string): boolean {
+  const value = item.emptySlot ?? item["empty-slot"];
+  if (value === undefined) {
+    return false;
+  }
+  if (typeof value !== "boolean") {
+    throw new Error(`${label}的空槽标记无效`);
+  }
+  return value;
+}
+
 function readAlgs(
   value: unknown,
   moves: string,
@@ -115,6 +126,9 @@ function readFormula(
   }
   if (readPractice(item.practice, label)) {
     formula.practice = true;
+  }
+  if (readEmptySlot(item, label)) {
+    formula.emptySlot = true;
   }
   return {
     formula,

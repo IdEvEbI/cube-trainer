@@ -8,7 +8,7 @@ import {
 
 describe("practiceStickering", () => {
   it("简化显示开启时顶面只显示相关块，底层白色块不被置灰", () => {
-    const active = practiceStickering("f2l-paired", true);
+    const active = practiceStickering("f2l-4", true);
     assert.equal(active.mode, "mask");
     if (active.mode !== "mask") {
       return;
@@ -33,8 +33,8 @@ describe("practiceStickering", () => {
   });
 
   it("关闭简化或非 F2L 时恢复全色", () => {
-    assert.deepEqual(practiceStickering("f2l-paired", false), { mode: "full" });
-    assert.deepEqual(practiceStickering("oll-sune", true), { mode: "full" });
+    assert.deepEqual(practiceStickering("f2l-4", false), { mode: "full" });
+    assert.deepEqual(practiceStickering("oll-wca-27", true), { mode: "full" });
     assert.deepEqual(practiceStickering("pll-t", true), { mode: "full" });
     assert.deepEqual(practiceStickering(null, true), { mode: "full" });
     assert.deepEqual(practiceStickering(undefined, true), { mode: "full" });
