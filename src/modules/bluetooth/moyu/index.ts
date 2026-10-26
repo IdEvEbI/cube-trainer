@@ -1,4 +1,18 @@
 export {
+  connectMoyuCube,
+  formatMoyuConnectError,
+  formatMoyuConnectedLabel,
+  isWebBluetoothAvailable,
+  MOYU_GATT,
+  MOYU_NAME_PREFIX,
+  moyuRequestDeviceOptions,
+  type ConnectMoyuOptions,
+  type MoyuBleConnection,
+  type MoyuBleRequestDeviceOptions,
+  type MoyuBluetoothRequestApi,
+  type MoyuCubeStatus,
+} from "./ble.ts";
+export {
   FACELET_FACE_ORDER,
   MOYU_COLOR_FACES,
   MOYU_FACELET_FACE_ORDER,
@@ -8,6 +22,16 @@ export {
   type MoyuMove,
   type MoyuMsgType,
 } from "./constants.ts";
+export {
+  decryptMoyuPacket,
+  deriveMoyuKeyIv,
+  encryptMoyuPacket,
+  macFromMoyuDeviceName,
+  MOYU_ROOT_IV,
+  MOYU_ROOT_KEY,
+  parseMacAddress,
+  type MoyuKeyIv,
+} from "./crypto.ts";
 export {
   decodeFaceletColors,
   encodeFaceletBits,
@@ -39,3 +63,4 @@ export {
   type MoyuPowerMessage,
   type MoyuStatusMessage,
 } from "./packets.ts";
+export { faceletsToKPattern, faceletsToSetupAlg } from "./pattern.ts";

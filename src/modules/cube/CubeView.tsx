@@ -17,6 +17,11 @@ export type CubeViewOrientation = "scramble" | "solve";
 export type CubeHandle = {
   applyAlgorithm(moves: string): void;
   setAlgorithm(moves: string): void;
+  /**
+   * 直接设置展示算法（可为空表示复原），不做打乱校验。
+   * 供蓝牙状态同步：朝向与当前 viewOrientation 的 setup 一致。
+   */
+  setAbsoluteAlg(moves: string): void;
   showMoves(moves: string): Promise<void>;
   animateMove(
     before: string,
@@ -219,6 +224,17 @@ export function CubeView({
           return;
         }
         twisty.alg = parsed;
+        twisty.timestamp = "end";
+      });
+    },
+    setAbsoluteAlg(moves: string) {
+      const alg = moves.trim();
+      queue.current = queue.current.then(async () => {
+        const twisty = player.current;
+        if (!twisty) {
+          return;
+        }
+        twisty.alg = alg;
         twisty.timestamp = "end";
       });
     },
