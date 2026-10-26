@@ -36,45 +36,45 @@ describe("resolveDefaultAlgorithmIndex", () => {
 describe("createDefaultAlgorithmPrefs", () => {
   it("记录与读取默认算法", () => {
     const prefs = createDefaultAlgorithmPrefs(memoryStorage());
-    assert.equal(prefs.peek("oll-sune"), undefined);
-    assert.equal(prefs.get("oll-sune", 2), 0);
+    assert.equal(prefs.peek("oll-wca-27"), undefined);
+    assert.equal(prefs.get("oll-wca-27", 2), 0);
 
-    prefs.set("oll-sune", 1, 2);
-    assert.equal(prefs.peek("oll-sune"), 1);
-    assert.equal(prefs.get("oll-sune", 2), 1);
+    prefs.set("oll-wca-27", 1, 2);
+    assert.equal(prefs.peek("oll-wca-27"), 1);
+    assert.equal(prefs.get("oll-wca-27", 2), 1);
   });
 
   it("切换默认后覆盖旧值", () => {
     const prefs = createDefaultAlgorithmPrefs(memoryStorage());
-    prefs.set("oll-sune", 1, 3);
-    prefs.set("oll-sune", 2, 3);
-    assert.equal(prefs.get("oll-sune", 3), 2);
+    prefs.set("oll-wca-27", 1, 3);
+    prefs.set("oll-wca-27", 2, 3);
+    assert.equal(prefs.get("oll-wca-27", 3), 2);
   });
 
   it("设回 0 清除标注，未标注用目录默认", () => {
     const prefs = createDefaultAlgorithmPrefs(memoryStorage());
-    prefs.set("oll-sune", 1, 2);
-    prefs.set("oll-sune", 0, 2);
-    assert.equal(prefs.peek("oll-sune"), undefined);
-    assert.equal(prefs.get("oll-sune", 2), 0);
+    prefs.set("oll-wca-27", 1, 2);
+    prefs.set("oll-wca-27", 0, 2);
+    assert.equal(prefs.peek("oll-wca-27"), undefined);
+    assert.equal(prefs.get("oll-wca-27", 2), 0);
   });
 
   it("无效 id 或下标不写入；越界读取回退", () => {
     const storage = memoryStorage();
     const prefs = createDefaultAlgorithmPrefs(storage);
     prefs.set("  ", 1, 2);
-    prefs.set("oll-sune", 5, 2);
-    prefs.set("oll-sune", -1, 2);
+    prefs.set("oll-wca-27", 5, 2);
+    prefs.set("oll-wca-27", -1, 2);
     assert.equal(storage.read(), null);
     assert.equal(prefs.get("", 2), 0);
 
-    prefs.set("oll-sune", 1, 2);
-    assert.equal(prefs.get("oll-sune", 1), 0);
+    prefs.set("oll-wca-27", 1, 2);
+    assert.equal(prefs.get("oll-wca-27", 1), 0);
   });
 
   it("损坏的存储读作未标注", () => {
     const prefs = createDefaultAlgorithmPrefs(memoryStorage("{"));
-    assert.equal(prefs.peek("oll-sune"), undefined);
-    assert.equal(prefs.get("oll-sune", 2), 0);
+    assert.equal(prefs.peek("oll-wca-27"), undefined);
+    assert.equal(prefs.get("oll-wca-27", 2), 0);
   });
 });

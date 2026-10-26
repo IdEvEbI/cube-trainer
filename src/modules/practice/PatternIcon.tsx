@@ -1,5 +1,19 @@
-import type { CubeFaces, PatternPaint, TopSticker } from "./pattern.ts";
+import type {
+  CubeFaces,
+  F2lEmptySlot,
+  PatternPaint,
+  TopSticker,
+} from "./pattern.ts";
 import "./practice.css";
+
+/** 空槽在立体缩略图上的贴纸下标（黄上绿前，目标槽 FR）。 */
+const EMPTY_SLOT_STICKERS: Record<
+  F2lEmptySlot,
+  { face: "F" | "R"; indices: readonly number[] }
+> = {
+  fl: { face: "F", indices: [3, 6, 7] },
+  br: { face: "R", indices: [5, 7, 8] },
+};
 
 /** OLL/PLL：顶层 3×3 + 侧面条；F2L：GAN 风格立体 U/F/R。 */
 const CELL = 12;
@@ -219,10 +233,12 @@ function isoPoly(
 
 function CubeIcon({
   cube,
+  emptySlot,
   label,
   size,
 }: {
   cube: CubeFaces;
+  emptySlot?: F2lEmptySlot;
   label: string;
   size: "list" | "card" | "hint";
 }) {
@@ -233,12 +249,14 @@ function CubeIcon({
     F: [project(0, 3, 3), project(3, 3, 3), project(3, 3, 0), project(0, 3, 0)],
     R: [project(3, 3, 3), project(3, 0, 3), project(3, 0, 0), project(3, 3, 0)],
   };
+  const empty = emptySlot ? EMPTY_SLOT_STICKERS[emptySlot] : null;
   return (
     <svg
-      className={`top-pattern is-cube is-${size}`}
+      className={`top-pattern is-cube is-${size}${emptySlot ? " has-empty-slot" : ""}`}
       viewBox={`0 0 ${ISO_W} ${ISO_H}`}
       role="img"
       aria-label={label}
+      data-empty-slot={emptySlot}
     >
       {faces.map((face) => (
         <polygon
@@ -264,6 +282,22 @@ function CubeIcon({
           );
         }),
       )}
+      {empty
+        ? empty.indices.map((index) => {
+            const row = Math.floor(index / 3);
+            const col = index % 3;
+            return (
+              <polygon
+                key={`empty-mark-${empty.face}${index}`}
+                className="top-pattern-iso-empty-mark"
+                points={pts(
+                  insetQuad(isoPoly(empty.face, row, col), ISO_INSET),
+                )}
+                fill="none"
+              />
+            );
+          })
+        : null}
     </svg>
   );
 }
@@ -273,6 +307,7 @@ export function PatternIcon({
   sides = [],
   arrows = [],
   cube,
+  emptySlot,
   label,
   large = false,
   size = large ? "hint" : "list",
@@ -281,12 +316,15 @@ export function PatternIcon({
   sides?: readonly TopSticker[];
   arrows?: readonly (readonly [number, number])[];
   cube?: CubeFaces;
+  emptySlot?: F2lEmptySlot;
   label: string;
   large?: boolean;
   size?: "list" | "card" | "hint";
 }) {
   if (cube) {
-    return <CubeIcon cube={cube} label={label} size={size} />;
+    return (
+      <CubeIcon cube={cube} emptySlot={emptySlot} label={label} size={size} />
+    );
   }
 
   const parts = arrowParts(arrows);

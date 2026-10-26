@@ -13,6 +13,7 @@ export type CatalogFormula = {
   algs?: string[];
   group?: string;
   practice?: boolean;
+  emptySlot?: boolean;
 };
 
 export type CatalogSubclass = {
@@ -48,6 +49,7 @@ export function parseFormulaCatalog(input: unknown): CatalogMethod[] {
         algs: formula.algs,
         group: formula.group,
         practice: formula.practice,
+        emptySlot: formula.emptySlot,
       })),
     })),
   }));
@@ -62,6 +64,7 @@ export function toPracticeFormula(formula: CatalogFormula): Formula {
     algs: formula.algs,
     group: formula.group,
     practice: formula.practice,
+    emptySlot: formula.emptySlot,
   };
 }
 

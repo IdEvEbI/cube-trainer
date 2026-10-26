@@ -102,7 +102,7 @@ export function formulaPickerTrail(
   return null;
 }
 
-/** Compact text for aria / tests: `F2L / 基础插入 / 已配对插入`. */
+/** Compact text for aria / tests: `F2L / 基础插入 / F2L 1`. */
 export function formulaPickerPath(
   methods: readonly CatalogMethod[],
   formulaId: string | null,

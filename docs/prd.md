@@ -44,7 +44,11 @@
    - 宽边旋转去重（如 `r` 与 `M' R` 保留一个）。
    - 优化不顺手的写法（如 `M2` 改为 `M'2`）。
    - 支持用户标注默认算法。
-   - 参考来源：algdb.net、JPerm、Speedsolving Wiki、Cube.Academy。
+   - 公式目录以 Speedsolving Wiki 为核对来源（默认算法、编号与空槽变体）：
+     - OLL：<https://www.speedsolving.com/wiki/index.php/OLL>
+     - F2L：<https://www.speedsolving.com/wiki/index.php/F2L>
+     - PLL：<https://www.speedsolving.com/wiki/index.php/PLL>
+   - 其他参考：algdb.net、JPerm、Cube.Academy。
 5. **转向适配**（朝向感知按键重映射）：绿前按 R 转橙面，橙前按 R 转蓝面。先做「手动设置前面色」的最小可用版本单独验证。
 6. **蓝牙魔方对接**（优先手机端）。
 7. **模拟 CFOP 打乱与还原**（统计步数，可作为游戏/教学演示）。
@@ -116,7 +120,7 @@
 
 打乱计时在本机记录次数、最好、最差、平均、Ao5。练习页**不做**计时统计；练习成绩为后置字段。
 
-公式目录写法见 `docs/formula-notation.md`（宽边去重、`M'2` 等）。
+公式目录写法见 `docs/formula-notation.md`（宽边去重、`M'2` 等）。CFOP 练习收录 Wiki 标准 OLL 57 / PLL 21 / F2L 41；F2L 空槽变体单独标记（`empty-slot`），不计入标准 41。
 
 支持收藏常用公式和自定义算法（后续步骤）。用户标注默认算法见独立 Issue。
 

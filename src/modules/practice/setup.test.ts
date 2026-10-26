@@ -29,7 +29,9 @@ function loadFormulas(): Formula[] {
 
 function ollFormulas(): Formula[] {
   return loadFormulas().filter((formula) =>
-    ["oll-line", "oll-l", "oll-sune", "oll-antisune"].includes(formula.id),
+    ["oll-wca-45", "oll-wca-44", "oll-wca-27", "oll-wca-26"].includes(
+      formula.id,
+    ),
   );
 }
 
@@ -93,14 +95,14 @@ function pieceSignature(pattern: KPattern): string {
 
 describe("practiceCase", () => {
   it("OLL 27 从复原出发，应用的是逆公式", () => {
-    const sune = ollFormulas().find((formula) => formula.id === "oll-sune");
+    const sune = ollFormulas().find((formula) => formula.id === "oll-wca-27");
     assert.ok(sune);
 
     const setup = practiceCase(sune);
 
     assert.deepEqual(setup, {
-      id: "oll-sune",
-      name: "OLL 27（Sune）",
+      id: "oll-wca-27",
+      name: "OLL 27",
       forward: "R U R' U R U2 R'",
       inverse: "R U2 R' U' R U' R'",
     });
@@ -157,7 +159,14 @@ describe("practiceCase", () => {
 
   it("新增的二步 OLL 点击后能生成练习状态", async () => {
     const solved = await signature("");
-    const ids = ["oll-dot", "oll-t", "oll-h", "oll-pi", "oll-u", "oll-wca-37"];
+    const ids = [
+      "oll-wca-15",
+      "oll-wca-33",
+      "oll-wca-21",
+      "oll-wca-22",
+      "oll-wca-23",
+      "oll-wca-37",
+    ];
     const formulas = ids.map((id) => {
       const formula = loadFormulas().find((item) => item.id === id);
       assert.ok(formula);
@@ -186,15 +195,15 @@ describe("practiceCase", () => {
       .find((method) => method.id === "cfop")
       ?.subclasses.find((subclass) => subclass.id === "cfop-oll");
     const already = new Set([
-      "oll-line",
-      "oll-l",
-      "oll-sune",
-      "oll-antisune",
-      "oll-dot",
-      "oll-t",
-      "oll-h",
-      "oll-pi",
-      "oll-u",
+      "oll-wca-45",
+      "oll-wca-44",
+      "oll-wca-27",
+      "oll-wca-26",
+      "oll-wca-15",
+      "oll-wca-33",
+      "oll-wca-21",
+      "oll-wca-22",
+      "oll-wca-23",
       "oll-wca-37",
     ]);
 
@@ -217,11 +226,11 @@ describe("practiceCase", () => {
 
   it("切换算法后练习状态跟着更新", async () => {
     const solved = await signature("");
-    const sune = ollFormulas().find((formula) => formula.id === "oll-sune");
+    const sune = ollFormulas().find((formula) => formula.id === "oll-wca-27");
     const crown = loadFormulas().find((formula) => formula.id === "oll-wca-18");
-    const dot = loadFormulas().find((formula) => formula.id === "oll-dot");
+    const dot = loadFormulas().find((formula) => formula.id === "oll-wca-15");
     assert.ok(sune?.algs);
-    assert.ok(crown?.algs);
+    assert.ok(crown);
     assert.ok(dot);
 
     assert.deepEqual(formulaAlgorithms(sune), sune.algs);
@@ -254,23 +263,31 @@ describe("practiceCase", () => {
       solved,
     );
 
-    const crownDefault = practiceCase(crown);
-    const crownAlternate = practiceCase(crown, 1);
-    assert.ok(crownDefault);
-    assert.ok(crownAlternate);
-    assert.equal(moveCount(crown.moves), 14);
-    assert.equal(moveCount(crown.algs[1] ?? ""), 14);
-    assert.equal(crownDefault.forward, parseAlgorithm(crown.moves).join(" "));
+    const edges = loadFormulas().find((formula) => formula.id === "oll-wca-28");
+    assert.ok(edges?.algs);
+    const edgesDefault = practiceCase(edges);
+    const edgesAlternate = practiceCase(edges, 1);
+    assert.ok(edgesDefault);
+    assert.ok(edgesAlternate);
+    assert.equal(edgesDefault.forward, parseAlgorithm(edges.moves).join(" "));
     assert.equal(
-      crownAlternate.forward,
-      parseAlgorithm(crown.algs[1] ?? "").join(" "),
+      edgesAlternate.forward,
+      parseAlgorithm(edges.algs[1] ?? "").join(" "),
     );
     assert.equal(
-      orientation(await signature(crownDefault.inverse)),
-      orientation(await signature(crownAlternate.inverse)),
+      orientation(await signature(edgesDefault.inverse)),
+      orientation(await signature(edgesAlternate.inverse)),
     );
     assert.equal(
-      await signature(`${crownAlternate.inverse} ${crownAlternate.forward}`),
+      await signature(`${edgesAlternate.inverse} ${edgesAlternate.forward}`),
+      solved,
+    );
+
+    const crownSetup = practiceCase(crown);
+    assert.ok(crownSetup);
+    assert.equal(moveCount(crown.moves), 12);
+    assert.equal(
+      await signature(`${crownSetup.inverse} ${crownSetup.forward}`),
       solved,
     );
   });
@@ -279,24 +296,18 @@ describe("practiceCase", () => {
     const solved = await signature("");
     const crown = loadFormulas().find((formula) => formula.id === "oll-wca-18");
     const edges = loadFormulas().find((formula) => formula.id === "oll-wca-28");
-    assert.ok(crown?.algs);
+    assert.ok(crown);
     assert.ok(edges?.algs);
-    assert.equal(crown.algs.length, 2);
-    assert.equal(edges.algs.length, 2);
-    assert.match(crown.moves, /\br\b/);
+    assert.equal(edges.algs.length, 3);
+    assert.match(crown.moves, /M'/);
+    assert.match(crown.moves, /r'/);
     assert.doesNotMatch(crown.moves, /R M'/);
 
     const crownDefault = practiceCase(crown);
-    const crownAlternate = practiceCase(crown, 1);
     assert.ok(crownDefault);
-    assert.ok(crownAlternate);
-    assert.equal(moveCount(crown.moves), 14);
+    assert.equal(moveCount(crown.moves), 12);
     assert.equal(
       await signature(`${crownDefault.inverse} ${crownDefault.forward}`),
-      solved,
-    );
-    assert.equal(
-      await signature(`${crownAlternate.inverse} ${crownAlternate.forward}`),
       solved,
     );
 
@@ -351,7 +362,7 @@ describe("practiceCase", () => {
       formula.id.startsWith("oll-"),
     );
     const multi = oll.filter((formula) => formula.algs);
-    assert.equal(multi.length, 26);
+    assert.equal(multi.length, 22);
 
     for (const formula of multi) {
       const defaults = practiceCase(formula);
@@ -382,7 +393,7 @@ describe("practiceCase", () => {
     }
 
     const single = oll.filter((formula) => !formula.algs);
-    assert.equal(single.length, 31);
+    assert.equal(single.length, 35);
     for (const formula of single) {
       const setup = practiceCase(formula);
       assert.ok(setup, formula.id);
@@ -445,8 +456,8 @@ describe("practiceCase", () => {
     const oll = formulas.filter(
       (formula) => formula.id.startsWith("oll-") && formula.algs,
     );
-    assert.equal(oll.length, 26);
-    const sune = oll.find((formula) => formula.id === "oll-sune");
+    assert.equal(oll.length, 22);
+    const sune = oll.find((formula) => formula.id === "oll-wca-27");
     assert.ok(sune?.algs);
     assert.equal(
       practiceCase(sune, 1)?.forward,
@@ -464,7 +475,9 @@ describe("practiceCase", () => {
     const solved = await signature("");
 
     assert.ok(f2l);
-    assert.equal(f2l.length, 42);
+    const standard = f2l.filter((formula) => !formula.emptySlot);
+    assert.equal(standard.length, 41);
+    assert.ok(f2l.some((formula) => formula.emptySlot));
     for (const formula of f2l) {
       const setup = practiceCase(formula);
       assert.equal(formula.practice, true, formula.id);
@@ -479,7 +492,7 @@ describe("practiceCase", () => {
       assert.equal(restored, solved, formula.id);
     }
 
-    const keyed = f2l.find((formula) => formula.id === "f2l-4-1");
+    const keyed = f2l.find((formula) => formula.id === "f2l-1");
     assert.ok(keyed?.algs);
     assert.equal(keyed.algs[0], keyed.moves);
     const defaults = practiceCase(keyed);

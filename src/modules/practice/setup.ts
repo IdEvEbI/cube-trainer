@@ -2,10 +2,10 @@ import { parseAlgorithm } from "../formula/formulas.ts";
 import type { Formula } from "../formula/types.ts";
 
 const OLL_PRACTICE_IDS = new Set([
-  "oll-line",
-  "oll-l",
-  "oll-sune",
-  "oll-antisune",
+  "oll-wca-45",
+  "oll-wca-44",
+  "oll-wca-27",
+  "oll-wca-26",
 ]);
 
 export type PracticeCase = {

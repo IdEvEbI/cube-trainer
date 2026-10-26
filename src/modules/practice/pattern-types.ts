@@ -18,6 +18,9 @@ export type CubeFaces = {
   R: readonly PatternPaint[];
 };
 
+/** F2L 空槽：前左 / 后右（相对黄上绿前、目标槽 FR）。 */
+export type F2lEmptySlot = "fl" | "br";
+
 /**
  * 顶层 9 格（行优先）+ 四周 12 条侧面；
  * PLL 可带置换箭头；F2L 使用 cube 立体三面。
@@ -29,4 +32,6 @@ export type FormulaPattern = {
   sides: readonly PatternPaint[];
   arrows?: readonly (readonly [number, number])[];
   cube?: CubeFaces;
+  /** 空槽插入缩略图：标出空着的槽位。 */
+  emptySlot?: F2lEmptySlot;
 };

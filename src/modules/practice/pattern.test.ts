@@ -13,6 +13,7 @@ import {
   hasPllPattern,
   type TopSticker,
 } from "./pattern.ts";
+import { f2lPracticeCubeFaces } from "./f2l-practice-faces.ts";
 import { practiceCase } from "./setup.ts";
 
 const samplePath = new URL("../../data/formula-catalog.json", import.meta.url);
@@ -223,10 +224,10 @@ describe("formulaPattern", () => {
   });
 
   it("F2L 缩略图能正常显示", () => {
-    const f2l = loadCfopF2l();
+    const f2l = loadCfopF2l().filter((formula) => !formula.emptySlot);
     const signatures = new Set<string>();
 
-    assert.equal(f2l.length, 42);
+    assert.equal(f2l.length, 41);
     for (const formula of f2l) {
       const pattern = formulaPattern(formula.id);
       assert.ok(pattern, formula.id);
@@ -253,14 +254,16 @@ describe("formulaPattern", () => {
         `U${pattern.cube.U.join("")}|F${pattern.cube.F.join("")}|R${pattern.cube.R.join("")}`,
       );
     }
-    // 顶层插入与侧面插入：目标块在 U/F/R 上外观相同
+    // 合并后每条 F2L 对应独立缩略图（原 join/side 同图已并入 F2L 1）
     assert.equal(signatures.size, 41);
-    const join = formulaPattern("f2l-join");
-    const side = formulaPattern("f2l-side");
-    assert.ok(join?.cube && side?.cube);
-    assert.deepEqual(join.cube, side.cube);
+    assert.equal(formulaPattern("f2l-join"), null);
+    assert.equal(formulaPattern("f2l-side"), null);
 
-    const paired = formulaPattern("f2l-paired");
+    const first = formulaPattern("f2l-1");
+    assert.ok(first?.cube);
+    assert.equal(first.emptySlot, undefined);
+
+    const paired = formulaPattern("f2l-4");
     assert.ok(paired?.cube);
     assert.deepEqual(paired.cube.F, [
       "灰",
@@ -286,11 +289,46 @@ describe("formulaPattern", () => {
     ]);
   });
 
+  it("F2L 空槽缩略图与练习 3D 状态一致，并标出空槽", async () => {
+    const empty = loadCfopF2l().filter((formula) => formula.emptySlot);
+    assert.equal(empty.length, 19);
+
+    const baseFive = formulaPattern("f2l-5");
+    assert.ok(baseFive?.cube);
+    assert.equal(baseFive.emptySlot, undefined);
+
+    for (const formula of empty) {
+      const pattern = formulaPattern(formula.id);
+      const setup = practiceCase(formula);
+      assert.ok(pattern, formula.id);
+      assert.ok(pattern.cube, formula.id);
+      assert.ok(setup, formula.id);
+      assert.equal(hasF2lPattern(formula.id), true);
+      assert.equal(pattern.name, formula.name);
+      assert.ok(pattern.emptySlot === "fl" || pattern.emptySlot === "br");
+      assert.match(formula.id, new RegExp(`empty-${pattern.emptySlot}$`));
+      assert.equal(pattern.cube.U[4], "黄", formula.id);
+
+      const expected = await f2lPracticeCubeFaces(setup.inverse);
+      assert.deepEqual(pattern.cube.U, expected.U, `${formula.id} U`);
+      assert.deepEqual(pattern.cube.F, expected.F, `${formula.id} F`);
+      assert.deepEqual(pattern.cube.R, expected.R, `${formula.id} R`);
+    }
+
+    const fl = formulaPattern("f2l-5-empty-fl");
+    const br = formulaPattern("f2l-5-empty-br");
+    assert.ok(fl?.cube && br?.cube);
+    assert.equal(fl.emptySlot, "fl");
+    assert.equal(br.emptySlot, "br");
+    assert.notDeepEqual(fl.cube, baseFive.cube);
+    assert.notDeepEqual(br.cube, baseFive.cube);
+  });
+
   it("未支持的公式没有图案，也不报错", () => {
     assert.equal(formulaPattern(""), null);
     assert.equal(formulaPattern("lbl-corner-insert"), null);
     assert.equal(hasOllPattern("pll-t"), false);
-    assert.equal(hasPllPattern("oll-sune"), false);
-    assert.equal(hasF2lPattern("oll-sune"), false);
+    assert.equal(hasPllPattern("oll-wca-27"), false);
+    assert.equal(hasF2lPattern("oll-wca-27"), false);
   });
 });

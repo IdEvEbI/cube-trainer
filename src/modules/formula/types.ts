@@ -8,6 +8,8 @@ export interface Formula {
   algs?: string[];
   group?: string;
   practice?: boolean;
+  /** Wiki F2L「空槽」变体；不计入标准 41 例。 */
+  emptySlot?: boolean;
 }
 
 export interface FormulaSubclass {

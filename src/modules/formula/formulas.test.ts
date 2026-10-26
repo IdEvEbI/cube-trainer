@@ -54,8 +54,8 @@ describe("parseFormulaLibrary", () => {
     for (const id of [
       "lbl-middle-left",
       "lbl-edge-cycle",
-      "f2l-side",
-      "oll-dot",
+      "f2l-1",
+      "oll-wca-15",
       "pll-ja",
       "cmll-diagonal",
       "lse-l4e",
@@ -73,7 +73,7 @@ describe("parseFormulaLibrary", () => {
     for (const formula of formulas) {
       assert.ok(parseAlgorithm(formula.moves).length > 0);
     }
-    assert.ok(formulaNames(formulas).includes("OLL 27（Sune）"));
+    assert.ok(formulaNames(formulas).includes("OLL 27"));
     assert.ok(formulaNames(formulas).includes("T 排列"));
     assert.ok(formulaNames(formulas).includes("Ua 排列"));
   });
@@ -173,8 +173,8 @@ describe("parseFormulaLibrary", () => {
             id: "cfop-oll",
             name: "OLL",
             formulas: [
-              { id: "oll-line", name: "一字", moves: "F R U R' U' F'" },
-              { id: "oll-l", name: "小拐弯", moves: "F U R U' R' F'" },
+              { id: "oll-wca-45", name: "一字", moves: "F R U R' U' F'" },
+              { id: "oll-wca-44", name: "小拐弯", moves: "F U R U' R' F'" },
             ],
           },
         ],
@@ -187,7 +187,7 @@ describe("parseFormulaLibrary", () => {
     );
     assert.deepEqual(
       kept[0]?.subclasses[0]?.formulas.map((formula) => formula.id),
-      ["oll-line", "oll-l"],
+      ["oll-wca-45", "oll-wca-44"],
     );
     assert.throws(
       () =>
@@ -242,9 +242,9 @@ describe("parseFormulaLibrary", () => {
 
   it("能读取一条公式的多个算法，默认算法保持不变", () => {
     const formulas = collectFormulas(loadSample());
-    const sune = formulas.find((formula) => formula.id === "oll-sune");
+    const sune = formulas.find((formula) => formula.id === "oll-wca-27");
     const crown = formulas.find((formula) => formula.id === "oll-wca-18");
-    const dot = formulas.find((formula) => formula.id === "oll-dot");
+    const dot = formulas.find((formula) => formula.id === "oll-wca-15");
 
     assert.ok(sune?.algs);
     assert.deepEqual(sune.algs, [
@@ -252,10 +252,9 @@ describe("parseFormulaLibrary", () => {
       "(U' R' U2 R)(U R' U R)",
     ]);
     assert.equal(sune.algs[0], sune.moves);
-    assert.ok(crown?.algs);
-    assert.equal(crown.algs.length, 2);
-    assert.equal(crown.algs[0], crown.moves);
-    assert.match(crown.moves, /\br\b/);
+    assert.ok(crown);
+    assert.equal(crown.algs, undefined);
+    assert.match(crown.moves, /M'/);
     assert.equal(dot?.algs, undefined);
   });
 
@@ -263,7 +262,7 @@ describe("parseFormulaLibrary", () => {
     const formulas = collectFormulas(loadSample());
     const oll = formulas.filter((formula) => formula.id.startsWith("oll-"));
     const multi = oll.filter((formula) => formula.algs);
-    assert.equal(multi.length, 26);
+    assert.equal(multi.length, 22);
     for (const formula of multi) {
       assert.ok(formula.algs);
       assert.equal(formula.algs[0], formula.moves);
@@ -271,11 +270,11 @@ describe("parseFormulaLibrary", () => {
       assert.notEqual(formula.algs[1], formula.moves);
     }
     assert.equal(
-      oll.find((formula) => formula.id === "oll-line")?.algs?.[1],
+      oll.find((formula) => formula.id === "oll-wca-45")?.algs?.[1],
       "(U2 F')(L' U' L U)(F)",
     );
     assert.equal(
-      oll.find((formula) => formula.id === "oll-dot")?.algs,
+      oll.find((formula) => formula.id === "oll-wca-15")?.algs,
       undefined,
     );
   });
@@ -315,7 +314,7 @@ describe("parseFormulaLibrary", () => {
       formulas.filter(
         (formula) => formula.id.startsWith("oll-") && formula.algs,
       ).length,
-      26,
+      22,
     );
   });
 
@@ -331,7 +330,7 @@ describe("parseFormulaLibrary", () => {
               name: "OLL",
               formulas: [
                 {
-                  id: "oll-sune",
+                  id: "oll-wca-27",
                   name: "右手小鱼",
                   moves: "R U R' U R U2 R'",
                   algs,
@@ -388,8 +387,8 @@ describe("parseFormulaLibrary", () => {
   it("新增的 OLL 和 PLL 备选算法带括号分组，显示时空格，执行步骤不受括号影响", () => {
     const formulas = collectFormulas(loadSample());
     const samples = [
-      ["oll-line", 1],
-      ["oll-h", 1],
+      ["oll-wca-45", 1],
+      ["oll-wca-21", 1],
       ["pll-ua", 1],
       ["pll-t", 1],
     ] as const;
@@ -414,7 +413,7 @@ describe("parseFormulaLibrary", () => {
         (formula.id.startsWith("oll-") || formula.id.startsWith("pll-")) &&
         !formula.algs,
     );
-    assert.equal(formulas.length, 40);
+    assert.equal(formulas.length, 44);
     for (const formula of formulas) {
       assert.match(formula.moves, /[()]/, formula.id);
       assert.match(formulaDisplay(formula.moves), /\) \(/, formula.id);
@@ -431,9 +430,9 @@ describe("parseFormulaLibrary", () => {
     }
     assert.equal(
       formulaDisplay(
-        formulas.find((formula) => formula.id === "oll-dot")?.moves ?? "",
+        formulas.find((formula) => formula.id === "oll-wca-15")?.moves ?? "",
       ),
-      "(F R U R' U' F') (U) (F R U R' U' F')",
+      "(r' U' r) (R' U' R U) (r' U r)",
     );
     assert.equal(
       formulaDisplay(
@@ -515,15 +514,17 @@ describe("parseFormulaLibrary", () => {
     const formulas = collectFormulas(loadSample());
     const crown = formulas.find((formula) => formula.id === "oll-wca-18");
     const edges = formulas.find((formula) => formula.id === "oll-wca-28");
-    assert.ok(crown?.algs);
+    const mummy = formulas.find((formula) => formula.id === "oll-wca-57");
+    assert.ok(crown);
     assert.ok(edges?.algs);
-    assert.equal(crown.moves, "(r U R' U R U2 r')(r' U' R U' R' U2 r)");
-    assert.equal(crown.algs[0], crown.moves);
-    assert.equal(crown.algs[1], "(U2 R U R2 F' U' F)(U R U2 R' F R F')");
-    assert.equal(edges.moves, "(r U R' U')(M U R U' R')");
-    assert.equal(edges.algs[1], "(U2)(M' U M)(U2)(M' U M)");
+    assert.ok(mummy);
+    assert.equal(crown.moves, "(R U2 R2 F R F')(U2 M' U R U' r')");
+    assert.equal(crown.algs, undefined);
+    assert.equal(edges.moves, "(r U R' U')(r' R U R U' R')");
     assert.match(edges.moves, /\br\b/);
-    assert.doesNotMatch(crown.moves, /R M'/);
+    assert.equal(mummy.moves, "(R U R' U')(M' U R U' r')");
+    assert.equal(mummy.algs, undefined);
+    assert.match(mummy.moves, /M'.*r'/);
 
     const wideOnly = [
       ["oll-wca-7", "(r U)(R' U R U2 r')"],
@@ -532,8 +533,6 @@ describe("parseFormulaLibrary", () => {
       ["oll-wca-49", "(r U')(r2 U)(r2 U)(r2 U')(r)"],
       ["oll-wca-50", "(r' U)(r2 U')(r2 U')(r2 U)(r')"],
       ["oll-wca-54", "(r U)(R' U R U')(R' U R U2 r')"],
-      ["oll-wca-53", "(l' U2)(L U L' U')(L U L' U)(l)"],
-      ["oll-wca-8", "(R' F')(r U' r')(F2 R)"],
       ["oll-wca-56", "(r U r')(U R U' R')(U R U' R')(r U' r')"],
     ] as const;
     for (const [id, wide] of wideOnly) {
