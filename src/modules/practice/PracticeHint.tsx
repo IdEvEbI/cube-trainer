@@ -16,7 +16,9 @@ export function PracticeHint({
   cursor,
   algorithms = [],
   algorithmIndex = 0,
+  preferredAlgorithmIndex = 0,
   onAlgorithm,
+  onSetDefaultAlgorithm,
   f2lSimplified,
   onF2lSimplified,
 }: {
@@ -25,7 +27,10 @@ export function PracticeHint({
   cursor?: PracticeCursor | null;
   algorithms?: readonly string[];
   algorithmIndex?: number;
+  /** Resolved preferred index (0 = catalog / unmarked). */
+  preferredAlgorithmIndex?: number;
   onAlgorithm?: (index: number) => void;
+  onSetDefaultAlgorithm?: () => void;
   f2lSimplified?: boolean;
   onF2lSimplified?: (value: boolean) => void;
 }) {
@@ -80,24 +85,45 @@ export function PracticeHint({
             <span className="practice-length">{moveCount(source)} 步</span>
           </div>
           {algorithms.length > 1 && onAlgorithm ? (
-            <label className="algorithm-picker">
-              <span className="algorithm-picker-label">算法</span>
-              <select
-                aria-label="选择算法"
-                value={algorithmIndex}
-                onChange={(event) => {
-                  onAlgorithm(Number(event.target.value));
-                }}
-              >
-                {algorithms.map((algorithm, index) => (
-                  <option key={`${index}-${algorithm}`} value={index}>
-                    {index === 0
-                      ? `默认 ${formulaDisplay(algorithm)}`
-                      : formulaDisplay(algorithm)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="algorithm-picker">
+              <label className="algorithm-picker-field">
+                <span className="algorithm-picker-label">算法</span>
+                <select
+                  aria-label="选择算法"
+                  value={algorithmIndex}
+                  onChange={(event) => {
+                    onAlgorithm(Number(event.target.value));
+                  }}
+                >
+                  {algorithms.map((algorithm, index) => {
+                    const display = formulaDisplay(algorithm);
+                    let label = display;
+                    if (index === preferredAlgorithmIndex) {
+                      label = `默认 ${display}`;
+                    } else if (index === 0 && preferredAlgorithmIndex !== 0) {
+                      label = `目录 ${display}`;
+                    }
+                    return (
+                      <option key={`${index}-${algorithm}`} value={index}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              {onSetDefaultAlgorithm ? (
+                <button
+                  type="button"
+                  className="algorithm-default-btn"
+                  disabled={algorithmIndex === preferredAlgorithmIndex}
+                  onClick={onSetDefaultAlgorithm}
+                >
+                  {algorithmIndex === preferredAlgorithmIndex
+                    ? "当前为默认"
+                    : "设为默认"}
+                </button>
+              ) : null}
+            </div>
           ) : null}
           {practice.id.startsWith("f2l-") && onF2lSimplified ? (
             <label className="f2l-simplify">

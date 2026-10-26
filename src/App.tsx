@@ -16,6 +16,10 @@ import {
   defaultPracticeFormula,
   toPickerFormula,
 } from "./modules/practice/formulaPicker.ts";
+import {
+  browserDefaultAlgorithmStorage,
+  createDefaultAlgorithmPrefs,
+} from "./modules/practice/defaultAlgorithm.ts";
 import { PracticeControls } from "./modules/practice/PracticeControls.tsx";
 import { PracticeFormulaPicker } from "./modules/practice/PracticeFormulaPicker.tsx";
 import { PracticeHint } from "./modules/practice/PracticeHint.tsx";
@@ -82,7 +86,12 @@ export default function App() {
   const timer = useRef<TimerHandle>(null);
   const focusRef = useRef<Focus>({ kind: "计时" });
   const scoreLog = useMemo(() => createScoreLog(browserScoreStorage()), []);
+  const defaultAlgPrefs = useMemo(
+    () => createDefaultAlgorithmPrefs(browserDefaultAlgorithmStorage()),
+    [],
+  );
   const [scoreRevision, setScoreRevision] = useState(0);
+  const [defaultAlgRevision, setDefaultAlgRevision] = useState(0);
   const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<CubePreviewMode>("cube");
   const [timerPhase, setTimerPhase] = useState<SessionPhase>("idle");
@@ -117,6 +126,17 @@ export default function App() {
       (formula) => formula.id === practiceFormulaId,
     ) ?? null;
   const algorithms = practiceFormula ? formulaAlgorithms(practiceFormula) : [];
+  const preferredAlgorithmIndex = useMemo(() => {
+    if (!practiceFormulaId || algorithms.length === 0) {
+      return 0;
+    }
+    return defaultAlgPrefs.get(practiceFormulaId, algorithms.length);
+  }, [
+    practiceFormulaId,
+    algorithms.length,
+    defaultAlgPrefs,
+    defaultAlgRevision,
+  ]);
   const scoreSummary = useMemo(
     () => scoreLog.summary(),
     [scoreLog, scoreRevision],
@@ -276,8 +296,10 @@ export default function App() {
     stopPlay();
     cube.current?.cancelAnimation();
     setPracticeFormulaId(formula.id);
-    setAlgorithmIndex(0);
-    const setup = practiceCase(formula);
+    const algs = formulaAlgorithms(formula);
+    const index = defaultAlgPrefs.get(formula.id, algs.length);
+    setAlgorithmIndex(index);
+    const setup = practiceCase(formula, index);
     if (!setup) {
       setPractice(null);
       setPracticeNote(`${formula.name} 还不能练习。`);
@@ -304,6 +326,14 @@ export default function App() {
     setAlgorithmIndex(index);
     setPractice(setup);
     cube.current?.showMoves(setup.inverse);
+  }
+
+  function onSetDefaultAlgorithm() {
+    if (!practiceFormulaId || algorithms.length < 2) {
+      return;
+    }
+    defaultAlgPrefs.set(practiceFormulaId, algorithmIndex, algorithms.length);
+    setDefaultAlgRevision((current) => current + 1);
   }
 
   function applyScramble(moves: string, resetTimer: boolean) {
@@ -590,7 +620,9 @@ export default function App() {
             cursor={cursor}
             algorithms={algorithms}
             algorithmIndex={algorithmIndex}
+            preferredAlgorithmIndex={preferredAlgorithmIndex}
             onAlgorithm={onAlgorithm}
+            onSetDefaultAlgorithm={onSetDefaultAlgorithm}
             f2lSimplified={f2lSimplified}
             onF2lSimplified={setF2lSimplified}
           />
