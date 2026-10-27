@@ -1,6 +1,6 @@
 /** 魔域 WCU_MY32 GATT：连接、加密收发、请求状态与陀螺仪。 */
 
-import { MOYU_MSG, type MoyuMove } from "./constants.ts";
+import { MOYU_MSG } from "./constants.ts";
 import {
   decryptMoyuPacket,
   deriveMoyuKeyIv,
@@ -11,7 +11,12 @@ import {
 } from "./crypto.ts";
 import { takeNewMoves } from "./moves.ts";
 import type { MoyuQuat } from "./orientation.ts";
-import { emptyPacket, parseMoyuPacket, requestGyroControl } from "./packets.ts";
+import {
+  emptyPacket,
+  parseMoyuPacket,
+  requestGyroControl,
+  type MoyuMoveSample,
+} from "./packets.ts";
 import { faceletsToSetupAlg } from "./pattern.ts";
 
 export const MOYU_GATT = {
@@ -147,8 +152,8 @@ export type MoyuBleConnection = {
 export type ConnectMoyuOptions = {
   bluetooth?: MoyuBluetoothRequestApi;
   onDisconnected?: () => void;
-  /** 状态同步完成后，每次新转动按时间正序回调（可连续多步）。 */
-  onMoves?: (moves: readonly MoyuMove[]) => void;
+  /** 状态同步完成后，每次新转动按时间正序回调（含 intervalMs，可连续多步）。 */
+  onMoves?: (samples: readonly MoyuMoveSample[]) => void;
   /** 陀螺仪姿态（0xAB），连接并 enableGyro 后持续回调。 */
   onOrientation?: (quaternion: MoyuQuat) => void;
   /** 无法从设备名推断时询问 MAC（返回 `AA:BB:…`）。 */
@@ -250,12 +255,12 @@ export async function connectMoyuCube(
     if (parsed.type !== "move") {
       return;
     }
-    const { nextCounter, moves } = takeNewMoves(prevMoveCnt, parsed);
-    if (moves.length === 0) {
+    const { nextCounter, samples } = takeNewMoves(prevMoveCnt, parsed);
+    if (samples.length === 0) {
       return;
     }
     prevMoveCnt = nextCounter;
-    options.onMoves?.(moves);
+    options.onMoves?.(samples);
   };
 
   const applyOrientation = (plain: Uint8Array): boolean => {

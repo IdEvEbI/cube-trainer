@@ -5,6 +5,7 @@ import {
   MoyuOrientationTracker,
   quatInvert,
   quatMultiply,
+  quatNormalize,
   toTwistyOrientation,
   type MoyuQuat,
 } from "./orientation.ts";
@@ -24,6 +25,13 @@ function hexToBytes(hex: string): Uint8Array {
     out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
   }
   return out;
+}
+
+function almostEqualQuat(a: MoyuQuat, b: MoyuQuat, eps = 1e-9) {
+  assert.ok(Math.abs(a.x - b.x) < eps, `x ${a.x} vs ${b.x}`);
+  assert.ok(Math.abs(a.y - b.y) < eps, `y ${a.y} vs ${b.y}`);
+  assert.ok(Math.abs(a.z - b.z) < eps, `z ${a.z} vs ${b.z}`);
+  assert.ok(Math.abs(a.w - b.w) < eps, `w ${a.w} vs ${b.w}`);
 }
 
 describe("parseGyroQuaternion", () => {
@@ -62,72 +70,42 @@ describe("requestGyroControl", () => {
 });
 
 describe("orientation math", () => {
-  it("toTwistyOrientation 翻转 y", () => {
-    assert.deepEqual(toTwistyOrientation({ x: 0.1, y: 0.2, z: 0.3, w: 0.9 }), {
-      x: 0.1,
-      y: -0.2,
-      z: 0.3,
-      w: 0.9,
-    });
+  it("toTwistyOrientation 归一化，不改轴序（Weilong 已对齐 Twisty）", () => {
+    const mapped = toTwistyOrientation({ x: 0.1, y: 0.2, z: 0.3, w: 0.9 });
+    const expected = quatNormalize({ x: 0.1, y: 0.2, z: 0.3, w: 0.9 });
+    almostEqualQuat(mapped, expected);
   });
 
   it("quatMultiply / invert 互逆", () => {
     const q: MoyuQuat = { x: 0.1, y: -0.2, z: 0.3, w: 0.9 };
-    const norm = Math.hypot(q.x, q.y, q.z, q.w);
-    const u = {
-      x: q.x / norm,
-      y: q.y / norm,
-      z: q.z / norm,
-      w: q.w / norm,
-    };
+    const u = quatNormalize(q);
     const id = quatMultiply(u, quatInvert(u));
-    assert.ok(Math.abs(id.w - 1) < 1e-9);
-    assert.ok(Math.abs(id.x) < 1e-9);
-    assert.ok(Math.abs(id.y) < 1e-9);
-    assert.ok(Math.abs(id.z) < 1e-9);
-  });
-
-  it("绕 Z 轴 180°（z2）相对姿态保留 z 轴分量", () => {
-    // 180° about Z: (0,0,1,0) — 对应实体 z2（黄上绿前）
-    const z2: MoyuQuat = { x: 0, y: 0, z: 1, w: 0 };
-    const twisty = toTwistyOrientation(z2);
-    assert.ok(Math.abs(twisty.x) < 1e-12);
-    assert.ok(Math.abs(twisty.y) < 1e-12);
-    assert.ok(Math.abs(twisty.z - 1) < 1e-12);
-    assert.ok(Math.abs(twisty.w) < 1e-12);
+    almostEqualQuat(id, IDENTITY_QUAT);
   });
 });
 
 describe("MoyuOrientationTracker", () => {
   it("对齐后相对姿态为单位四元数", () => {
     const tracker = new MoyuOrientationTracker();
-    const held: MoyuQuat = { x: 0.2, y: 0.1, z: -0.3, w: 0.9 };
-    const n = Math.hypot(held.x, held.y, held.z, held.w);
-    const q = {
-      x: held.x / n,
-      y: held.y / n,
-      z: held.z / n,
-      w: held.w / n,
-    };
-    assert.deepEqual(tracker.alignToCurrent(q), IDENTITY_QUAT);
-    const ori = tracker.toOrientation(q);
-    assert.ok(Math.abs(ori.x) < 1e-9);
-    assert.ok(Math.abs(ori.y) < 1e-9);
-    assert.ok(Math.abs(ori.z) < 1e-9);
-    assert.ok(Math.abs(ori.w - 1) < 1e-9);
+    const held = quatNormalize({ x: 0.2, y: 0.1, z: -0.3, w: 0.9 });
+    assert.deepEqual(tracker.alignToCurrent(held), IDENTITY_QUAT);
+    almostEqualQuat(tracker.toOrientation(held), IDENTITY_QUAT);
   });
 
-  it("对齐后做 z2，输出接近绕 Z 180°", () => {
+  it("对齐后同一姿态保持单位；再旋转则左乘 basis⊗mapped", () => {
     const tracker = new MoyuOrientationTracker();
-    const home = IDENTITY_QUAT;
-    tracker.alignToCurrent(home);
-    // 相对 home 的 z2
-    const afterZ2: MoyuQuat = { x: 0, y: 0, z: 1, w: 0 };
-    const ori = tracker.toOrientation(afterZ2);
-    assert.ok(Math.abs(ori.x) < 1e-9);
-    assert.ok(Math.abs(ori.y) < 1e-9);
-    assert.ok(Math.abs(Math.abs(ori.z) - 1) < 1e-9);
-    assert.ok(Math.abs(ori.w) < 1e-9);
+    tracker.alignToCurrent(IDENTITY_QUAT);
+    almostEqualQuat(tracker.toOrientation(IDENTITY_QUAT), IDENTITY_QUAT);
+
+    const tilted = quatNormalize({
+      x: 0,
+      y: Math.SQRT1_2,
+      z: 0,
+      w: Math.SQRT1_2,
+    });
+    const ori = tracker.toOrientation(tilted);
+    // home=I → basis=I → result = tilted（绕 Y = U/D）
+    almostEqualQuat(ori, tilted);
   });
 
   it("尚无数据时对齐抛错", () => {
