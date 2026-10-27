@@ -1,5 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { TwistyPlayer, type ExperimentalStickering } from "cubing/twisty";
+import type { Group } from "three";
 import {
   MOYU_MOVE_ANIM_DEFAULTS,
   planMoveAnimations,
@@ -12,6 +13,7 @@ import {
   scrambleViewAlgorithm,
 } from "../scramble/scramble.ts";
 import { CUBE_ORIENTATION_ALG, isLayerMove } from "./cube.ts";
+import { applyMoveHint, type MoveHintOptions } from "./moveHint.ts";
 import { LAYER_MOVES, type LayerMove } from "./types.ts";
 import "./cube.css";
 
@@ -36,6 +38,8 @@ type TwistyPuzzle3D = {
   quaternion: {
     set(x: number, y: number, z: number, w: number): unknown;
   };
+  add(object: Group): void;
+  remove(object: Group): void;
   scheduleRenderCallback?: () => void;
 };
 
@@ -75,6 +79,11 @@ export type CubeHandle = {
   setStickering(
     stickering: { mode: "full" } | { mode: "mask"; mask: string },
   ): void;
+  /**
+   * 蓝牙打乱引导：在立体魔方对应面上画旋转箭头；传 null 清除。
+   * 仅计时首屏引导使用，练习页不调用。
+   */
+  setMoveHint(move: string | null, options?: MoveHintOptions): void;
 };
 
 const QUARTER_TURN_TIMELINE_MS = 1000;
@@ -272,6 +281,7 @@ export function CubeView({
   const generation = useRef(0);
   /** 队列中尚未播完的蓝牙动画步数（用于积压瞬切）。 */
   const bluetoothPending = useRef(0);
+  const moveHintGroup = useRef<Group | null>(null);
   const viewOrientationRef = useRef(viewOrientation);
   viewOrientationRef.current = viewOrientation;
 
@@ -327,6 +337,7 @@ export function CubeView({
     puzzle3D.current = null;
     puzzle3DWait.current = null;
     return () => {
+      moveHintGroup.current = null;
       twisty.remove();
       player.current = null;
       puzzle3D.current = null;
@@ -523,6 +534,23 @@ export function CubeView({
         twisty.experimentalStickeringMaskOrbits =
           "EDGES:------------,CORNERS:--------,CENTERS:------";
         twisty.experimentalStickering = "full" as ExperimentalStickering;
+      });
+    },
+    setMoveHint(move, options) {
+      const twisty = player.current;
+      if (!twisty) {
+        return;
+      }
+      void resolvePuzzle3D(twisty).then((puzzle) => {
+        if (!puzzle || player.current !== twisty) {
+          return;
+        }
+        moveHintGroup.current = applyMoveHint(
+          puzzle,
+          moveHintGroup.current,
+          move,
+          options,
+        );
       });
     },
   }));
