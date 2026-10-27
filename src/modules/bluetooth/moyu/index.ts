@@ -68,6 +68,14 @@ export {
 } from "./packets.ts";
 export { takeNewMoves } from "./moves.ts";
 export {
+  MOYU_MOVE_ANIM_DEFAULTS,
+  decideMoveAnimation,
+  planMoveAnimations,
+  shouldForceInstantForPending,
+  type MoyuMoveAnimConfig,
+  type PlannedMoveAnim,
+} from "./animation.ts";
+export {
   IDENTITY_QUAT,
   MOYU_REST_ORBIT,
   MoyuOrientationTracker,

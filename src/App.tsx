@@ -542,9 +542,9 @@ export default function App() {
           setMoyuSession(null);
           setMoyuNote("魔方已断开");
         },
-        onMoves: (moves) => {
-          // 连续转动：按时间正序追加到当前 3D 状态
-          cube.current?.applyAlgorithm(moves.join(" "));
+        onMoves: (samples) => {
+          // 连续转动：按 interval 播动画；过快则瞬切
+          cube.current?.playBluetoothMoves(samples);
         },
         onOrientation: onMoyuOrientation,
         askMacAddress: (deviceName) => {

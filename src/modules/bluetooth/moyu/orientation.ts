@@ -1,4 +1,11 @@
-/** 魔域姿态四元数：相对 home 后交给 Twisty Cube3D.quaternion。 */
+/**
+ * 魔域姿态四元数 → Twisty Cube3D.quaternion。
+ *
+ * 协议按 Weilong 从 (w,x,-z,y) 还原为标准 (x,y,z,w) 后：
+ * - X ↔ R/L，Y ↔ U/D，Z ↔ F/B，与 Twisty 一致，不再套 GAN 的 (x,z,-y)
+ *   （真机：套 (x,z,-y) 时 R/L 仍对，但 U/D 与 F/B 对调）
+ * - 校准：basis = conjugate(对齐帧)；每帧 orientation = basis ⊗ q（左乘）
+ */
 
 export type MoyuQuat = {
   x: number;
@@ -34,30 +41,40 @@ export function quatInvert(q: MoyuQuat): MoyuQuat {
   return { x: -q.x, y: -q.y, z: -q.z, w: q.w };
 }
 
-/**
- * 相对姿态 → Twisty/Three 可用的四元数。
- * 魔域解析已是 (x,y,z,w)；再翻转 y（与 GoCube / cubing.js 智能魔方一致）。
- */
-export function toTwistyOrientation(relative: MoyuQuat): MoyuQuat {
+export function quatNormalize(q: MoyuQuat): MoyuQuat {
+  const len = Math.hypot(q.x, q.y, q.z, q.w);
+  if (len < 1e-12) {
+    return { ...IDENTITY_QUAT };
+  }
   return {
-    x: relative.x,
-    y: -relative.y,
-    z: relative.z,
-    w: relative.w,
+    x: q.x / len,
+    y: q.y / len,
+    z: q.z / len,
+    w: q.w / len,
   };
 }
 
 /**
- * 跟踪实体魔方姿态：首次或「对齐朝向」时记下 home。
- * 相对 = current ⊗ home⁻¹，表示相对「对齐时握持」的旋转，直接乘到 Cube3D 上。
+ * 传感器四元数 → Twisty 显示空间。
+ * Weilong 还原后已与 Twisty 轴一致，只做归一化。
+ */
+export function toTwistyOrientation(sensor: MoyuQuat): MoyuQuat {
+  return quatNormalize(sensor);
+}
+
+/**
+ * 跟踪实体魔方姿态。
+ * 校准与相对旋转均在 Twisty 显示空间中计算（先 map 再 basis⊗mapped）。
  */
 export class MoyuOrientationTracker {
+  /** 已映射空间中的 basis = conjugate(对齐时的 mapped)。 */
   private homeInverse: MoyuQuat | null = null;
   private last: MoyuQuat | null = null;
 
-  /** 把当前实体姿态记为屏幕「正对」基准；返回单位四元数（屏幕魔方回正）。 */
+  /** 把当前实体姿态记为屏幕「正对」基准；返回单位四元数。 */
   alignToCurrent(current: MoyuQuat = this.requireLast()): MoyuQuat {
-    this.homeInverse = quatInvert(current);
+    const mapped = toTwistyOrientation(current);
+    this.homeInverse = quatInvert(mapped);
     this.last = current;
     return { ...IDENTITY_QUAT };
   }
@@ -65,11 +82,12 @@ export class MoyuOrientationTracker {
   /** 尚未对齐时自动以第一帧为 home。 */
   toOrientation(current: MoyuQuat): MoyuQuat {
     this.last = current;
+    const mapped = toTwistyOrientation(current);
     if (!this.homeInverse) {
-      this.homeInverse = quatInvert(current);
+      this.homeInverse = quatInvert(mapped);
     }
-    const relative = quatMultiply(current, this.homeInverse);
-    return toTwistyOrientation(relative);
+    // gan-cube-sample: quat.premultiply(basis) → basis * quat
+    return quatNormalize(quatMultiply(this.homeInverse, mapped));
   }
 
   lastQuat(): MoyuQuat | null {

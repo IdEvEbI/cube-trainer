@@ -1,5 +1,11 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { TwistyPlayer, type ExperimentalStickering } from "cubing/twisty";
+import {
+  MOYU_MOVE_ANIM_DEFAULTS,
+  planMoveAnimations,
+  shouldForceInstantForPending,
+  type MoyuMoveAnimConfig,
+} from "../bluetooth/moyu/animation.ts";
 import { parseAlgorithm } from "../formula/formulas.ts";
 import {
   scrambleDisplayAlgorithm,
@@ -47,6 +53,14 @@ export type CubeHandle = {
   setOrientation(quat: CubeOrientationQuat): void;
   /** 复位相机球面坐标（对齐朝向时清掉拖动残留）。 */
   setOrbit(coords: CubeOrbit): void;
+  /**
+   * 蓝牙转动：按协议 interval 播放旋转动画；过快或积压则瞬切。
+   * 不改练习页 / 打乱计时逻辑，仅追加到当前 alg。
+   */
+  playBluetoothMoves(
+    samples: readonly { move: string; intervalMs: number }[],
+    config?: Partial<MoyuMoveAnimConfig>,
+  ): void;
   showMoves(moves: string): Promise<void>;
   animateMove(
     before: string,
@@ -126,6 +140,65 @@ async function moveSpan(twisty: TwistyPlayer) {
   return { start, end: start + duration, duration };
 }
 
+/** 在当前 alg 末尾追加一步并 scrub 动画；durationMs 为墙钟毫秒。 */
+async function animateAppendMove(
+  twisty: TwistyPlayer | null,
+  move: string,
+  durationMs: number,
+  isCurrent: () => boolean,
+) {
+  if (!twisty || !isCurrent()) {
+    return;
+  }
+  const current = (await twisty.experimentalGet.alg()).toString().trim();
+  const before = current;
+  const after = `${before} ${move}`.trim();
+  twisty.pause();
+  twisty.alg = before;
+  twisty.timestamp = "end";
+  await twisty.experimentalModel.indexer.get();
+  if (!isCurrent()) {
+    return;
+  }
+  const atBoundary = await twisty.experimentalGet.timestamp();
+  twisty.timestamp = atBoundary;
+  await twisty.experimentalModel.timestampRequest.get();
+  if (!isCurrent()) {
+    return;
+  }
+  twisty.alg = after;
+  const span = await moveSpan(twisty);
+  if (!isCurrent()) {
+    return;
+  }
+  if (!span) {
+    twisty.alg = after;
+    twisty.timestamp = "end";
+    return;
+  }
+  const wallMs = (span.duration / QUARTER_TURN_TIMELINE_MS) * durationMs;
+  place(twisty, span.start);
+  await scrub(twisty, span.start, span.end, wallMs, isCurrent);
+  if (!isCurrent()) {
+    return;
+  }
+  twisty.alg = after;
+  twisty.timestamp = "end";
+}
+
+async function appendMovesInstant(
+  twisty: TwistyPlayer | null,
+  moves: readonly string[],
+) {
+  if (!twisty || moves.length === 0) {
+    return;
+  }
+  const current = (await twisty.experimentalGet.alg()).toString().trim();
+  const added = moves.join(" ").trim();
+  twisty.alg = `${current} ${added}`.trim();
+  twisty.timestamp = "end";
+}
+
 async function animatePracticeMove(
   twisty: TwistyPlayer | null,
   before: string,
@@ -197,6 +270,8 @@ export function CubeView({
   const lastOrientation = useRef<CubeOrientationQuat | null>(null);
   const queue = useRef(Promise.resolve());
   const generation = useRef(0);
+  /** 队列中尚未播完的蓝牙动画步数（用于积压瞬切）。 */
+  const bluetoothPending = useRef(0);
   const viewOrientationRef = useRef(viewOrientation);
   viewOrientationRef.current = viewOrientation;
 
@@ -323,6 +398,78 @@ export function CubeView({
         latitude: coords.latitude,
         longitude: coords.longitude,
       });
+    },
+    playBluetoothMoves(samples, config) {
+      if (samples.length === 0) {
+        return;
+      }
+      const merged: MoyuMoveAnimConfig = {
+        ...MOYU_MOVE_ANIM_DEFAULTS,
+        ...config,
+      };
+      // 积压时只让本批瞬切，不打断队列里已在播的动画（避免停在半步）
+      const forceInstant = shouldForceInstantForPending(
+        bluetoothPending.current,
+        merged,
+      );
+      const plan = planMoveAnimations(samples, merged, forceInstant);
+      let remainingAnimated = plan.filter(
+        (step) => step.durationMs !== null,
+      ).length;
+      bluetoothPending.current += remainingAnimated;
+      const token = generation.current;
+
+      const dropRemaining = () => {
+        bluetoothPending.current = Math.max(
+          0,
+          bluetoothPending.current - remainingAnimated,
+        );
+        remainingAnimated = 0;
+      };
+
+      const task = queue.current.then(async () => {
+        const twisty = player.current;
+        if (!twisty) {
+          dropRemaining();
+          return;
+        }
+        const instantBatch: string[] = [];
+        const flushInstant = async () => {
+          if (instantBatch.length === 0) {
+            return;
+          }
+          await appendMovesInstant(twisty, instantBatch);
+          instantBatch.length = 0;
+        };
+        for (const step of plan) {
+          if (generation.current !== token) {
+            dropRemaining();
+            return;
+          }
+          if (step.durationMs === null) {
+            instantBatch.push(step.move);
+            continue;
+          }
+          await flushInstant();
+          if (generation.current !== token) {
+            dropRemaining();
+            return;
+          }
+          await animateAppendMove(
+            twisty,
+            step.move,
+            step.durationMs,
+            () => generation.current === token,
+          );
+          remainingAnimated = Math.max(0, remainingAnimated - 1);
+          bluetoothPending.current = Math.max(0, bluetoothPending.current - 1);
+        }
+        await flushInstant();
+      });
+      queue.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
     },
     showMoves(moves: string) {
       const parsed = parseAlgorithm(moves).join(" ");

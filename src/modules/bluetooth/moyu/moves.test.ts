@@ -16,15 +16,15 @@ describe("takeNewMoves", () => {
       -1,
       moveMsg(1, [{ move: "R", intervalMs: 10 }]),
     );
-    assert.deepEqual(result, { nextCounter: -1, moves: [] });
+    assert.deepEqual(result, { nextCounter: -1, samples: [] });
   });
 
   it("counter 未变则无新步", () => {
     const result = takeNewMoves(5, moveMsg(5, [{ move: "U", intervalMs: 10 }]));
-    assert.deepEqual(result, { nextCounter: 5, moves: [] });
+    assert.deepEqual(result, { nextCounter: 5, samples: [] });
   });
 
-  it("单步：应用 history[0]", () => {
+  it("单步：应用 history[0]，保留 interval", () => {
     const result = takeNewMoves(
       10,
       moveMsg(11, [
@@ -32,7 +32,7 @@ describe("takeNewMoves", () => {
         { move: "U'", intervalMs: 15 },
       ]),
     );
-    assert.deepEqual(result.moves, ["R"]);
+    assert.deepEqual(result.samples, [{ move: "R", intervalMs: 20 }]);
     assert.equal(result.nextCounter, 11);
   });
 
@@ -46,7 +46,11 @@ describe("takeNewMoves", () => {
         { move: "R", intervalMs: 5 },
       ]),
     );
-    assert.deepEqual(result.moves, ["R", "U", "F"]);
+    assert.deepEqual(result.samples, [
+      { move: "R", intervalMs: 5 },
+      { move: "U", intervalMs: 5 },
+      { move: "F", intervalMs: 5 },
+    ]);
     assert.equal(result.nextCounter, 13);
   });
 
@@ -58,7 +62,10 @@ describe("takeNewMoves", () => {
         { move: "L'", intervalMs: 1 },
       ]),
     );
-    assert.deepEqual(result.moves, ["L'", "L"]);
+    assert.deepEqual(result.samples, [
+      { move: "L'", intervalMs: 1 },
+      { move: "L", intervalMs: 1 },
+    ]);
     assert.equal(result.nextCounter, 10);
   });
 });
