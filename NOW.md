@@ -6,7 +6,7 @@
 
 ## 正在做的任务
 
-文档：补充蓝牙模式打乱计时流程（`docs/prd.md`）。已开 Issue [#70](https://github.com/IdEvEbI/cube-trainer/issues/70)，分支 `docs/#70-bt-scramble-timer-flow`，等待开 PR / 合并。
+文档：补充蓝牙模式打乱计时流程。已开 PR [#71](https://github.com/IdEvEbI/cube-trainer/pull/71)（Issue [#70](https://github.com/IdEvEbI/cube-trainer/issues/70)），等待合并。
 
 ## 下一步计划
 
