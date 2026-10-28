@@ -6,11 +6,14 @@ export function ScramblePanel({
   moves,
   onRescramble,
   guide = null,
+  waitingForStart = false,
 }: {
   moves: string | null;
   onRescramble: () => void;
   /** 蓝牙引导态；未连接时为 null，保持纯文本展示。 */
   guide?: GuidedScrambleView | null;
+  /** 观察结束、等待首转开表。 */
+  waitingForStart?: boolean;
 }) {
   function scramble(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
@@ -97,7 +100,12 @@ export function ScramblePanel({
           </span>
         </p>
       ) : null}
-      {guided && guide?.done ? (
+      {guided && guide?.done && waitingForStart ? (
+        <p className="scramble-guide-note scramble-guide-ready" role="status">
+          转动开始计时
+        </p>
+      ) : null}
+      {guided && guide?.done && !waitingForStart ? (
         <p className="scramble-guide-note scramble-guide-done" role="status">
           打乱完成
         </p>

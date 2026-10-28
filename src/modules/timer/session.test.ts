@@ -13,6 +13,7 @@ import {
   reduceHoldStart,
   reduceSession,
   releaseTimingFocus,
+  shouldStartBluetoothTimer,
   showCubeLayerControls,
   timerHomeToolsLayout,
   timingPreviewExclusive,
@@ -102,6 +103,24 @@ describe("reduceSession", () => {
     assert.equal(phase, "running");
     phase = reduceSession(phase, { type: "stop" });
     assert.equal(phase, "stopped");
+  });
+
+  it("蓝牙首转：idle / stopped 直接进入计时中，运行中忽略", () => {
+    assert.equal(reduceSession("idle", { type: "bt_start" }), "running");
+    assert.equal(reduceSession("stopped", { type: "bt_start" }), "running");
+    assert.equal(reduceSession("arming", { type: "bt_start" }), "running");
+    assert.equal(reduceSession("armed", { type: "bt_start" }), "running");
+    assert.equal(reduceSession("running", { type: "bt_start" }), "running");
+    assert.equal(isTimingChromeHidden("running"), true);
+  });
+});
+
+describe("shouldStartBluetoothTimer", () => {
+  it("默认视为待转：引导完成且未计时允许首转启动", () => {
+    assert.equal(shouldStartBluetoothTimer(true, "idle"), true);
+    assert.equal(shouldStartBluetoothTimer(true, "stopped"), true);
+    assert.equal(shouldStartBluetoothTimer(true, "running"), false);
+    assert.equal(shouldStartBluetoothTimer(false, "idle"), false);
   });
 });
 

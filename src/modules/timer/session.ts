@@ -20,6 +20,8 @@ export type SessionEvent =
   | { type: "hold_ready" }
   | { type: "hold_cancel" }
   | { type: "hold_release" }
+  /** 蓝牙：打乱完成后实体首次转动直接进入计时（跳过长按预备）。 */
+  | { type: "bt_start" }
   | { type: "stop" }
   | { type: "reset" };
 
@@ -90,6 +92,16 @@ export function reduceSession(
         return "idle";
       }
       return phase;
+    case "bt_start":
+      if (
+        phase === "idle" ||
+        phase === "stopped" ||
+        phase === "arming" ||
+        phase === "armed"
+      ) {
+        return "running";
+      }
+      return phase;
     case "stop":
       if (phase === "running") {
         return "stopped";
@@ -98,6 +110,15 @@ export function reduceSession(
     case "reset":
       return "idle";
   }
+}
+
+/** 打乱引导已完成、观察结束进入待转、且非计时中时，可用蓝牙首转启动。 */
+export function shouldStartBluetoothTimer(
+  guideDone: boolean,
+  phase: SessionPhase,
+  inspectPhase: "off" | "inspecting" | "ready" = "ready",
+): boolean {
+  return guideDone && phase !== "running" && inspectPhase === "ready";
 }
 
 /** Display phase for chrome: arming looks like idle until hold is ready. */

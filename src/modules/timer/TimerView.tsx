@@ -21,6 +21,10 @@ export type TimerHandle = {
   pressDown(source?: TimingInputSource): void;
   pressUp(): void;
   pressCancel(): void;
+  /** 蓝牙打乱完成后，实体首转直接开表（跳过长按预备）。 */
+  startRunning(): void;
+  /** 蓝牙检测到还原后停表（走与点击停止相同的 onStop）。 */
+  stopRunning(): void;
 };
 
 const statusLabel: Record<ReturnType<typeof displayPhase>, string> = {
@@ -37,6 +41,7 @@ export function TimerView({
   showControls = true,
   showChrome = true,
   inputEnabled = true,
+  allowHoldStart = true,
 }: {
   ref?: Ref<TimerHandle>;
   onStop?: (timeMs: number) => void;
@@ -47,6 +52,11 @@ export function TimerView({
   showChrome?: boolean;
   /** When false, Space / press helpers are ignored (e.g. result confirm open). */
   inputEnabled?: boolean;
+  /**
+   * 为 false 时禁止长按 / 空格开表（蓝牙模式用首转启动），
+   * 计时中点击 / 空格仍可停止。
+   */
+  allowHoldStart?: boolean;
 }) {
   const timer = useRef(createTimer());
   const phaseRef = useRef<SessionPhase>("idle");
@@ -55,9 +65,11 @@ export function TimerView({
   const onStopRef = useRef(onStop);
   const onPhaseChangeRef = useRef(onPhaseChange);
   const inputEnabledRef = useRef(inputEnabled);
+  const allowHoldStartRef = useRef(allowHoldStart);
   onStopRef.current = onStop;
   onPhaseChangeRef.current = onPhaseChange;
   inputEnabledRef.current = inputEnabled;
+  allowHoldStartRef.current = allowHoldStart;
   const [phase, setPhase] = useState<SessionPhase>("idle");
   const [elapsed, setElapsed] = useState(0);
   const shown = displayPhase(phase);
@@ -156,7 +168,25 @@ export function TimerView({
       ignoreNextRelease.current = true;
       return;
     }
+    if (!allowHoldStartRef.current) {
+      return;
+    }
     beginHold(source);
+  }
+
+  function startRunning() {
+    if (phaseRef.current === "running") {
+      return;
+    }
+    clearHold();
+    ignoreNextRelease.current = false;
+    timer.current.start();
+    setElapsed(timer.current.current());
+    apply({ type: "bt_start" });
+  }
+
+  function stopRunning() {
+    finish();
   }
 
   function pressUp() {
@@ -231,6 +261,8 @@ export function TimerView({
     pressDown,
     pressUp,
     pressCancel: cancelHold,
+    startRunning,
+    stopRunning,
   }));
 
   return (

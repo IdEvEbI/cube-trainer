@@ -131,6 +131,54 @@
   text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
 }
 
+.scramble-inspect {
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+
+.scramble-inspect-label {
+  margin: 0;
+  color: rgb(247 251 255 / 88%);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.scramble-inspect-count {
+  margin: 0;
+  color: #f7fbff;
+  font-size: clamp(2.4rem, 12vw, 3.6rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
+}
+
+.scramble-inspect-skip {
+  box-sizing: border-box;
+  min-height: 40px;
+  min-width: 120px;
+  padding: 0 18px;
+  border: 1px solid rgb(247 251 255 / 42%);
+  border-radius: 999px;
+  background: rgb(247 251 255 / 12%);
+  color: #f7fbff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scramble-inspect-skip:hover {
+  background: rgb(247 251 255 / 20%);
+  border-color: rgb(247 251 255 / 70%);
+}
+
+.scramble-guide-ready {
+  color: #ffe08a;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
+}
+
 .scramble-net {
   display: grid;
   grid-template-columns: repeat(4, max-content);
