@@ -8,7 +8,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 **UI/UE 统一**：设计文档与 PRD 对齐已开 PR，等待合入；确认后再改首页与练习页布局。
 
-- Issue [#76](https://github.com/IdEvEbI/cube-trainer/issues/76)
+- Issue [#76](https://github.com/IdEvEbI/cube-trainer/issues/76) / PR [#77](https://github.com/IdEvEbI/cube-trainer/pull/77)
 - 分支 `docs/#76-ui-ue-design`
 
 ## 下一步计划
@@ -19,7 +19,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 4. ~~公式更新与默认算法~~（A #57 / B #59 已合入）
 5. ~~公式目录 Wiki 对齐 + 空槽~~（已合入 #61）
 6. ~~蓝牙模式打乱计时流程~~（引导 #73、计时闭环 #75 已合入）
-7. **UI/UE 统一**：设计文档（本 PR）→ 再改布局。
+7. **UI/UE 统一**：设计文档 #77（待合入）→ 再改布局。
 8. **蓝牙还原统计**：总览 + 分段（Cross / F2L / OLL / PLL）。
 9. **成绩列表 + 图表**。
 10. **公式练习蓝牙闭环**：打乱到练习状态 + 练习次数统计。
