@@ -8,7 +8,7 @@
 
 蓝牙模式计时闭环（观察倒计时 / 首转开表 / 还原停表）已开 PR，等待合入。叠在打乱引导 PR [#73](https://github.com/IdEvEbI/cube-trainer/pull/73)（#72）之上。
 
-- Issue [#74](https://github.com/IdEvEbI/cube-trainer/issues/74)
+- Issue [#74](https://github.com/IdEvEbI/cube-trainer/issues/74) / PR [#75](https://github.com/IdEvEbI/cube-trainer/pull/75)
 - 分支 `feat/#74-bt-timer-flow`
 
 ## 下一步计划
@@ -19,7 +19,7 @@
 4. ~~公式更新与默认算法~~（A #57 / B #59 已合入）
 5. ~~公式目录 Wiki 对齐 + 空槽~~（已合入 #61）
 6. 转向适配（手动设置前面色 MVP）
-7. **蓝牙模式打乱计时流程**（引导 #73；计时闭环 #74，均待合入）
+7. **蓝牙模式打乱计时流程**（引导 #73；计时闭环 #75，均待合入）
 8. 模拟 CFOP 打乱与还原
 9. 后端用户系统（有真实用户后再做）
 
