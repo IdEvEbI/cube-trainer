@@ -64,6 +64,73 @@
   font-size: 0.9rem;
 }
 
+.scramble-moves-guided {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 0.35em;
+  row-gap: 0.2em;
+}
+
+.scramble-step {
+  border-radius: 4px;
+  padding: 0.05em 0.18em;
+  color: #f7fbff;
+  font-weight: 500;
+}
+
+/* 蓝底上提高已完成步对比度：浅字 + 半透明底，避免发黑看不清 */
+.scramble-step.is-done {
+  color: #e8f1fa;
+  background: rgb(255 255 255 / 22%);
+  font-weight: 600;
+  opacity: 1;
+}
+
+.scramble-step.is-current {
+  background: #ffd500;
+  color: #12141a;
+  font-weight: 700;
+}
+
+/* 双步已转一半：左半黄、右半保留当前底 */
+.scramble-step.is-current.is-partial {
+  background: linear-gradient(
+    90deg,
+    #ffd500 0 50%,
+    rgb(255 255 255 / 28%) 50% 100%
+  );
+  color: #12141a;
+}
+
+.scramble-guide-note {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.scramble-guide-fix {
+  color: #ffe0e0;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
+}
+
+.scramble-guide-next {
+  color: rgb(247 251 255 / 92%);
+}
+
+.scramble-guide-progress {
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.scramble-guide-done {
+  color: #d1fadf;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 35%);
+}
+
 .scramble-net {
   display: grid;
   grid-template-columns: repeat(4, max-content);

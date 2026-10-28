@@ -6,6 +6,7 @@ import {
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { flushSync } from "react-dom";
 import formulas from "./data/formula-catalog.json";
 import { parseFormulaCatalog } from "./data/catalog.ts";
 import { CubeView, type CubeHandle } from "./modules/cube/CubeView.tsx";
@@ -51,6 +52,13 @@ import { practiceStickering } from "./modules/practice/stickering.ts";
 import { browserScoreStorage, createScoreLog } from "./modules/score/score.ts";
 import { ScrambleNet } from "./modules/scramble/ScrambleNet.tsx";
 import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
+import {
+  applyGuidedMove,
+  createGuidedScramble,
+  guidedScrambleView,
+  type GuidedScramble,
+  type GuidedScrambleView,
+} from "./modules/scramble/guided.ts";
 import { randomScramble3x3 } from "./modules/scramble/scramble.ts";
 import {
   createPendingSolve,
@@ -79,6 +87,7 @@ import {
   MOYU_REST_ORBIT,
   MoyuOrientationTracker,
   type MoyuBleConnection,
+  type MoyuMoveSample,
   type MoyuQuat,
 } from "./modules/bluetooth/moyu/index.ts";
 import "./app.css";
@@ -102,6 +111,8 @@ export default function App() {
   const [scoreRevision, setScoreRevision] = useState(0);
   const [defaultAlgRevision, setDefaultAlgRevision] = useState(0);
   const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
+  const scrambleMovesRef = useRef<string | null>(null);
+  scrambleMovesRef.current = scrambleMoves;
   const [previewMode, setPreviewMode] = useState<CubePreviewMode>("cube");
   const [timerPhase, setTimerPhase] = useState<SessionPhase>("idle");
   const timerPhaseRef = useRef<SessionPhase>("idle");
@@ -122,8 +133,12 @@ export default function App() {
   );
   const [moyuBusy, setMoyuBusy] = useState(false);
   const [moyuNote, setMoyuNote] = useState<string | null>(null);
+  const [scrambleGuide, setScrambleGuide] = useState<GuidedScrambleView | null>(
+    null,
+  );
   const moyuSessionRef = useRef<MoyuBleConnection | null>(null);
   moyuSessionRef.current = moyuSession;
+  const scrambleGuideRef = useRef<GuidedScramble | null>(null);
   const moyuOrientation = useRef(new MoyuOrientationTracker());
   const moyuOrbitRaf = useRef(0);
   const moyuPendingQuat = useRef<MoyuQuat | null>(null);
@@ -361,9 +376,71 @@ export default function App() {
     setDefaultAlgRevision((current) => current + 1);
   }
 
+  function syncScrambleGuide(moves: string | null, connected: boolean) {
+    if (!connected || !moves) {
+      scrambleGuideRef.current = null;
+      setScrambleGuide(null);
+      return;
+    }
+    try {
+      const guide = createGuidedScramble(moves);
+      scrambleGuideRef.current = guide;
+      setScrambleGuide(guidedScrambleView(guide));
+    } catch {
+      scrambleGuideRef.current = null;
+      setScrambleGuide(null);
+    }
+  }
+
+  function applyBluetoothGuideMoves(samples: readonly MoyuMoveSample[]) {
+    if (focusRef.current.kind !== "计时") {
+      return;
+    }
+    let guide: GuidedScramble | null = scrambleGuideRef.current;
+    if (!guide) {
+      const moves = scrambleMovesRef.current;
+      if (!moves || !moyuSessionRef.current) {
+        return;
+      }
+      try {
+        guide = createGuidedScramble(moves);
+        scrambleGuideRef.current = guide;
+      } catch {
+        return;
+      }
+    }
+    if (guide.phase === "done") {
+      return;
+    }
+    try {
+      let next: GuidedScramble = guide;
+      for (const sample of samples) {
+        const result = applyGuidedMove(next, sample.move);
+        next = result.guide;
+        if (next.phase === "done") {
+          break;
+        }
+      }
+      scrambleGuideRef.current = next;
+      // GATT 异步回调里强制同步刷新，避免部分 WebKit / Bluefy 丢更新。
+      flushSync(() => {
+        setScrambleGuide(guidedScrambleView(next));
+      });
+    } catch {
+      // 单步解析失败时不打断跟转动画
+    }
+  }
+
+  const applyBluetoothGuideMovesRef = useRef(applyBluetoothGuideMoves);
+  applyBluetoothGuideMovesRef.current = applyBluetoothGuideMoves;
+
   function applyScramble(moves: string, resetTimer: boolean) {
-    cube.current?.setAlgorithm(moves);
+    // 蓝牙跟随实体状态时，不把打乱目标写回 3D。
+    if (!moyuSessionRef.current) {
+      cube.current?.setAlgorithm(moves);
+    }
     setScrambleMoves(moves);
+    syncScrambleGuide(moves, Boolean(moyuSessionRef.current));
     if (resetTimer) {
       timer.current?.prepare();
       setTimerPhase("idle");
@@ -389,8 +466,32 @@ export default function App() {
       return;
     }
     // Re-apply after CubeView remount (e.g. back from practice).
-    cube.current?.setAlgorithm(scrambleMoves);
+    // 蓝牙连接中由实体状态驱动，跳过目标打乱写回。
+    if (!moyuSessionRef.current) {
+      cube.current?.setAlgorithm(scrambleMoves);
+    }
   }, [focus.kind, scrambleMoves]);
+
+  // 蓝牙引导：立体魔方旋转箭头（仅计时 + 已连接）
+  useEffect(() => {
+    if (focus.kind !== "计时" || !moyuSession || !scrambleGuide) {
+      cube.current?.setMoveHint(null);
+      return;
+    }
+    if (scrambleGuide.correction) {
+      cube.current?.setMoveHint(scrambleGuide.correction, { tone: "error" });
+      return;
+    }
+    if (scrambleGuide.done || !scrambleGuide.expectedMove) {
+      cube.current?.setMoveHint(null);
+      return;
+    }
+    cube.current?.setMoveHint(scrambleGuide.expectedMove, {
+      tone: "guide",
+      double: scrambleGuide.currentIsDouble,
+      half: scrambleGuide.partial,
+    });
+  }, [focus.kind, moyuSession, scrambleGuide]);
 
   function onMode(event: MouseEvent<HTMLButtonElement>) {
     const next = switchMode(mode).mode;
@@ -529,7 +630,11 @@ export default function App() {
       moyuSession.disconnect();
       resetMoyuOrientationFollow();
       setMoyuSession(null);
+      syncScrambleGuide(null, false);
       setMoyuNote(null);
+      if (scrambleMoves) {
+        cube.current?.setAlgorithm(scrambleMoves);
+      }
       return;
     }
     setMoyuBusy(true);
@@ -540,11 +645,17 @@ export default function App() {
         onDisconnected: () => {
           resetMoyuOrientationFollow();
           setMoyuSession(null);
+          syncScrambleGuide(null, false);
           setMoyuNote("魔方已断开");
+          const moves = scrambleMovesRef.current;
+          if (moves) {
+            cube.current?.setAlgorithm(moves);
+          }
         },
         onMoves: (samples) => {
           // 连续转动：按 interval 播动画；过快则瞬切
           cube.current?.playBluetoothMoves(samples);
+          applyBluetoothGuideMovesRef.current(samples);
         },
         onOrientation: onMoyuOrientation,
         askMacAddress: (deviceName) => {
@@ -555,12 +666,15 @@ export default function App() {
           return entered;
         },
       });
+      // 在 await 间隙也视为已连接，避免 applyScramble 误清引导。
+      moyuSessionRef.current = session;
       setMoyuSession(session);
       setMoyuNote(`${formatMoyuConnectedLabel(session.name)} · 同步中…`);
       const status = await session.requestStatus();
       // 计时首屏白上：setupAlg 可直接展示物理魔方状态（不改打乱公式文案）
       cube.current?.setAbsoluteAlg(status.setupAlg);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
+      syncScrambleGuide(scrambleMovesRef.current, true);
       await session.enableGyro();
       setMoyuNote(
         `${formatMoyuConnectedLabel(session.name)} · 已同步 · 朝向跟随`,
@@ -568,6 +682,7 @@ export default function App() {
     } catch (error) {
       resetMoyuOrientationFollow();
       setMoyuSession(null);
+      syncScrambleGuide(null, false);
       setMoyuNote(formatMoyuConnectError(error));
     } finally {
       setMoyuBusy(false);
@@ -695,7 +810,11 @@ export default function App() {
             focus.kind !== "计时" || !timingShellVisible(timerPhase, "scramble")
           }
         >
-          <ScramblePanel moves={scrambleMoves} onRescramble={refreshScramble} />
+          <ScramblePanel
+            moves={scrambleMoves}
+            onRescramble={refreshScramble}
+            guide={scrambleGuide}
+          />
         </div>
         <div
           className="slot-cube"
