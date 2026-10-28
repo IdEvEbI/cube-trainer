@@ -50,8 +50,14 @@ import {
 } from "./modules/practice/setup.ts";
 import { practiceStickering } from "./modules/practice/stickering.ts";
 import { browserScoreStorage, createScoreLog } from "./modules/score/score.ts";
-import { ScrambleNet } from "./modules/scramble/ScrambleNet.tsx";
-import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
+import {
+  BLUETOOTH_INSPECT_MS,
+  finishBluetoothInspect,
+  nextInspectPhaseOnGuideDone,
+  type BluetoothInspectPhase,
+} from "./modules/scramble/bluetoothInspect.ts";
+import { BluetoothInspectPanel } from "./modules/scramble/BluetoothInspectPanel.tsx";
+import { isSolvedAfterScramble } from "./modules/scramble/bluetoothSolve.ts";
 import {
   applyGuidedMove,
   createGuidedScramble,
@@ -59,6 +65,8 @@ import {
   type GuidedScramble,
   type GuidedScrambleView,
 } from "./modules/scramble/guided.ts";
+import { ScrambleNet } from "./modules/scramble/ScrambleNet.tsx";
+import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
 import { randomScramble3x3 } from "./modules/scramble/scramble.ts";
 import {
   createPendingSolve,
@@ -72,6 +80,7 @@ import {
   keepElapsedOnScrambleRefresh,
   nextCubePreviewMode,
   releaseTimingFocus,
+  shouldStartBluetoothTimer,
   showCubeLayerControls,
   timingPreviewExclusive,
   timingShellVisible,
@@ -118,6 +127,8 @@ export default function App() {
   const timerPhaseRef = useRef<SessionPhase>("idle");
   timerPhaseRef.current = timerPhase;
   const [pendingResult, setPendingResult] = useState<PendingSolve | null>(null);
+  const pendingResultRef = useRef<PendingSolve | null>(null);
+  pendingResultRef.current = pendingResult;
   const [focus, setFocus] = useState<Focus>({ kind: "计时" });
   const [practice, setPractice] = useState<PracticeCase | null>(null);
   const [practiceNote, setPracticeNote] = useState<string | null>(null);
@@ -136,9 +147,21 @@ export default function App() {
   const [scrambleGuide, setScrambleGuide] = useState<GuidedScrambleView | null>(
     null,
   );
+  const [btInspectPhase, setBtInspectPhase] =
+    useState<BluetoothInspectPhase>("off");
+  const [inspectRemainingMs, setInspectRemainingMs] =
+    useState(BLUETOOTH_INSPECT_MS);
   const moyuSessionRef = useRef<MoyuBleConnection | null>(null);
   moyuSessionRef.current = moyuSession;
   const scrambleGuideRef = useRef<GuidedScramble | null>(null);
+  const btInspectPhaseRef = useRef<BluetoothInspectPhase>("off");
+  btInspectPhaseRef.current = btInspectPhase;
+  /** 计时中累计的实体转动（相对本轮打乱），用于还原检测。 */
+  const bluetoothSolveMovesRef = useRef<string[]>([]);
+  /** 观察 / 待转阶段已发生的转动，开表时并入还原序列。 */
+  const bluetoothPreStartMovesRef = useRef<string[]>([]);
+  const bluetoothSolveCheckGen = useRef(0);
+  const inspectEndsAtRef = useRef(0);
   const moyuOrientation = useRef(new MoyuOrientationTracker());
   const moyuOrbitRaf = useRef(0);
   const moyuPendingQuat = useRef<MoyuQuat | null>(null);
@@ -376,19 +399,111 @@ export default function App() {
     setDefaultAlgRevision((current) => current + 1);
   }
 
+  function resetBluetoothInspect() {
+    btInspectPhaseRef.current = "off";
+    setBtInspectPhase("off");
+    setInspectRemainingMs(BLUETOOTH_INSPECT_MS);
+    inspectEndsAtRef.current = 0;
+    bluetoothPreStartMovesRef.current = [];
+  }
+
+  function beginBluetoothInspect() {
+    const next = nextInspectPhaseOnGuideDone(btInspectPhaseRef.current);
+    if (next !== "inspecting") {
+      btInspectPhaseRef.current = next;
+      setBtInspectPhase(next);
+      return;
+    }
+    btInspectPhaseRef.current = "inspecting";
+    setBtInspectPhase("inspecting");
+    inspectEndsAtRef.current = Date.now() + BLUETOOTH_INSPECT_MS;
+    setInspectRemainingMs(BLUETOOTH_INSPECT_MS);
+    setPreviewMode("cube");
+    cube.current?.setMoveHint(null);
+  }
+
+  function skipOrFinishBluetoothInspect() {
+    const next = finishBluetoothInspect(btInspectPhaseRef.current);
+    btInspectPhaseRef.current = next;
+    setBtInspectPhase(next);
+  }
+
   function syncScrambleGuide(moves: string | null, connected: boolean) {
     if (!connected || !moves) {
       scrambleGuideRef.current = null;
       setScrambleGuide(null);
+      resetBluetoothInspect();
       return;
     }
     try {
       const guide = createGuidedScramble(moves);
       scrambleGuideRef.current = guide;
       setScrambleGuide(guidedScrambleView(guide));
+      resetBluetoothInspect();
     } catch {
       scrambleGuideRef.current = null;
       setScrambleGuide(null);
+      resetBluetoothInspect();
+    }
+  }
+
+  function resetBluetoothSolveTracking() {
+    bluetoothSolveMovesRef.current = [];
+    bluetoothSolveCheckGen.current += 1;
+  }
+
+  function maybeStartBluetoothTimer() {
+    if (!moyuSessionRef.current || pendingResultRef.current) {
+      return;
+    }
+    const guide = scrambleGuideRef.current;
+    if (
+      !shouldStartBluetoothTimer(
+        guide?.phase === "done",
+        timerPhaseRef.current,
+        btInspectPhaseRef.current,
+      )
+    ) {
+      return;
+    }
+    cube.current?.setMoveHint(null);
+    resetBluetoothSolveTracking();
+    bluetoothSolveMovesRef.current = bluetoothPreStartMovesRef.current.slice();
+    bluetoothPreStartMovesRef.current = [];
+    timer.current?.startRunning();
+  }
+
+  function appendBluetoothSolveMoves(samples: readonly MoyuMoveSample[]) {
+    if (
+      !moyuSessionRef.current ||
+      pendingResultRef.current ||
+      timerPhaseRef.current !== "running"
+    ) {
+      return;
+    }
+    const scramble = scrambleMovesRef.current;
+    if (!scramble) {
+      return;
+    }
+    for (const sample of samples) {
+      bluetoothSolveMovesRef.current.push(sample.move);
+    }
+    const movesSnapshot = bluetoothSolveMovesRef.current.slice();
+    const checkGen = bluetoothSolveCheckGen.current;
+    void isSolvedAfterScramble(scramble, movesSnapshot).then((solved) => {
+      if (!solved || checkGen !== bluetoothSolveCheckGen.current) {
+        return;
+      }
+      if (pendingResultRef.current || timerPhaseRef.current !== "running") {
+        return;
+      }
+      timer.current?.stopRunning();
+    });
+  }
+
+  function recordBluetoothPreStartMoves(samples: readonly MoyuMoveSample[]) {
+    for (const sample of samples) {
+      bluetoothPreStartMovesRef.current.push(sample.move);
     }
   }
 
@@ -409,15 +524,31 @@ export default function App() {
         return;
       }
     }
+    // 打乱已完成：观察中只记账；待转则首转开表；计时中检测还原。
     if (guide.phase === "done") {
+      const inspect = btInspectPhaseRef.current;
+      if (inspect === "off") {
+        beginBluetoothInspect();
+        recordBluetoothPreStartMoves(samples);
+        return;
+      }
+      if (inspect === "inspecting") {
+        recordBluetoothPreStartMoves(samples);
+        return;
+      }
+      maybeStartBluetoothTimer();
+      appendBluetoothSolveMoves(samples);
       return;
     }
     try {
       let next: GuidedScramble = guide;
-      for (const sample of samples) {
+      let sampleIndex = 0;
+      for (; sampleIndex < samples.length; sampleIndex += 1) {
+        const sample = samples[sampleIndex]!;
         const result = applyGuidedMove(next, sample.move);
         next = result.guide;
         if (next.phase === "done") {
+          sampleIndex += 1;
           break;
         }
       }
@@ -426,6 +557,12 @@ export default function App() {
       flushSync(() => {
         setScrambleGuide(guidedScrambleView(next));
       });
+      if (next.phase === "done") {
+        beginBluetoothInspect();
+        if (sampleIndex < samples.length) {
+          recordBluetoothPreStartMoves(samples.slice(sampleIndex));
+        }
+      }
     } catch {
       // 单步解析失败时不打断跟转动画
     }
@@ -441,6 +578,7 @@ export default function App() {
     }
     setScrambleMoves(moves);
     syncScrambleGuide(moves, Boolean(moyuSessionRef.current));
+    resetBluetoothSolveTracking();
     if (resetTimer) {
       timer.current?.prepare();
       setTimerPhase("idle");
@@ -472,9 +610,13 @@ export default function App() {
     }
   }, [focus.kind, scrambleMoves]);
 
-  // 蓝牙引导：立体魔方旋转箭头（仅计时 + 已连接）
+  // 蓝牙引导：立体魔方旋转箭头（仅计时 + 已连接 + 引导中）
   useEffect(() => {
     if (focus.kind !== "计时" || !moyuSession || !scrambleGuide) {
+      cube.current?.setMoveHint(null);
+      return;
+    }
+    if (btInspectPhase !== "off") {
       cube.current?.setMoveHint(null);
       return;
     }
@@ -491,7 +633,24 @@ export default function App() {
       double: scrambleGuide.currentIsDouble,
       half: scrambleGuide.partial,
     });
-  }, [focus.kind, moyuSession, scrambleGuide]);
+  }, [focus.kind, moyuSession, scrambleGuide, btInspectPhase]);
+
+  // 蓝牙观察倒计时：到期自动进入待转
+  useEffect(() => {
+    if (btInspectPhase !== "inspecting") {
+      return;
+    }
+    const id = window.setInterval(() => {
+      const remaining = Math.max(0, inspectEndsAtRef.current - Date.now());
+      setInspectRemainingMs(remaining);
+      if (remaining <= 0) {
+        const next = finishBluetoothInspect(btInspectPhaseRef.current);
+        btInspectPhaseRef.current = next;
+        setBtInspectPhase(next);
+      }
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [btInspectPhase]);
 
   function onMode(event: MouseEvent<HTMLButtonElement>) {
     const next = switchMode(mode).mode;
@@ -537,6 +696,10 @@ export default function App() {
       return;
     }
     if (isTimingPointerOnControl(event.target)) {
+      return;
+    }
+    // 蓝牙模式：未计时时不用长按开表；计时中仍可点按停止。
+    if (moyuSessionRef.current && timerPhaseRef.current !== "running") {
       return;
     }
     event.preventDefault();
@@ -810,11 +973,19 @@ export default function App() {
             focus.kind !== "计时" || !timingShellVisible(timerPhase, "scramble")
           }
         >
-          <ScramblePanel
-            moves={scrambleMoves}
-            onRescramble={refreshScramble}
-            guide={scrambleGuide}
-          />
+          {btInspectPhase === "inspecting" ? (
+            <BluetoothInspectPanel
+              remainingMs={inspectRemainingMs}
+              onSkip={skipOrFinishBluetoothInspect}
+            />
+          ) : (
+            <ScramblePanel
+              moves={scrambleMoves}
+              onRescramble={refreshScramble}
+              guide={scrambleGuide}
+              waitingForStart={btInspectPhase === "ready"}
+            />
+          )}
         </div>
         <div
           className="slot-cube"
@@ -829,7 +1000,9 @@ export default function App() {
               <div
                 className="preview-stage"
                 data-preview="cube"
-                hidden={!preview.showCube}
+                hidden={
+                  btInspectPhase === "inspecting" ? false : !preview.showCube
+                }
               >
                 <CubeView
                   ref={cube}
@@ -840,23 +1013,29 @@ export default function App() {
               <div
                 className="preview-stage preview-net"
                 data-preview="net"
-                hidden={!preview.showNet || !scrambleMoves}
+                hidden={
+                  btInspectPhase === "inspecting" ||
+                  !preview.showNet ||
+                  !scrambleMoves
+                }
               >
                 {scrambleMoves ? <ScrambleNet moves={scrambleMoves} /> : null}
               </div>
-              <button
-                type="button"
-                className="preview-toggle"
-                aria-label={
-                  previewMode === "cube" ? "切换到平面图" : "切换到 3D 魔方"
-                }
-                onClick={(event) => {
-                  setPreviewMode((mode) => nextCubePreviewMode(mode));
-                  releaseTimingFocus(event.currentTarget);
-                }}
-              >
-                {previewMode === "cube" ? "平面图" : "3D"}
-              </button>
+              {btInspectPhase === "inspecting" ? null : (
+                <button
+                  type="button"
+                  className="preview-toggle"
+                  aria-label={
+                    previewMode === "cube" ? "切换到平面图" : "切换到 3D 魔方"
+                  }
+                  onClick={(event) => {
+                    setPreviewMode((mode) => nextCubePreviewMode(mode));
+                    releaseTimingFocus(event.currentTarget);
+                  }}
+                >
+                  {previewMode === "cube" ? "平面图" : "3D"}
+                </button>
+              )}
             </>
           ) : (
             <CubeView ref={cube} showLayerControls={false} />
@@ -877,6 +1056,7 @@ export default function App() {
                 showControls={false}
                 showChrome={false}
                 inputEnabled={!pendingResult}
+                allowHoldStart={!moyuSession}
               />
               {showTimingHome ? <TimerStats summary={scoreSummary} /> : null}
             </>

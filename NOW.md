@@ -6,7 +6,10 @@
 
 ## 正在做的任务
 
-蓝牙打乱引导（高亮 / 双步 / 对比度 / 3D 箭头）。已开 PR [#73](https://github.com/IdEvEbI/cube-trainer/pull/73)（Issue [#72](https://github.com/IdEvEbI/cube-trainer/issues/72)），等待合并。
+蓝牙模式计时闭环（观察倒计时 / 首转开表 / 还原停表）已开 PR，等待合入。叠在打乱引导 PR [#73](https://github.com/IdEvEbI/cube-trainer/pull/73)（#72）之上。
+
+- Issue [#74](https://github.com/IdEvEbI/cube-trainer/issues/74)
+- 分支 `feat/#74-bt-timer-flow`
 
 ## 下一步计划
 
@@ -16,7 +19,7 @@
 4. ~~公式更新与默认算法~~（A #57 / B #59 已合入）
 5. ~~公式目录 Wiki 对齐 + 空槽~~（已合入 #61）
 6. 转向适配（手动设置前面色 MVP）
-7. **蓝牙模式打乱计时流程**（连接 / 跟随 / 动画与轴 #65 #67 #69 已合入；引导打乱 PR #73；观察 → 首转计时 → 还原停表待做）
+7. **蓝牙模式打乱计时流程**（引导 #73；计时闭环 #74，均待合入）
 8. 模拟 CFOP 打乱与还原
 9. 后端用户系统（有真实用户后再做）
 
