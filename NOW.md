@@ -8,7 +8,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 **UI/UE 统一 · 非蓝牙播放条与开表交互**：已开 PR，等待合入。
 
-- Issue [#80](https://github.com/IdEvEbI/cube-trainer/issues/80) / PR（待填）
+- Issue [#80](https://github.com/IdEvEbI/cube-trainer/issues/80) / PR [#81](https://github.com/IdEvEbI/cube-trainer/pull/81)
 - 分支 `feat/#80-scramble-playback-timing`
 
 ## 下一步计划
@@ -19,7 +19,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 4. ~~公式更新与默认算法~~（A #57 / B #59 已合入）
 5. ~~公式目录 Wiki 对齐 + 空槽~~（已合入 #61）
 6. ~~蓝牙模式打乱计时流程~~（引导 #73、计时闭环 #75 已合入）
-7. **UI/UE 统一**：~~设计文档 #77~~ → ~~首页布局 #79~~ → 非蓝牙播放/开表 #80（待合入）→ 练习页（另开）。
+7. **UI/UE 统一**：~~设计文档 #77~~ → ~~首页布局 #79~~ → 非蓝牙播放/开表 #81（待合入）→ 练习页（另开）。
 8. **蓝牙还原统计**：总览 + 分段（Cross / F2L / OLL / PLL）。
 9. **成绩列表 + 图表**。
 10. **公式练习蓝牙闭环**：打乱到练习状态 + 练习次数统计。
