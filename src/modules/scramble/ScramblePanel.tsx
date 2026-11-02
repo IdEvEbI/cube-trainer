@@ -1,4 +1,4 @@
-import { type MouseEvent } from "react";
+import { type MouseEvent, type ReactNode } from "react";
 import type { GuidedScrambleView } from "./guided.ts";
 import "./scramble.css";
 
@@ -7,13 +7,22 @@ export function ScramblePanel({
   onRescramble,
   guide = null,
   waitingForStart = false,
+  playbackSteps = null,
+  playbackIndex = 0,
+  footer = null,
 }: {
   moves: string | null;
   onRescramble: () => void;
-  /** 蓝牙引导态；未连接时为 null，保持纯文本展示。 */
+  /** 蓝牙引导态；未连接时为 null。 */
   guide?: GuidedScrambleView | null;
   /** 观察结束、等待首转开表。 */
   waitingForStart?: boolean;
+  /** 非蓝牙逐步打乱：已拆分的公式步；有值时按播放进度高亮。 */
+  playbackSteps?: string[] | null;
+  /** 已应用到魔方的步数（0 = 还原态）。 */
+  playbackIndex?: number;
+  /** 公式条下方内容（如非蓝牙播放控制条）。 */
+  footer?: ReactNode;
 }) {
   function scramble(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
@@ -22,7 +31,14 @@ export function ScramblePanel({
   }
 
   const guided = Boolean(guide && moves);
-  const title = guide?.displayMoves.join(" ") ?? moves ?? undefined;
+  const playback = Boolean(
+    !guided && playbackSteps && playbackSteps.length > 0,
+  );
+  const title =
+    guide?.displayMoves.join(" ") ??
+    (playback && playbackSteps ? playbackSteps.join(" ") : undefined) ??
+    moves ??
+    undefined;
 
   return (
     <section className="scramble">
@@ -45,6 +61,26 @@ export function ScramblePanel({
                   aria-current={
                     index === guide.currentIndex ? "step" : undefined
                   }
+                >
+                  {move}
+                </span>
+              );
+            })}
+          </p>
+        ) : playback && playbackSteps ? (
+          <p className="scramble-moves scramble-moves-guided" title={title}>
+            {playbackSteps.map((move, index) => {
+              let stepClass = "scramble-step";
+              if (index < playbackIndex) {
+                stepClass += " is-done";
+              } else if (index === playbackIndex) {
+                stepClass += " is-current";
+              }
+              return (
+                <span
+                  key={`${index}-${move}`}
+                  className={stepClass}
+                  aria-current={index === playbackIndex ? "step" : undefined}
                 >
                   {move}
                 </span>
@@ -81,6 +117,7 @@ export function ScramblePanel({
           </svg>
         </button>
       </div>
+      {footer}
       {guided && guide?.correction ? (
         <p className="scramble-guide-note scramble-guide-fix" role="status">
           转错了，请转 {guide.correction}

@@ -8,6 +8,10 @@
   gap: 12px;
 }
 
+.scramble-controls {
+  margin-top: 2px;
+}
+
 .scramble-bar {
   position: relative;
   width: 100%;

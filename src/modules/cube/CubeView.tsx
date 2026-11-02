@@ -208,6 +208,15 @@ async function appendMovesInstant(
   twisty.timestamp = "end";
 }
 
+/** Allow empty alg (solved cube) for scramble playback from white-up start. */
+function algText(source: string): string {
+  const trimmed = source.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return parseAlgorithm(trimmed).join(" ");
+}
+
 async function animatePracticeMove(
   twisty: TwistyPlayer | null,
   before: string,
@@ -219,8 +228,8 @@ async function animatePracticeMove(
   if (!twisty || !isCurrent()) {
     return;
   }
-  const fromMoves = parseAlgorithm(before).join(" ");
-  const toMoves = parseAlgorithm(after).join(" ");
+  const fromMoves = algText(before);
+  const toMoves = algText(after);
   twisty.pause();
   twisty.alg = fromMoves;
   twisty.timestamp = "end";
@@ -483,7 +492,7 @@ export function CubeView({
       );
     },
     showMoves(moves: string) {
-      const parsed = parseAlgorithm(moves).join(" ");
+      const parsed = algText(moves);
       const task = queue.current.then(async () => {
         const twisty = player.current;
         if (!twisty) {

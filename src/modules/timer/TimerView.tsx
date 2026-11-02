@@ -10,6 +10,7 @@ import {
   displayPhase,
   reduceHoldStart,
   reduceSession,
+  shouldEndHoldOnRelease,
   type SessionPhase,
   type TimingInputSource,
 } from "./session.ts";
@@ -103,6 +104,9 @@ export function TimerView({
       return;
     }
     clearHold();
+    // 每次进入准备都复位显示，避免仍停在上一次成绩。
+    timer.current.reset();
+    setElapsed(0);
     const next = reduceHoldStart(current, source);
     moveTo(next);
     // Keyboard arms synchronously; pointer still waits out the hold delay.
@@ -190,14 +194,14 @@ export function TimerView({
   }
 
   function pressUp() {
-    if (!inputEnabledRef.current) {
-      return;
+    const decision = shouldEndHoldOnRelease(
+      ignoreNextRelease.current,
+      inputEnabledRef.current,
+    );
+    ignoreNextRelease.current = decision.nextIgnore;
+    if (decision.endHold) {
+      endHold();
     }
-    if (ignoreNextRelease.current) {
-      ignoreNextRelease.current = false;
-      return;
-    }
-    endHold();
   }
 
   useEffect(() => {

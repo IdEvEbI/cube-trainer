@@ -34,6 +34,24 @@ export function armHoldDelayMs(source: TimingInputSource): number {
 }
 
 /**
+ * Decide whether a press-up should end the hold.
+ * The ignore flag (set when stopping on down) must be consumed even if input is
+ * already disabled by the result dialog — otherwise the next solve's release is swallowed.
+ */
+export function shouldEndHoldOnRelease(
+  ignoreNextRelease: boolean,
+  inputEnabled: boolean,
+): { endHold: boolean; nextIgnore: boolean } {
+  if (ignoreNextRelease) {
+    return { endHold: false, nextIgnore: false };
+  }
+  if (!inputEnabled) {
+    return { endHold: false, nextIgnore: false };
+  }
+  return { endHold: true, nextIgnore: false };
+}
+
+/**
  * Apply hold_start, and for keyboard immediately hold_ready (armed).
  * Pointer stays in arming until the hold timer fires.
  */
@@ -131,8 +149,9 @@ export function displayPhase(
   return phase;
 }
 
+/** 准备态与计时中均进入计时画面（只留计时器）。 */
 export function isTimingChromeHidden(phase: SessionPhase): boolean {
-  return phase === "running";
+  return phase === "armed" || phase === "running";
 }
 
 /** Timing and practice both hide the manual layer turn pad. */
@@ -160,9 +179,9 @@ export function timingPreviewExclusive(mode: CubePreviewMode): {
 export type TimingShellSlot = "scramble" | "preview" | "timer" | "topbar";
 
 /**
- * Running：只显示计时器。
- * 首页（idle / stopped）：顶栏、魔方、打乱、统计；计时器不常驻。
- * 预备（arming / armed）：计时器出现（准备闪烁），其余首页壳层仍在。
+ * armed / running：只显示计时器（计时画面）。
+ * 首页（idle / stopped / arming）：顶栏、魔方、打乱、统计；计时器不常驻。
+ * arming 仍停在首页（触控未满 300ms）；进入 armed 后再切计时画面。
  */
 export function timingShellVisible(
   phase: SessionPhase,
@@ -172,7 +191,7 @@ export function timingShellVisible(
     return slot === "timer";
   }
   if (slot === "timer") {
-    return phase === "arming" || phase === "armed";
+    return false;
   }
   return true;
 }
@@ -183,6 +202,13 @@ export function timingShellVisible(
  */
 export function keepElapsedOnScrambleRefresh(phase: SessionPhase): boolean {
   return phase === "stopped";
+}
+
+/** 非蓝牙停表回首页时复位白上绿前复原态；蓝牙跟实体，不复位。 */
+export function shouldResetCubeOnTimingHome(
+  bluetoothConnected: boolean,
+): boolean {
+  return !bluetoothConnected;
 }
 
 /**
