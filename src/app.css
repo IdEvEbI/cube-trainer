@@ -15,6 +15,30 @@
   padding: 10px 12px;
 }
 
+/* 计时顶栏：左练习 / 中对齐 / 右连接+状态 */
+.topbar-timing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+}
+
+.topbar-timing .mode-switch {
+  justify-self: start;
+  grid-column: 1;
+}
+
+.topbar-timing .topbar-align {
+  justify-self: center;
+  grid-column: 2;
+}
+
+.topbar-timing .topbar-bt {
+  justify-self: end;
+  grid-column: 3;
+  margin-left: 0;
+}
+
 .mode-switch,
 .nav-back,
 .net-toggle,
@@ -89,6 +113,22 @@
   color: #f3f0e8;
 }
 
+.bt-connect-icon {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bt-connect-icon-svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 .bt-connect:disabled {
   opacity: 0.65;
   cursor: wait;
@@ -139,7 +179,8 @@
 .focus[data-focus="计时"] {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* 顶栏外：魔方 → 打乱 → 统计 → 计时器（计时器仅预备/计时中显示） */
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
   gap: 6px;
   align-items: stretch;
   justify-items: center;
@@ -176,17 +217,10 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   background: #4a7eb5;
 }
 
-.focus[data-focus="计时"] .slot-scramble {
-  grid-column: 1;
-  grid-row: 1;
-  width: 100%;
-  min-width: 0;
-}
-
 .focus[data-focus="计时"] .slot-cube {
   position: relative;
   grid-column: 1;
-  grid-row: 2;
+  grid-row: 1;
   width: 100%;
   min-width: 0;
   min-height: 0;
@@ -195,6 +229,23 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
   place-items: center;
   justify-items: center;
   align-content: center;
+}
+
+.focus[data-focus="计时"] .slot-scramble {
+  grid-column: 1;
+  grid-row: 2;
+  width: 100%;
+  min-width: 0;
+}
+
+.focus[data-focus="计时"] .slot-stats {
+  grid-column: 1;
+  grid-row: 3;
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  padding: 0 0 4px;
 }
 
 .focus[data-focus="计时"] .preview-stage {
@@ -211,6 +262,7 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
 /* Author `display: grid` on slots beats UA `[hidden]`; force hide. */
 .focus[data-focus="计时"] .slot-scramble[hidden],
 .focus[data-focus="计时"] .slot-cube[hidden],
+.focus[data-focus="计时"] .slot-stats[hidden],
 .focus[data-focus="计时"] .slot-tools[hidden],
 .focus[data-focus="计时"] .preview-stage[hidden],
 .app .topbar[hidden] {
@@ -220,7 +272,7 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
 /* Running: only the timer remains (wide + narrow). */
 .focus[data-focus="计时"][data-timer-phase="running"] .slot-scramble,
 .focus[data-focus="计时"][data-timer-phase="running"] .slot-cube,
-.focus[data-focus="计时"][data-timer-phase="running"] .preview-toggle {
+.focus[data-focus="计时"][data-timer-phase="running"] .slot-stats {
   display: none !important;
 }
 
@@ -249,7 +301,7 @@ body:has(.focus[data-focus="计时"][data-timer-phase="running"]),
 
 .focus[data-focus="计时"] .slot-tools {
   grid-column: 1;
-  grid-row: 3;
+  grid-row: 4;
   box-sizing: border-box;
   width: 100%;
   min-height: 0;
@@ -578,6 +630,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .bt-connect,
   .app:has(.focus[data-focus="计时"]) .scramble-icon,
   .app:has(.focus[data-focus="计时"]) .preview-toggle {
     background: transparent;
@@ -587,6 +640,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch:hover,
+  .app:has(.focus[data-focus="计时"]) .bt-connect:hover,
   .app:has(.focus[data-focus="计时"]) .scramble-icon:hover,
   .app:has(.focus[data-focus="计时"]) .preview-toggle:hover {
     background: rgb(247 251 255 / 12%);
@@ -595,7 +649,7 @@ body:has(.focus[data-focus="练习"]),
 
   .focus[data-focus="计时"] {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto auto auto;
     gap: 12px;
     padding: 8px 28px 20px;
     justify-items: center;
@@ -603,17 +657,14 @@ body:has(.focus[data-focus="练习"]),
 
   .focus[data-focus="计时"] .slot-scramble,
   .focus[data-focus="计时"] .slot-cube,
+  .focus[data-focus="计时"] .slot-stats,
   .focus[data-focus="计时"] .slot-tools {
     grid-column: 1;
     width: min(100%, 960px);
   }
 
-  .focus[data-focus="计时"] .slot-scramble {
-    grid-row: 1;
-  }
-
   .focus[data-focus="计时"] .slot-cube {
-    grid-row: 2;
+    grid-row: 1;
     width: min(100%, 720px);
     height: 100%;
     place-items: center;
@@ -621,8 +672,16 @@ body:has(.focus[data-focus="练习"]),
     align-content: center;
   }
 
-  .focus[data-focus="计时"] .slot-tools {
+  .focus[data-focus="计时"] .slot-scramble {
+    grid-row: 2;
+  }
+
+  .focus[data-focus="计时"] .slot-stats {
     grid-row: 3;
+  }
+
+  .focus[data-focus="计时"] .slot-tools {
+    grid-row: 4;
     align-content: start;
     justify-items: center;
     gap: 20px;
@@ -793,6 +852,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .bt-connect,
   .app:has(.focus[data-focus="计时"]) .scramble-icon,
   .app:has(.focus[data-focus="计时"]) .preview-toggle {
     background: transparent;
@@ -803,6 +863,7 @@ body:has(.focus[data-focus="练习"]),
 
   .focus[data-focus="计时"] .slot-scramble,
   .focus[data-focus="计时"] .slot-cube,
+  .focus[data-focus="计时"] .slot-stats,
   .focus[data-focus="计时"] .slot-tools {
     width: 100%;
     max-width: 420px;

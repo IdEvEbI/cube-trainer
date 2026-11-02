@@ -20,6 +20,10 @@ export type ScoreSummary = {
   avgMs: number | null;
   /** WCA-style Ao5 over the five newest attempts; null if fewer than 5. */
   ao5Ms: number | null;
+  /** WCA-style Ao12；不足 12 次为 null。 */
+  ao12Ms: number | null;
+  /** WCA-style Ao100；不足 100 次为 null。 */
+  ao100Ms: number | null;
 };
 
 const STORAGE_KEY = "cube-trainer-scores";
@@ -45,16 +49,28 @@ export function browserScoreStorage(): ScoreStorage {
 }
 
 /**
- * WCA Ao5: five newest times, drop best and worst, mean of the middle three.
+ * WCA 截尾平均：取最新 n 次，去掉最好与最差，对中间 n−2 次取平均。
  */
-export function averageOf5(timesNewestFirst: readonly number[]): number | null {
-  if (timesNewestFirst.length < 5) {
+export function trimmedAverage(
+  timesNewestFirst: readonly number[],
+  windowSize: number,
+): number | null {
+  if (windowSize < 3 || timesNewestFirst.length < windowSize) {
     return null;
   }
-  const five = timesNewestFirst.slice(0, 5);
-  const sorted = [...five].sort((a, b) => a - b);
-  const mid = sorted.slice(1, 4);
-  return Math.round((mid[0]! + mid[1]! + mid[2]!) / 3);
+  const window = timesNewestFirst.slice(0, windowSize);
+  const sorted = [...window].sort((a, b) => a - b);
+  const mid = sorted.slice(1, -1);
+  let sum = 0;
+  for (const time of mid) {
+    sum += time;
+  }
+  return Math.round(sum / mid.length);
+}
+
+/** WCA Ao5：最新 5 次截尾平均。 */
+export function averageOf5(timesNewestFirst: readonly number[]): number | null {
+  return trimmedAverage(timesNewestFirst, 5);
 }
 
 export function summarizeAttempts(
@@ -68,6 +84,8 @@ export function summarizeAttempts(
       worstMs: null,
       avgMs: null,
       ao5Ms: null,
+      ao12Ms: null,
+      ao100Ms: null,
     };
   }
   let best = timesNewestFirst[0]!;
@@ -87,7 +105,9 @@ export function summarizeAttempts(
     bestMs: best,
     worstMs: worst,
     avgMs: Math.round(sum / count),
-    ao5Ms: averageOf5(timesNewestFirst),
+    ao5Ms: trimmedAverage(timesNewestFirst, 5),
+    ao12Ms: trimmedAverage(timesNewestFirst, 12),
+    ao100Ms: trimmedAverage(timesNewestFirst, 100),
   };
 }
 

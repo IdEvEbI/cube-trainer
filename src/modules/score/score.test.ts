@@ -4,6 +4,7 @@ import {
   averageOf5,
   createScoreLog,
   summarizeAttempts,
+  trimmedAverage,
   type ScoreStorage,
 } from "./score.ts";
 
@@ -28,6 +29,18 @@ describe("averageOf5", () => {
   });
 });
 
+describe("trimmedAverage", () => {
+  it("不足窗口时没有均值", () => {
+    assert.equal(trimmedAverage([1, 2, 3, 4], 5), null);
+  });
+
+  it("Ao12 去掉最好最差后平均中间 10 次", () => {
+    const times = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => n * 1000);
+    // sorted 1..12 → mid 2..11 → sum 65 → 6500
+    assert.equal(trimmedAverage(times, 12), 6500);
+  });
+});
+
 describe("summarizeAttempts", () => {
   it("空列表统计为空", () => {
     assert.deepEqual(summarizeAttempts([]), {
@@ -36,10 +49,12 @@ describe("summarizeAttempts", () => {
       worstMs: null,
       avgMs: null,
       ao5Ms: null,
+      ao12Ms: null,
+      ao100Ms: null,
     });
   });
 
-  it("记录后最好 / 最差 / 平均 / Ao5 计算正确", () => {
+  it("记录后最好 / 最差 / 平均 / Ao5 / Ao12 / Ao100 计算正确", () => {
     const times = [2500, 1000, 4000, 2000, 3000, 9000];
     const summary = summarizeAttempts(times);
     assert.equal(summary.count, 6);
@@ -50,6 +65,8 @@ describe("summarizeAttempts", () => {
       Math.round((2500 + 1000 + 4000 + 2000 + 3000 + 9000) / 6),
     );
     assert.equal(summary.ao5Ms, averageOf5(times));
+    assert.equal(summary.ao12Ms, null);
+    assert.equal(summary.ao100Ms, null);
   });
 });
 
@@ -109,6 +126,8 @@ describe("createScoreLog", () => {
     assert.equal(summary.worstMs, 9000);
     assert.equal(summary.avgMs, Math.round(21500 / 6));
     assert.equal(summary.ao5Ms, averageOf5([2500, 1000, 4000, 2000, 3000]));
+    assert.equal(summary.ao12Ms, null);
+    assert.equal(summary.ao100Ms, null);
   });
 
   it("损坏的记录读出来是空的", () => {
@@ -121,6 +140,8 @@ describe("createScoreLog", () => {
       worstMs: null,
       avgMs: null,
       ao5Ms: null,
+      ao12Ms: null,
+      ao100Ms: null,
     });
   });
 
