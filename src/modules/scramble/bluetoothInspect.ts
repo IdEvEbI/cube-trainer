@@ -23,7 +23,7 @@ export function nextInspectPhaseOnGuideDone(
   return "inspecting";
 }
 
-/** 跳过或倒计时结束 → 等待首转。 */
+/** 跳过、倒计时结束、或观察中拧动 → 待转（随后可开表）。 */
 export function finishBluetoothInspect(
   current: BluetoothInspectPhase,
 ): BluetoothInspectPhase {
@@ -31,4 +31,11 @@ export function finishBluetoothInspect(
     return "ready";
   }
   return current;
+}
+
+/** 观察中实体转动时，应结束倒计时并开表。 */
+export function shouldEndInspectOnCubeTurn(
+  phase: BluetoothInspectPhase,
+): boolean {
+  return phase === "inspecting";
 }

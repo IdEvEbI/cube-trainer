@@ -108,6 +108,7 @@ describe("connectMoyuCube", () => {
     const api: MoyuBluetoothRequestApi = {
       async requestDevice() {
         return {
+          id: "mock-device-e1f2",
           name: "WCU_MY32_E1F2",
           gatt: {
             connected: true,
@@ -141,6 +142,8 @@ describe("connectMoyuCube", () => {
       bluetooth: api,
       statusTimeoutMs: 2000,
     });
+    assert.equal(session.id, "mock-device-e1f2");
+    assert.equal(session.name, "WCU_MY32_E1F2");
     const status = await session.requestStatus();
     assert.equal(status.facelets, SOLVED_FACELETS_URFDLB);
     assert.equal(status.setupAlg, "");

@@ -54,6 +54,7 @@ import {
   BLUETOOTH_INSPECT_MS,
   finishBluetoothInspect,
   nextInspectPhaseOnGuideDone,
+  shouldEndInspectOnCubeTurn,
   type BluetoothInspectPhase,
 } from "./modules/scramble/bluetoothInspect.ts";
 import { BluetoothInspectPanel } from "./modules/scramble/BluetoothInspectPanel.tsx";
@@ -95,16 +96,23 @@ import {
 } from "./modules/timer/session.ts";
 import { TimerStats } from "./modules/timer/TimerStats.tsx";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
+import { BluetoothDeviceDialog } from "./modules/bluetooth/BluetoothDeviceDialog.tsx";
+import {
+  browserDeviceAliasStorage,
+  getDeviceAlias,
+  setDeviceAlias,
+} from "./modules/bluetooth/deviceAlias.ts";
 import {
   connectMoyuCube,
   formatMoyuConnectError,
-  formatMoyuConnectedLabel,
+  isWebBluetoothAvailable,
   MOYU_REST_ORBIT,
   MoyuOrientationTracker,
   type MoyuBleConnection,
   type MoyuMoveSample,
   type MoyuQuat,
 } from "./modules/bluetooth/moyu/index.ts";
+import { Toast, TOAST_WEB_BLUETOOTH_UNSUPPORTED } from "./modules/ui/Toast.tsx";
 import "./app.css";
 
 const formulaLibrary = parseFormulaLibrary(formulas);
@@ -123,6 +131,11 @@ export default function App() {
     () => createDefaultAlgorithmPrefs(browserDefaultAlgorithmStorage()),
     [],
   );
+  const deviceAliasStorage = useMemo(() => browserDeviceAliasStorage(), []);
+  const webBluetoothOk = useMemo(() => isWebBluetoothAvailable(), []);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [aliasRevision, setAliasRevision] = useState(0);
+  const [btDevicePanelOpen, setBtDevicePanelOpen] = useState(false);
   const [scoreRevision, setScoreRevision] = useState(0);
   const [defaultAlgRevision, setDefaultAlgRevision] = useState(0);
   const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
@@ -527,6 +540,17 @@ export default function App() {
     setBtInspectPhase(next);
   }
 
+  /** 观察中拧动：结束倒计时进入待转，再开表并记账。 */
+  function startBluetoothTimerFromMoves(samples: readonly MoyuMoveSample[]) {
+    if (shouldEndInspectOnCubeTurn(btInspectPhaseRef.current)) {
+      const next = finishBluetoothInspect(btInspectPhaseRef.current);
+      btInspectPhaseRef.current = next;
+      setBtInspectPhase(next);
+    }
+    maybeStartBluetoothTimer();
+    appendBluetoothSolveMoves(samples);
+  }
+
   function syncScrambleGuide(moves: string | null, connected: boolean) {
     if (!connected || !moves) {
       scrambleGuideRef.current = null;
@@ -600,12 +624,6 @@ export default function App() {
     });
   }
 
-  function recordBluetoothPreStartMoves(samples: readonly MoyuMoveSample[]) {
-    for (const sample of samples) {
-      bluetoothPreStartMovesRef.current.push(sample.move);
-    }
-  }
-
   function applyBluetoothGuideMoves(samples: readonly MoyuMoveSample[]) {
     if (focusRef.current.kind !== "计时") {
       return;
@@ -623,20 +641,12 @@ export default function App() {
         return;
       }
     }
-    // 打乱已完成：观察中只记账；待转则首转开表；计时中检测还原。
+    // 打乱已完成：观察中拧动即结束倒计时并开表；待转首转开表；计时中检测还原。
     if (guide.phase === "done") {
-      const inspect = btInspectPhaseRef.current;
-      if (inspect === "off") {
+      if (btInspectPhaseRef.current === "off") {
         beginBluetoothInspect();
-        recordBluetoothPreStartMoves(samples);
-        return;
       }
-      if (inspect === "inspecting") {
-        recordBluetoothPreStartMoves(samples);
-        return;
-      }
-      maybeStartBluetoothTimer();
-      appendBluetoothSolveMoves(samples);
+      startBluetoothTimerFromMoves(samples);
       return;
     }
     try {
@@ -659,7 +669,7 @@ export default function App() {
       if (next.phase === "done") {
         beginBluetoothInspect();
         if (sampleIndex < samples.length) {
-          recordBluetoothPreStartMoves(samples.slice(sampleIndex));
+          startBluetoothTimerFromMoves(samples.slice(sampleIndex));
         }
       }
     } catch {
@@ -889,16 +899,45 @@ export default function App() {
     moyuOrientation.current.reset();
   }
 
+  function currentDeviceAlias(session: MoyuBleConnection): string {
+    void aliasRevision;
+    return getDeviceAlias(deviceAliasStorage, session.id) ?? "";
+  }
+
+  function disconnectMoyuSession() {
+    const session = moyuSessionRef.current;
+    if (!session) {
+      return;
+    }
+    void session.disableGyro().catch(() => undefined);
+    session.disconnect();
+    resetMoyuOrientationFollow();
+    setMoyuSession(null);
+    moyuSessionRef.current = null;
+    syncScrambleGuide(null, false);
+    setMoyuNote(null);
+    setBtDevicePanelOpen(false);
+    // 断开后回到首页还原态预览，不写回打乱目标。
+    cube.current?.setAbsoluteAlg("");
+  }
+
+  function onSaveDeviceAlias(alias: string) {
+    const session = moyuSessionRef.current;
+    if (!session) {
+      return;
+    }
+    setDeviceAlias(deviceAliasStorage, session.id, alias);
+    setAliasRevision((n) => n + 1);
+  }
+
   function onMoyuAlignOrientation() {
     try {
       const orientation = moyuOrientation.current.alignToCurrent();
       cube.current?.setOrientation(orientation);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
-      setMoyuNote(
-        moyuSession
-          ? `${formatMoyuConnectedLabel(moyuSession.name)} · 已对齐朝向`
-          : "已对齐朝向",
-      );
+      // 首页不展示设备名；对齐成功用短 Toast。
+      setToastMessage("已对齐朝向");
+      setMoyuNote(null);
     } catch (error) {
       setMoyuNote(
         error instanceof Error ? error.message : "尚无朝向数据，请稍候再对齐",
@@ -910,15 +949,12 @@ export default function App() {
     if (moyuBusy) {
       return;
     }
+    if (!webBluetoothOk) {
+      setToastMessage(TOAST_WEB_BLUETOOTH_UNSUPPORTED);
+      return;
+    }
     if (moyuSession) {
-      void moyuSession.disableGyro().catch(() => undefined);
-      moyuSession.disconnect();
-      resetMoyuOrientationFollow();
-      setMoyuSession(null);
-      syncScrambleGuide(null, false);
-      setMoyuNote(null);
-      // 断开后回到首页还原态预览，不写回打乱目标。
-      cube.current?.setAbsoluteAlg("");
+      setBtDevicePanelOpen(true);
       return;
     }
     setMoyuBusy(true);
@@ -929,7 +965,9 @@ export default function App() {
         onDisconnected: () => {
           resetMoyuOrientationFollow();
           setMoyuSession(null);
+          moyuSessionRef.current = null;
           syncScrambleGuide(null, false);
+          setBtDevicePanelOpen(false);
           setMoyuNote("魔方已断开");
           cube.current?.setAbsoluteAlg("");
         },
@@ -950,19 +988,18 @@ export default function App() {
       // 在 await 间隙也视为已连接，避免 applyScramble 误清引导。
       moyuSessionRef.current = session;
       setMoyuSession(session);
-      setMoyuNote(`${formatMoyuConnectedLabel(session.name)} · 同步中…`);
+      // 首页不显示设备名；别名仅在设备弹层中编辑。
+      setMoyuNote(null);
       const status = await session.requestStatus();
       // 计时首屏白上：setupAlg 可直接展示物理魔方状态（不改打乱公式文案）
       cube.current?.setAbsoluteAlg(status.setupAlg);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
       syncScrambleGuide(scrambleMovesRef.current, true);
       await session.enableGyro();
-      setMoyuNote(
-        `${formatMoyuConnectedLabel(session.name)} · 已同步 · 朝向跟随`,
-      );
     } catch (error) {
       resetMoyuOrientationFollow();
       setMoyuSession(null);
+      moyuSessionRef.current = null;
       syncScrambleGuide(null, false);
       setMoyuNote(formatMoyuConnectError(error));
     } finally {
@@ -972,6 +1009,18 @@ export default function App() {
 
   return (
     <div className="app">
+      {toastMessage ? (
+        <Toast message={toastMessage} onDone={() => setToastMessage(null)} />
+      ) : null}
+      {btDevicePanelOpen && moyuSession ? (
+        <BluetoothDeviceDialog
+          alias={currentDeviceAlias(moyuSession)}
+          rawName={moyuSession.name}
+          onSaveAlias={onSaveDeviceAlias}
+          onDisconnect={disconnectMoyuSession}
+          onClose={() => setBtDevicePanelOpen(false)}
+        />
+      ) : null}
       {pendingResult ? (
         <ResultConfirmDialog
           timeMs={pendingResult.timeMs}
@@ -1041,65 +1090,78 @@ export default function App() {
         {focus.kind === "计时" && moyuSession ? (
           <button
             type="button"
-            className="bt-align topbar-align"
+            className="bt-align bt-align-icon topbar-align"
             disabled={moyuBusy}
+            aria-label="对齐朝向"
+            title="对齐朝向"
             onClick={onMoyuAlignOrientation}
           >
-            对齐朝向
+            <svg
+              className="bt-align-icon-svg"
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              {/* 立体魔方：表示朝向 */}
+              <path d="M12 3 19 7v10l-7 4-7-4V7l7-4z" />
+              <path d="M12 3v10" />
+              <path d="M5 7 12 11l7-4" />
+              {/* 环绕箭头：表示对齐 / 重定向 */}
+              <path d="M18.2 4.2a3 3 0 0 1 2.4 3.6" />
+              <path d="m21.2 5.5-.2 2.2-2.1-.7" />
+            </svg>
           </button>
         ) : null}
         {focus.kind === "计时" ? (
           <div className="topbar-bt">
             <button
               type="button"
-              className="bt-connect bt-connect-icon"
+              className={
+                moyuSession
+                  ? "bt-connect bt-connect-icon is-connected"
+                  : "bt-connect bt-connect-icon"
+              }
               disabled={moyuBusy}
               aria-busy={moyuBusy}
               aria-label={
-                moyuBusy ? "连接中…" : moyuSession ? "断开魔方" : "连接魔方"
+                moyuBusy
+                  ? "连接中…"
+                  : moyuSession
+                    ? "已连接，打开设备设置"
+                    : "连接魔方"
               }
               title={
-                moyuBusy ? "连接中…" : moyuSession ? "断开魔方" : "连接魔方"
+                moyuBusy
+                  ? "连接中…"
+                  : moyuSession
+                    ? "已连接，打开设备设置"
+                    : "连接魔方"
               }
               onClick={() => {
                 void onMoyuConnectClick();
               }}
             >
-              {moyuSession ? (
-                <svg
-                  className="bt-connect-icon-svg"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill="currentColor"
-                    d="M17 7h-4.17l1.59-1.59L13 4l-4 4 4 4 1.41-1.41L12.83 9H17a5 5 0 0 1 4.9 4h2.02A7 7 0 0 0 17 7zM3.41 1.86 2 3.27l3.78 3.78L2 11l1.41 1.41L6 9.83V21h2v-7.17l1.5-1.5 8.23 8.23 1.41-1.41zM8 6.83l.67.67L8 8.17z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="bt-connect-icon-svg"
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                  aria-hidden="true"
-                >
-                  <path
-                    fill="currentColor"
-                    d="M17.71 7.71 12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"
-                  />
-                </svg>
-              )}
-            </button>
-            {moyuNote ? (
-              <span
-                className={
-                  moyuSession ? "bt-status is-connected" : "bt-status is-note"
-                }
-                role="status"
+              <svg
+                className="bt-connect-icon-svg"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                aria-hidden="true"
               >
+                <path
+                  fill="currentColor"
+                  d="M17.71 7.71 12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"
+                />
+              </svg>
+            </button>
+            {moyuNote && !moyuSession ? (
+              <span className="bt-status is-note" role="status">
                 {moyuNote}
               </span>
             ) : null}
