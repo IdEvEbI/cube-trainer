@@ -47,6 +47,8 @@ export type MoyuBluetoothRequestApi = {
 };
 
 export type MoyuBleDeviceLike = {
+  /** Web Bluetooth device id（同源稳定）；无则用名称兜底键。 */
+  id?: string | null;
   name?: string | null;
   gatt?: MoyuBleGattLike | null;
   addEventListener?(type: "gattserverdisconnected", listener: () => void): void;
@@ -139,6 +141,8 @@ export type MoyuCubeStatus = {
 };
 
 export type MoyuBleConnection = {
+  /** 本地别名存储键（优先 device.id）。 */
+  id: string;
   name: string;
   disconnect(): void;
   /** 写 A1 初始化后请求 A3，解密并解析为 facelets / setupAlg。 */
@@ -238,6 +242,7 @@ export async function connectMoyuCube(
   }
 
   const deviceName = device.name?.trim() || "魔域魔方";
+  const deviceId = device.id?.trim() || `name:${deviceName}`;
   const mac = await resolveMac(deviceName, options.askMacAddress);
   const keyIv: MoyuKeyIv = deriveMoyuKeyIv(mac);
 
@@ -339,6 +344,7 @@ export async function connectMoyuCube(
   const timeoutMs = options.statusTimeoutMs ?? 5000;
 
   return {
+    id: deviceId,
     name: deviceName,
     disconnect() {
       device.removeEventListener?.("gattserverdisconnected", onGone);

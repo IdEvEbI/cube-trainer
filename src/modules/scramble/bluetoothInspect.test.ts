@@ -5,6 +5,7 @@ import {
   finishBluetoothInspect,
   formatInspectCountdown,
   nextInspectPhaseOnGuideDone,
+  shouldEndInspectOnCubeTurn,
 } from "./bluetoothInspect.ts";
 import { shouldStartBluetoothTimer } from "../timer/session.ts";
 
@@ -19,10 +20,16 @@ describe("bluetoothInspect", () => {
     assert.equal(nextInspectPhaseOnGuideDone("ready"), "ready");
   });
 
-  it("跳过或倒计时结束进入待转", () => {
+  it("跳过、倒计时结束或观察中拧动进入待转", () => {
     assert.equal(finishBluetoothInspect("inspecting"), "ready");
     assert.equal(finishBluetoothInspect("ready"), "ready");
     assert.equal(finishBluetoothInspect("off"), "off");
+  });
+
+  it("仅观察中拧动应结束倒计时", () => {
+    assert.equal(shouldEndInspectOnCubeTurn("inspecting"), true);
+    assert.equal(shouldEndInspectOnCubeTurn("ready"), false);
+    assert.equal(shouldEndInspectOnCubeTurn("off"), false);
   });
 
   it("倒计时文案按秒向上取整", () => {
@@ -34,9 +41,9 @@ describe("bluetoothInspect", () => {
 });
 
 describe("shouldStartBluetoothTimer with inspect", () => {
-  it("仅在待转且引导完成时允许首转开表", () => {
+  it("待转或观察中且引导完成时允许转动开表", () => {
     assert.equal(shouldStartBluetoothTimer(true, "idle", "ready"), true);
-    assert.equal(shouldStartBluetoothTimer(true, "idle", "inspecting"), false);
+    assert.equal(shouldStartBluetoothTimer(true, "idle", "inspecting"), true);
     assert.equal(shouldStartBluetoothTimer(true, "idle", "off"), false);
     assert.equal(shouldStartBluetoothTimer(true, "running", "ready"), false);
     assert.equal(shouldStartBluetoothTimer(false, "idle", "ready"), false);

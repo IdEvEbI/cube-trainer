@@ -129,6 +129,13 @@
   height: 20px;
 }
 
+/* 已连接：绿色图标；宽/窄屏计时主题规则会盖默认色，需同级更高优先级覆盖。 */
+.bt-connect-icon.is-connected {
+  color: #5bdc8a;
+  border-color: rgb(91 220 138 / 70%);
+  background: rgb(91 220 138 / 18%);
+}
+
 .bt-connect:disabled {
   opacity: 0.65;
   cursor: wait;
@@ -147,6 +154,22 @@
   color: #f3f0e8;
 }
 
+.bt-align-icon {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bt-align-icon-svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 .bt-align:disabled {
   opacity: 0.65;
   cursor: wait;
@@ -159,10 +182,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.85rem;
-}
-
-.bt-status.is-connected {
-  color: #d7ffe8;
 }
 
 .bt-status.is-note {
@@ -679,6 +698,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .bt-align,
   .app:has(.focus[data-focus="计时"]) .bt-connect,
   .app:has(.focus[data-focus="计时"]) .scramble-icon,
   .app:has(.focus[data-focus="计时"]) .preview-toggle {
@@ -688,12 +708,25 @@ body:has(.focus[data-focus="练习"]),
     box-shadow: none;
   }
 
+  .app:has(.focus[data-focus="计时"]) .bt-connect.is-connected {
+    color: #5bdc8a;
+    border-color: rgb(91 220 138 / 75%);
+    background: rgb(91 220 138 / 18%);
+  }
+
   .app:has(.focus[data-focus="计时"]) .mode-switch:hover,
+  .app:has(.focus[data-focus="计时"]) .bt-align:hover,
   .app:has(.focus[data-focus="计时"]) .bt-connect:hover,
   .app:has(.focus[data-focus="计时"]) .scramble-icon:hover,
   .app:has(.focus[data-focus="计时"]) .preview-toggle:hover {
     background: rgb(247 251 255 / 12%);
     border-color: rgb(247 251 255 / 70%);
+  }
+
+  .app:has(.focus[data-focus="计时"]) .bt-connect.is-connected:hover {
+    background: rgb(91 220 138 / 28%);
+    border-color: #5bdc8a;
+    color: #7aef9e;
   }
 
   .focus[data-focus="计时"] {
@@ -908,6 +941,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .bt-align,
   .app:has(.focus[data-focus="计时"]) .bt-connect,
   .app:has(.focus[data-focus="计时"]) .scramble-icon,
   .app:has(.focus[data-focus="计时"]) .preview-toggle {
@@ -915,6 +949,12 @@ body:has(.focus[data-focus="练习"]),
     border: 1px solid rgb(247 251 255 / 42%);
     color: #f7fbff;
     box-shadow: none;
+  }
+
+  .app:has(.focus[data-focus="计时"]) .bt-connect.is-connected {
+    color: #5bdc8a;
+    border-color: rgb(91 220 138 / 75%);
+    background: rgb(91 220 138 / 18%);
   }
 
   .focus[data-focus="计时"] .slot-scramble,

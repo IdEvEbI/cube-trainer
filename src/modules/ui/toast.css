@@ -1,0 +1,18 @@
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom, 0px) + 16px);
+  z-index: 40;
+  box-sizing: border-box;
+  max-width: min(92vw, 360px);
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgb(28 31 39 / 92%);
+  color: #f7fbff;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 28%);
+}

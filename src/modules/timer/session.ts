@@ -130,13 +130,20 @@ export function reduceSession(
   }
 }
 
-/** 打乱引导已完成、观察结束进入待转、且非计时中时，可用蓝牙首转启动。 */
+/**
+ * 打乱引导已完成、且非计时中时，可用蓝牙转动开表。
+ * 观察中（inspecting）或待转（ready）均可；观察中由调用方先结束倒计时。
+ */
 export function shouldStartBluetoothTimer(
   guideDone: boolean,
   phase: SessionPhase,
   inspectPhase: "off" | "inspecting" | "ready" = "ready",
 ): boolean {
-  return guideDone && phase !== "running" && inspectPhase === "ready";
+  return (
+    guideDone &&
+    phase !== "running" &&
+    (inspectPhase === "ready" || inspectPhase === "inspecting")
+  );
 }
 
 /** Display phase for chrome: arming looks like idle until hold is ready. */
