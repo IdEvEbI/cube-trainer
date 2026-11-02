@@ -13,6 +13,7 @@ import {
   reduceHoldStart,
   reduceSession,
   releaseTimingFocus,
+  allowManualTimerStop,
   shouldEndHoldOnRelease,
   shouldResetCubeOnTimingHome,
   shouldStartBluetoothTimer,
@@ -180,6 +181,13 @@ describe("shouldResetCubeOnTimingHome", () => {
   });
 });
 
+describe("allowManualTimerStop", () => {
+  it("非蓝牙可手动停；蓝牙仅还原自动停", () => {
+    assert.equal(allowManualTimerStop(false), true);
+    assert.equal(allowManualTimerStop(true), false);
+  });
+});
+
 describe("nextCubePreviewMode", () => {
   it("可在 3D 魔方与平面图之间切换", () => {
     assert.equal(nextCubePreviewMode("cube"), "net");
@@ -202,7 +210,7 @@ describe("timingPreviewExclusive", () => {
 });
 
 describe("timingShellVisible", () => {
-  it("计时中只显示计时器", () => {
+  it("非蓝牙计时中只显示计时器", () => {
     assert.equal(timingShellVisible("running", "timer"), true);
     assert.equal(timingShellVisible("running", "scramble"), false);
     assert.equal(timingShellVisible("running", "preview"), false);
@@ -210,7 +218,7 @@ describe("timingShellVisible", () => {
     assert.equal(isTimingChromeHidden("running"), true);
   });
 
-  it("计时中隐藏打乱、魔方与顶栏（宽窄屏同一规则）", () => {
+  it("非蓝牙计时中隐藏打乱、魔方与顶栏（宽窄屏同一规则）", () => {
     const slots = ["scramble", "preview", "timer", "topbar"] as const;
     const visible = Object.fromEntries(
       slots.map((slot) => [slot, timingShellVisible("running", slot)]),
@@ -221,6 +229,20 @@ describe("timingShellVisible", () => {
       timer: true,
       topbar: false,
     });
+  });
+
+  it("蓝牙计时中保留计时器与 3D，仍隐藏顶栏与打乱", () => {
+    const opts = { bluetoothConnected: true };
+    assert.equal(timingShellVisible("running", "timer", opts), true);
+    assert.equal(timingShellVisible("running", "preview", opts), true);
+    assert.equal(timingShellVisible("running", "scramble", opts), false);
+    assert.equal(timingShellVisible("running", "topbar", opts), false);
+  });
+
+  it("蓝牙准备态（armed）仍不显示魔方（蓝牙实际不走 armed）", () => {
+    const opts = { bluetoothConnected: true };
+    assert.equal(timingShellVisible("armed", "timer", opts), true);
+    assert.equal(timingShellVisible("armed", "preview", opts), false);
   });
 
   it("首页显示顶栏 / 魔方 / 打乱，计时器不常驻", () => {
@@ -248,7 +270,7 @@ describe("timingShellVisible", () => {
     assert.equal(isTimingChromeHidden("armed"), true);
   });
 
-  it("窄屏与宽屏共用：计时中只显示计时器", () => {
+  it("窄屏与宽屏共用：非蓝牙计时中只显示计时器", () => {
     // Shell visibility is viewport-independent; narrow layout only restyles.
     assert.equal(timingShellVisible("running", "timer"), true);
     assert.equal(timingShellVisible("running", "preview"), false);

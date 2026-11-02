@@ -43,6 +43,7 @@ export function TimerView({
   showChrome = true,
   inputEnabled = true,
   allowHoldStart = true,
+  allowManualStop = true,
 }: {
   ref?: Ref<TimerHandle>;
   onStop?: (timeMs: number) => void;
@@ -54,10 +55,14 @@ export function TimerView({
   /** When false, Space / press helpers are ignored (e.g. result confirm open). */
   inputEnabled?: boolean;
   /**
-   * 为 false 时禁止长按 / 空格开表（蓝牙模式用首转启动），
-   * 计时中点击 / 空格仍可停止。
+   * 为 false 时禁止长按 / 空格开表（蓝牙模式用首转启动）。
    */
   allowHoldStart?: boolean;
+  /**
+   * 为 false 时禁止点击 / 空格手动停表（蓝牙仅还原自动停）。
+   * `stopRunning()` 仍可用。
+   */
+  allowManualStop?: boolean;
 }) {
   const timer = useRef(createTimer());
   const phaseRef = useRef<SessionPhase>("idle");
@@ -67,10 +72,12 @@ export function TimerView({
   const onPhaseChangeRef = useRef(onPhaseChange);
   const inputEnabledRef = useRef(inputEnabled);
   const allowHoldStartRef = useRef(allowHoldStart);
+  const allowManualStopRef = useRef(allowManualStop);
   onStopRef.current = onStop;
   onPhaseChangeRef.current = onPhaseChange;
   inputEnabledRef.current = inputEnabled;
   allowHoldStartRef.current = allowHoldStart;
+  allowManualStopRef.current = allowManualStop;
   const [phase, setPhase] = useState<SessionPhase>("idle");
   const [elapsed, setElapsed] = useState(0);
   const shown = displayPhase(phase);
@@ -168,6 +175,9 @@ export function TimerView({
       return;
     }
     if (phaseRef.current === "running") {
+      if (!allowManualStopRef.current) {
+        return;
+      }
       finish();
       ignoreNextRelease.current = true;
       return;

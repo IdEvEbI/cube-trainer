@@ -314,7 +314,7 @@ body:has(
   display: none !important;
 }
 
-/* Armed / running: only the timer remains (wide + narrow). */
+/* Armed / running: hide scramble + stats. Cube: non-BT only (BT running keeps it). */
 .focus[data-focus="计时"]:is(
     [data-timer-phase="armed"],
     [data-timer-phase="running"]
@@ -324,12 +324,10 @@ body:has(
     [data-timer-phase="armed"],
     [data-timer-phase="running"]
   )
-  .slot-cube,
-.focus[data-focus="计时"]:is(
-    [data-timer-phase="armed"],
-    [data-timer-phase="running"]
-  )
-  .slot-stats {
+  .slot-stats,
+.focus[data-focus="计时"][data-timer-phase="armed"] .slot-cube,
+.focus[data-focus="计时"][data-timer-phase="running"]:not([data-bt="1"])
+  .slot-cube {
   display: none !important;
 }
 
@@ -403,6 +401,49 @@ body:has(
   height: auto;
   place-content: center;
   place-items: center;
+}
+
+/* 蓝牙计时中：计时器主视觉在上，3D 跟随为辅在下。 */
+.app:has(.focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"])
+  .focus[data-focus="计时"] {
+  place-content: stretch;
+  place-items: center;
+}
+
+.focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"] {
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: stretch;
+  gap: 8px;
+  padding: 16px 12px 12px;
+}
+
+.focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"] .slot-tools {
+  grid-row: 1;
+  height: auto;
+  min-height: 0;
+  place-content: center;
+  place-items: center;
+  padding: 0;
+}
+
+.focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"] .slot-cube {
+  grid-row: 2;
+  display: grid;
+  width: min(100%, 240px);
+  height: min(36vh, 260px);
+  min-height: 140px;
+  place-items: center;
+}
+
+.focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"]
+  .preview-stage {
+  width: 100%;
+  height: 100%;
+}
+
+.focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"] .cube-view {
+  width: 100%;
+  height: 100%;
 }
 
 .focus[data-focus="计时"] .cube-view {
@@ -789,6 +830,24 @@ body:has(.focus[data-focus="练习"]),
     height: 100%;
     place-content: center;
     place-items: center;
+  }
+
+  .focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"] {
+    grid-template-rows: auto minmax(0, 1fr);
+    padding: 24px 28px 20px;
+    gap: 12px;
+  }
+
+  .focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"]
+    .slot-tools {
+    width: min(100%, 960px);
+    height: auto;
+  }
+
+  .focus[data-focus="计时"][data-bt="1"][data-timer-phase="running"]
+    .slot-cube {
+    width: min(100%, 320px);
+    height: min(40vh, 340px);
   }
 
   .focus[data-focus="计时"] .preview-toggle {

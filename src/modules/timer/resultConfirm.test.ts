@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createPendingSolve, resolveResultConfirm } from "./resultConfirm.ts";
+import {
+  createPendingSolve,
+  resolveResultConfirm,
+  shouldShowBluetoothSolveStats,
+} from "./resultConfirm.ts";
 
 describe("createPendingSolve", () => {
   it("截断毫秒并保留打乱快照", () => {
@@ -42,5 +46,12 @@ describe("resolveResultConfirm", () => {
       timeMs: 12345,
       scramble: "F R U R' U' F'",
     });
+  });
+});
+
+describe("shouldShowBluetoothSolveStats", () => {
+  it("蓝牙还原后展示成绩弹层；非蓝牙仍走保留/丢弃", () => {
+    assert.equal(shouldShowBluetoothSolveStats(true), true);
+    assert.equal(shouldShowBluetoothSolveStats(false), false);
   });
 });

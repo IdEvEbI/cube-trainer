@@ -39,3 +39,20 @@ export function resolveResultConfirm(
     scramble: pending.scramble,
   };
 }
+
+/**
+ * 蓝牙还原停表：展示分段成绩弹层（确认后保存）。
+ * 非蓝牙仍走保留/丢弃确认。
+ */
+export function shouldShowBluetoothSolveStats(
+  bluetoothConnected: boolean,
+): boolean {
+  return bluetoothConnected;
+}
+
+/** @deprecated 使用 shouldShowBluetoothSolveStats */
+export function shouldAutoKeepBluetoothResult(
+  bluetoothConnected: boolean,
+): boolean {
+  return shouldShowBluetoothSolveStats(bluetoothConnected);
+}
