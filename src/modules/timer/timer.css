@@ -54,6 +54,7 @@ body {
   line-height: 1.15;
 }
 
+.timer-surface[data-phase="armed"] .timer-time,
 .timer-surface[data-phase="running"] .timer-time {
   font-size: clamp(4.2rem, 22vw, 7.5rem);
   font-weight: 700;

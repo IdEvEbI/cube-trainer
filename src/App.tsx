@@ -65,6 +65,16 @@ import {
   type GuidedScramble,
   type GuidedScrambleView,
 } from "./modules/scramble/guided.ts";
+import {
+  createScrambleCursor,
+  isScrambleAtEnd,
+  isScrambleAtStart,
+  scrambleDisplayedMoves,
+  scrambleStepNext,
+  scrambleStepPrevious,
+  type ScrambleCursor,
+} from "./modules/scramble/playback.ts";
+import { ScrambleControls } from "./modules/scramble/ScrambleControls.tsx";
 import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
 import { randomScramble3x3 } from "./modules/scramble/scramble.ts";
 import {
@@ -77,6 +87,7 @@ import {
   isTimingChromeHidden,
   isTimingPointerOnControl,
   keepElapsedOnScrambleRefresh,
+  shouldResetCubeOnTimingHome,
   shouldStartBluetoothTimer,
   showCubeLayerControls,
   timingShellVisible,
@@ -162,6 +173,13 @@ export default function App() {
   const cursorRef = useRef<PracticeCursor | null>(null);
   const playingRef = useRef(false);
   const playRun = useRef(0);
+  const [scrambleCursor, setScrambleCursor] = useState<ScrambleCursor | null>(
+    null,
+  );
+  const scrambleCursorRef = useRef<ScrambleCursor | null>(null);
+  const [scramblePlaying, setScramblePlaying] = useState(false);
+  const scramblePlayingRef = useRef(false);
+  const scramblePlayRun = useRef(0);
   focusRef.current = focus;
 
   useEffect(() => {
@@ -204,6 +222,93 @@ export default function App() {
     if (playingRef.current) {
       playingRef.current = false;
       setPlaying(false);
+    }
+  }
+
+  function stopScramblePlay() {
+    scramblePlayRun.current += 1;
+    if (scramblePlayingRef.current) {
+      scramblePlayingRef.current = false;
+      setScramblePlaying(false);
+    }
+  }
+
+  function showScrambleCursor(next: ScrambleCursor) {
+    scrambleCursorRef.current = next;
+    setScrambleCursor(next);
+    cube.current?.cancelAnimation();
+    void cube.current?.showMoves(scrambleDisplayedMoves(next));
+  }
+
+  function moveScrambleCursor(
+    update: (current: ScrambleCursor) => ScrambleCursor,
+    motion: "snap" | "forward" | "back",
+  ) {
+    stopScramblePlay();
+    const current = scrambleCursorRef.current;
+    if (!current) {
+      return;
+    }
+    const next = update(current);
+    if (motion === "snap" || next.index === current.index) {
+      showScrambleCursor(next);
+      return;
+    }
+    scrambleCursorRef.current = next;
+    setScrambleCursor(next);
+    cube.current?.cancelAnimation();
+    void cube.current?.animateMove(
+      scrambleDisplayedMoves(current),
+      scrambleDisplayedMoves(next),
+      motion,
+      PLAYBACK_STEP_MS,
+    );
+  }
+
+  async function onScramblePlay() {
+    if (scramblePlayingRef.current) {
+      stopScramblePlay();
+      return;
+    }
+    let current = scrambleCursorRef.current;
+    if (!current) {
+      return;
+    }
+    const run = scramblePlayRun.current;
+    try {
+      if (isScrambleAtEnd(current)) {
+        const start = { ...current, index: 0 };
+        scrambleCursorRef.current = start;
+        setScrambleCursor(start);
+        cube.current?.cancelAnimation();
+        await cube.current?.showMoves(scrambleDisplayedMoves(start));
+        if (scramblePlayRun.current !== run) {
+          return;
+        }
+        current = start;
+      }
+      scramblePlayingRef.current = true;
+      setScramblePlaying(true);
+      while (scramblePlayRun.current === run && !isScrambleAtEnd(current)) {
+        const next = scrambleStepNext(current);
+        scrambleCursorRef.current = next;
+        setScrambleCursor(next);
+        await cube.current?.animateMove(
+          scrambleDisplayedMoves(current),
+          scrambleDisplayedMoves(next),
+          "forward",
+          PLAYBACK_STEP_MS,
+        );
+        if (scramblePlayRun.current !== run) {
+          return;
+        }
+        current = next;
+      }
+    } finally {
+      if (scramblePlayRun.current === run && scramblePlayingRef.current) {
+        scramblePlayingRef.current = false;
+        setScramblePlaying(false);
+      }
     }
   }
 
@@ -295,6 +400,7 @@ export default function App() {
   useEffect(
     () => () => {
       playRun.current += 1;
+      scramblePlayRun.current += 1;
     },
     [],
   );
@@ -565,9 +671,18 @@ export default function App() {
   applyBluetoothGuideMovesRef.current = applyBluetoothGuideMoves;
 
   function applyScramble(moves: string, resetTimer: boolean) {
-    // 首页默认白上绿前还原态：非蓝牙不把打乱写回 3D（播放条后续再做）。
+    // 只刷新打乱文案与播放游标；不改写当前 3D 状态（下一轮 / 重新打乱）。
     // 蓝牙跟随实体，也不写打乱目标。
+    stopScramblePlay();
     setScrambleMoves(moves);
+    try {
+      const next = createScrambleCursor(moves);
+      scrambleCursorRef.current = next;
+      setScrambleCursor(next);
+    } catch {
+      scrambleCursorRef.current = null;
+      setScrambleCursor(null);
+    }
     syncScrambleGuide(moves, Boolean(moyuSessionRef.current));
     resetBluetoothSolveTracking();
     if (resetTimer) {
@@ -584,16 +699,20 @@ export default function App() {
   function onTimerPhase(phase: SessionPhase) {
     timerPhaseRef.current = phase;
     setTimerPhase(phase);
+    if (phase === "arming" || phase === "armed" || phase === "running") {
+      stopScramblePlay();
+    }
   }
 
   useEffect(() => {
     if (focus.kind !== "计时") {
+      stopScramblePlay();
       return;
     }
     if (!scrambleMoves) {
       refreshScramble();
     }
-    // 计时首页保持还原态预览；不把打乱公式写回 3D。
+    // 计时首页默认还原态；非蓝牙由播放条跟播，不在刷新公式时写回 3D。
   }, [focus.kind, scrambleMoves]);
 
   // 蓝牙引导：立体魔方旋转箭头（仅计时 + 已连接 + 引导中）
@@ -649,11 +768,28 @@ export default function App() {
     event.currentTarget.blur();
   }
 
+  function resetNonBluetoothCubeToSolved() {
+    if (!shouldResetCubeOnTimingHome(Boolean(moyuSessionRef.current))) {
+      return;
+    }
+    stopScramblePlay();
+    const current = scrambleCursorRef.current;
+    if (current) {
+      const start = { ...current, index: 0 };
+      scrambleCursorRef.current = start;
+      setScrambleCursor(start);
+    }
+    cube.current?.cancelAnimation();
+    void cube.current?.showMoves("");
+  }
+
   function onTimerStop(timeMs: number) {
     const kind = focusRef.current.kind;
     if (kind !== "计时" || !scrambleMoves) {
       return;
     }
+    // 非蓝牙：停表回首页时魔方回到白上绿前复原态；蓝牙继续跟实体。
+    resetNonBluetoothCubeToSolved();
     // Ask keep/discard before recording or refreshing scramble.
     setPendingResult(createPendingSolve({ timeMs, scramble: scrambleMoves }));
   }
@@ -689,6 +825,7 @@ export default function App() {
       return;
     }
     event.preventDefault();
+    stopScramblePlay();
     timingHoldRef.current = true;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     timer.current?.pressDown();
@@ -1016,6 +1153,26 @@ export default function App() {
               onRescramble={refreshScramble}
               guide={scrambleGuide}
               waitingForStart={btInspectPhase === "ready"}
+              playbackSteps={
+                !moyuSession && scrambleCursor ? scrambleCursor.moves : null
+              }
+              playbackIndex={scrambleCursor?.index ?? 0}
+              footer={
+                !moyuSession && scrambleCursor ? (
+                  <ScrambleControls
+                    atStart={isScrambleAtStart(scrambleCursor)}
+                    atEnd={isScrambleAtEnd(scrambleCursor)}
+                    playing={scramblePlaying}
+                    onPrevious={() =>
+                      moveScrambleCursor(scrambleStepPrevious, "back")
+                    }
+                    onPlay={() => void onScramblePlay()}
+                    onNext={() =>
+                      moveScrambleCursor(scrambleStepNext, "forward")
+                    }
+                  />
+                ) : null
+              }
             />
           )}
         </div>

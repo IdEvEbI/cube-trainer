@@ -13,6 +13,8 @@ import {
   reduceHoldStart,
   reduceSession,
   releaseTimingFocus,
+  shouldEndHoldOnRelease,
+  shouldResetCubeOnTimingHome,
   shouldStartBluetoothTimer,
   showCubeLayerControls,
   timerHomeToolsLayout,
@@ -57,6 +59,18 @@ describe("reduceSession", () => {
     assert.equal(phase, "armed");
     phase = reduceSession(phase, { type: "hold_release" });
     assert.equal(phase, "running");
+  });
+
+  it("停表后的配对松手即使 input 已禁用也要清掉 ignore，否则下一轮卡在准备态", () => {
+    // 空格停表：keydown 停表并设 ignore；弹层立刻禁用 input；keyup 仍须消费 ignore。
+    let ignore = true;
+    let decision = shouldEndHoldOnRelease(ignore, false);
+    assert.deepEqual(decision, { endHold: false, nextIgnore: false });
+    ignore = decision.nextIgnore;
+
+    // 下一轮：keydown 进入 armed，keyup 应能开表
+    decision = shouldEndHoldOnRelease(ignore, true);
+    assert.deepEqual(decision, { endHold: true, nextIgnore: false });
   });
 
   it("触控仍需长按预备，短按不启动", () => {
@@ -159,6 +173,13 @@ describe("keepElapsedOnScrambleRefresh", () => {
   });
 });
 
+describe("shouldResetCubeOnTimingHome", () => {
+  it("非蓝牙停表回首页复位复原态；蓝牙不复位", () => {
+    assert.equal(shouldResetCubeOnTimingHome(false), true);
+    assert.equal(shouldResetCubeOnTimingHome(true), false);
+  });
+});
+
 describe("nextCubePreviewMode", () => {
   it("可在 3D 魔方与平面图之间切换", () => {
     assert.equal(nextCubePreviewMode("cube"), "net");
@@ -211,13 +232,20 @@ describe("timingShellVisible", () => {
     }
   });
 
-  it("预备时计时器出现，其余壳层仍在", () => {
-    for (const phase of ["arming", "armed"] as const) {
-      assert.equal(timingShellVisible(phase, "scramble"), true);
-      assert.equal(timingShellVisible(phase, "preview"), true);
-      assert.equal(timingShellVisible(phase, "timer"), true);
-      assert.equal(timingShellVisible(phase, "topbar"), true);
-    }
+  it("触控未满延迟（arming）仍停在首页，不计时器", () => {
+    assert.equal(timingShellVisible("arming", "scramble"), true);
+    assert.equal(timingShellVisible("arming", "preview"), true);
+    assert.equal(timingShellVisible("arming", "timer"), false);
+    assert.equal(timingShellVisible("arming", "topbar"), true);
+    assert.equal(isTimingChromeHidden("arming"), false);
+  });
+
+  it("准备态（armed）进入计时画面，只显示闪烁计时器", () => {
+    assert.equal(timingShellVisible("armed", "timer"), true);
+    assert.equal(timingShellVisible("armed", "scramble"), false);
+    assert.equal(timingShellVisible("armed", "preview"), false);
+    assert.equal(timingShellVisible("armed", "topbar"), false);
+    assert.equal(isTimingChromeHidden("armed"), true);
   });
 
   it("窄屏与宽屏共用：计时中只显示计时器", () => {
