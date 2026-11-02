@@ -189,7 +189,7 @@ describe("timingShellVisible", () => {
     assert.equal(isTimingChromeHidden("running"), true);
   });
 
-  it("计时中隐藏打乱、魔方/平面图与顶栏（宽窄屏同一规则）", () => {
+  it("计时中隐藏打乱、魔方与顶栏（宽窄屏同一规则）", () => {
     const slots = ["scramble", "preview", "timer", "topbar"] as const;
     const visible = Object.fromEntries(
       slots.map((slot) => [slot, timingShellVisible("running", slot)]),
@@ -202,8 +202,17 @@ describe("timingShellVisible", () => {
     });
   });
 
-  it("初始与停止后显示完整首屏", () => {
-    for (const phase of ["idle", "stopped", "armed"] as const) {
+  it("首页显示顶栏 / 魔方 / 打乱，计时器不常驻", () => {
+    for (const phase of ["idle", "stopped"] as const) {
+      assert.equal(timingShellVisible(phase, "scramble"), true);
+      assert.equal(timingShellVisible(phase, "preview"), true);
+      assert.equal(timingShellVisible(phase, "timer"), false);
+      assert.equal(timingShellVisible(phase, "topbar"), true);
+    }
+  });
+
+  it("预备时计时器出现，其余壳层仍在", () => {
+    for (const phase of ["arming", "armed"] as const) {
       assert.equal(timingShellVisible(phase, "scramble"), true);
       assert.equal(timingShellVisible(phase, "preview"), true);
       assert.equal(timingShellVisible(phase, "timer"), true);

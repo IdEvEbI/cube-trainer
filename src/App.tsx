@@ -65,7 +65,6 @@ import {
   type GuidedScramble,
   type GuidedScrambleView,
 } from "./modules/scramble/guided.ts";
-import { ScrambleNet } from "./modules/scramble/ScrambleNet.tsx";
 import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
 import { randomScramble3x3 } from "./modules/scramble/scramble.ts";
 import {
@@ -78,13 +77,9 @@ import {
   isTimingChromeHidden,
   isTimingPointerOnControl,
   keepElapsedOnScrambleRefresh,
-  nextCubePreviewMode,
-  releaseTimingFocus,
   shouldStartBluetoothTimer,
   showCubeLayerControls,
-  timingPreviewExclusive,
   timingShellVisible,
-  type CubePreviewMode,
   type SessionPhase,
 } from "./modules/timer/session.ts";
 import { TimerStats } from "./modules/timer/TimerStats.tsx";
@@ -122,7 +117,6 @@ export default function App() {
   const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
   const scrambleMovesRef = useRef<string | null>(null);
   scrambleMovesRef.current = scrambleMoves;
-  const [previewMode, setPreviewMode] = useState<CubePreviewMode>("cube");
   const [timerPhase, setTimerPhase] = useState<SessionPhase>("idle");
   const timerPhaseRef = useRef<SessionPhase>("idle");
   timerPhaseRef.current = timerPhase;
@@ -418,7 +412,6 @@ export default function App() {
     setBtInspectPhase("inspecting");
     inspectEndsAtRef.current = Date.now() + BLUETOOTH_INSPECT_MS;
     setInspectRemainingMs(BLUETOOTH_INSPECT_MS);
-    setPreviewMode("cube");
     cube.current?.setMoveHint(null);
   }
 
@@ -572,10 +565,8 @@ export default function App() {
   applyBluetoothGuideMovesRef.current = applyBluetoothGuideMoves;
 
   function applyScramble(moves: string, resetTimer: boolean) {
-    // 蓝牙跟随实体状态时，不把打乱目标写回 3D。
-    if (!moyuSessionRef.current) {
-      cube.current?.setAlgorithm(moves);
-    }
+    // 首页默认白上绿前还原态：非蓝牙不把打乱写回 3D（播放条后续再做）。
+    // 蓝牙跟随实体，也不写打乱目标。
     setScrambleMoves(moves);
     syncScrambleGuide(moves, Boolean(moyuSessionRef.current));
     resetBluetoothSolveTracking();
@@ -601,13 +592,8 @@ export default function App() {
     }
     if (!scrambleMoves) {
       refreshScramble();
-      return;
     }
-    // Re-apply after CubeView remount (e.g. back from practice).
-    // 蓝牙连接中由实体状态驱动，跳过目标打乱写回。
-    if (!moyuSessionRef.current) {
-      cube.current?.setAlgorithm(scrambleMoves);
-    }
+    // 计时首页保持还原态预览；不把打乱公式写回 3D。
   }, [focus.kind, scrambleMoves]);
 
   // 蓝牙引导：立体魔方旋转箭头（仅计时 + 已连接 + 引导中）
@@ -737,7 +723,6 @@ export default function App() {
 
   const timingRunning =
     focus.kind === "计时" && isTimingChromeHidden(timerPhase);
-  const preview = timingPreviewExclusive(previewMode);
   const showTimingHome = focus.kind === "计时" && !timingRunning;
   const modeEntry = modeSwitchPresentation(mode);
 
@@ -795,9 +780,8 @@ export default function App() {
       setMoyuSession(null);
       syncScrambleGuide(null, false);
       setMoyuNote(null);
-      if (scrambleMoves) {
-        cube.current?.setAlgorithm(scrambleMoves);
-      }
+      // 断开后回到首页还原态预览，不写回打乱目标。
+      cube.current?.setAbsoluteAlg("");
       return;
     }
     setMoyuBusy(true);
@@ -810,10 +794,7 @@ export default function App() {
           setMoyuSession(null);
           syncScrambleGuide(null, false);
           setMoyuNote("魔方已断开");
-          const moves = scrambleMovesRef.current;
-          if (moves) {
-            cube.current?.setAlgorithm(moves);
-          }
+          cube.current?.setAbsoluteAlg("");
         },
         onMoves: (samples) => {
           // 连续转动：按 interval 播动画；过快则瞬切
@@ -862,7 +843,7 @@ export default function App() {
         />
       ) : null}
       <header
-        className="topbar"
+        className={focus.kind === "计时" ? "topbar topbar-timing" : "topbar"}
         hidden={
           focus.kind === "计时"
             ? !timingShellVisible(timerPhase, "topbar")
@@ -920,29 +901,61 @@ export default function App() {
             )}
           </button>
         )}
+        {focus.kind === "计时" && moyuSession ? (
+          <button
+            type="button"
+            className="bt-align topbar-align"
+            disabled={moyuBusy}
+            onClick={onMoyuAlignOrientation}
+          >
+            对齐朝向
+          </button>
+        ) : null}
         {focus.kind === "计时" ? (
           <div className="topbar-bt">
             <button
               type="button"
-              className="bt-connect"
+              className="bt-connect bt-connect-icon"
               disabled={moyuBusy}
               aria-busy={moyuBusy}
+              aria-label={
+                moyuBusy ? "连接中…" : moyuSession ? "断开魔方" : "连接魔方"
+              }
+              title={
+                moyuBusy ? "连接中…" : moyuSession ? "断开魔方" : "连接魔方"
+              }
               onClick={() => {
                 void onMoyuConnectClick();
               }}
             >
-              {moyuBusy ? "连接中…" : moyuSession ? "断开魔方" : "连接魔方"}
+              {moyuSession ? (
+                <svg
+                  className="bt-connect-icon-svg"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M17 7h-4.17l1.59-1.59L13 4l-4 4 4 4 1.41-1.41L12.83 9H17a5 5 0 0 1 4.9 4h2.02A7 7 0 0 0 17 7zM3.41 1.86 2 3.27l3.78 3.78L2 11l1.41 1.41L6 9.83V21h2v-7.17l1.5-1.5 8.23 8.23 1.41-1.41zM8 6.83l.67.67L8 8.17z"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="bt-connect-icon-svg"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M17.71 7.71 12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"
+                  />
+                </svg>
+              )}
             </button>
-            {moyuSession ? (
-              <button
-                type="button"
-                className="bt-align"
-                disabled={moyuBusy}
-                onClick={onMoyuAlignOrientation}
-              >
-                对齐朝向
-              </button>
-            ) : null}
             {moyuNote ? (
               <span
                 className={
@@ -960,13 +973,32 @@ export default function App() {
         className="focus"
         data-focus={focus.kind}
         data-timer-phase={focus.kind === "计时" ? timerPhase : undefined}
-        data-preview={showTimingHome ? previewMode : undefined}
         onPointerDown={focus.kind === "计时" ? onTimingPointerDown : undefined}
         onPointerUp={focus.kind === "计时" ? onTimingPointerUp : undefined}
         onPointerCancel={
           focus.kind === "计时" ? onTimingPointerCancel : undefined
         }
       >
+        <div
+          className="slot-cube"
+          hidden={
+            focus.kind === "计时"
+              ? !timingShellVisible(timerPhase, "preview")
+              : !showCube
+          }
+        >
+          {focus.kind === "计时" ? (
+            <div className="preview-stage" data-preview="cube">
+              <CubeView
+                ref={cube}
+                showLayerControls={showCubeLayerControls(focus.kind)}
+                viewOrientation="scramble"
+              />
+            </div>
+          ) : (
+            <CubeView ref={cube} showLayerControls={false} />
+          )}
+        </div>
         <div
           className="slot-scramble"
           hidden={
@@ -988,58 +1020,12 @@ export default function App() {
           )}
         </div>
         <div
-          className="slot-cube"
+          className="slot-stats"
           hidden={
-            focus.kind === "计时"
-              ? !timingShellVisible(timerPhase, "preview")
-              : !showCube
+            !showTimingHome || !timingShellVisible(timerPhase, "scramble")
           }
         >
-          {focus.kind === "计时" ? (
-            <>
-              <div
-                className="preview-stage"
-                data-preview="cube"
-                hidden={
-                  btInspectPhase === "inspecting" ? false : !preview.showCube
-                }
-              >
-                <CubeView
-                  ref={cube}
-                  showLayerControls={showCubeLayerControls(focus.kind)}
-                  viewOrientation="scramble"
-                />
-              </div>
-              <div
-                className="preview-stage preview-net"
-                data-preview="net"
-                hidden={
-                  btInspectPhase === "inspecting" ||
-                  !preview.showNet ||
-                  !scrambleMoves
-                }
-              >
-                {scrambleMoves ? <ScrambleNet moves={scrambleMoves} /> : null}
-              </div>
-              {btInspectPhase === "inspecting" ? null : (
-                <button
-                  type="button"
-                  className="preview-toggle"
-                  aria-label={
-                    previewMode === "cube" ? "切换到平面图" : "切换到 3D 魔方"
-                  }
-                  onClick={(event) => {
-                    setPreviewMode((mode) => nextCubePreviewMode(mode));
-                    releaseTimingFocus(event.currentTarget);
-                  }}
-                >
-                  {previewMode === "cube" ? "平面图" : "3D"}
-                </button>
-              )}
-            </>
-          ) : (
-            <CubeView ref={cube} showLayerControls={false} />
-          )}
+          <TimerStats summary={scoreSummary} />
         </div>
         <div
           className="slot-tools"
@@ -1048,18 +1034,15 @@ export default function App() {
           }
         >
           {showScrambleTimer ? (
-            <>
-              <TimerView
-                ref={timer}
-                onStop={onTimerStop}
-                onPhaseChange={onTimerPhase}
-                showControls={false}
-                showChrome={false}
-                inputEnabled={!pendingResult}
-                allowHoldStart={!moyuSession}
-              />
-              {showTimingHome ? <TimerStats summary={scoreSummary} /> : null}
-            </>
+            <TimerView
+              ref={timer}
+              onStop={onTimerStop}
+              onPhaseChange={onTimerPhase}
+              showControls={false}
+              showChrome={false}
+              inputEnabled={!pendingResult}
+              allowHoldStart={!moyuSession}
+            />
           ) : null}
         </div>
         <div className="slot-session" hidden={focus.kind !== "练习"}>

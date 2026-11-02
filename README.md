@@ -81,5 +81,19 @@ Markdown 使用 Prettier 3.6.2、prettier-plugin-zh 0.7.0 与 markdownlint-cli 0
 
 ## 浏览器要求
 
-- 蓝牙功能：Chrome / Edge（桌面或 Android）
+- 蓝牙功能：Chrome / Edge（桌面或 Android）；iOS 用 Bluefy / WebBLE
 - 其他浏览器降级为手动模式
+
+## 手机蓝牙调试（HTTPS）
+
+iOS 上 Bluefy / WebBLE **不认**本机 mkcert，需用 Cloudflare 隧道提供公网证书。完整步骤见 [`docs/mobile-ble-https.md`](docs/mobile-ble-https.md)。
+
+摘要：
+
+```bash
+npm run dev:lan
+brew install cloudflared   # 仅首次
+cloudflared tunnel --url https://127.0.0.1:5173
+```
+
+在 Bluefy / WebBLE 打开终端给出的 `https://xxxx.trycloudflare.com`（**不要**加 `:5173`）。

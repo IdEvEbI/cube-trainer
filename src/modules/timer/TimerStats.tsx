@@ -12,9 +12,10 @@ export function TimerStats({ summary }: { summary: ScoreSummary }) {
     () => [
       { label: "次数", value: String(summary.count) },
       { label: "最好", value: formatStat(summary.bestMs) },
-      { label: "最差", value: formatStat(summary.worstMs) },
-      { label: "平均", value: formatStat(summary.avgMs) },
       { label: "Ao5", value: formatStat(summary.ao5Ms) },
+      { label: "Ao12", value: formatStat(summary.ao12Ms) },
+      { label: "Ao100", value: formatStat(summary.ao100Ms) },
+      { label: "AVG", value: formatStat(summary.avgMs) },
     ],
     [summary],
   );

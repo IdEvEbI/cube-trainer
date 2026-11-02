@@ -159,13 +159,20 @@ export function timingPreviewExclusive(mode: CubePreviewMode): {
 
 export type TimingShellSlot = "scramble" | "preview" | "timer" | "topbar";
 
-/** Running keeps only the timer; home phases show the full first screen. */
+/**
+ * Running：只显示计时器。
+ * 首页（idle / stopped）：顶栏、魔方、打乱、统计；计时器不常驻。
+ * 预备（arming / armed）：计时器出现（准备闪烁），其余首页壳层仍在。
+ */
 export function timingShellVisible(
   phase: SessionPhase,
   slot: TimingShellSlot,
 ): boolean {
   if (isTimingChromeHidden(phase)) {
     return slot === "timer";
+  }
+  if (slot === "timer") {
+    return phase === "arming" || phase === "armed";
   }
   return true;
 }
