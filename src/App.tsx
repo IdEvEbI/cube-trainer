@@ -73,6 +73,7 @@ import {
   type GuidedScrambleView,
 } from "./modules/scramble/guided.ts";
 import {
+  SCRAMBLE_PLAYBACK_STEP_MS,
   createScrambleCursor,
   isScrambleAtEnd,
   isScrambleAtStart,
@@ -95,7 +96,9 @@ import {
   allowManualTimerStop,
   isTimingChromeHidden,
   isTimingPointerOnControl,
+  isTimingPointerOnCube,
   keepElapsedOnScrambleRefresh,
+  shouldCancelTimingHoldForCubeDrag,
   shouldResetCubeOnTimingHome,
   shouldStartBluetoothTimer,
   showCubeLayerControls,
@@ -210,6 +213,8 @@ export default function App() {
   const [scramblePlaying, setScramblePlaying] = useState(false);
   const scramblePlayingRef = useRef(false);
   const scramblePlayRun = useRef(0);
+  /** 作废进行中的单步打乱动画回调（暂停 / 改游标时 +1）。 */
+  const scrambleMotionGen = useRef(0);
   focusRef.current = focus;
 
   useEffect(() => {
@@ -257,13 +262,21 @@ export default function App() {
 
   function stopScramblePlay() {
     scramblePlayRun.current += 1;
+    scrambleMotionGen.current += 1;
     if (scramblePlayingRef.current) {
       scramblePlayingRef.current = false;
       setScramblePlaying(false);
+      // 暂停时停在「当前步」：游标未前进，魔方回到该步执行前的状态。
+      cube.current?.cancelAnimation();
+      const cur = scrambleCursorRef.current;
+      if (cur) {
+        void cube.current?.showMoves(scrambleDisplayedMoves(cur));
+      }
     }
   }
 
   function showScrambleCursor(next: ScrambleCursor) {
+    scrambleMotionGen.current += 1;
     scrambleCursorRef.current = next;
     setScrambleCursor(next);
     cube.current?.cancelAnimation();
@@ -284,15 +297,29 @@ export default function App() {
       showScrambleCursor(next);
       return;
     }
-    scrambleCursorRef.current = next;
-    setScrambleCursor(next);
     cube.current?.cancelAnimation();
-    void cube.current?.animateMove(
-      scrambleDisplayedMoves(current),
-      scrambleDisplayedMoves(next),
-      motion,
-      PLAYBACK_STEP_MS,
-    );
+    const motionId = ++scrambleMotionGen.current;
+    // 后退：先更新游标；前进：等动画结束再前进，避免高亮快一拍。
+    if (motion === "back") {
+      scrambleCursorRef.current = next;
+      setScrambleCursor(next);
+    }
+    void cube.current
+      ?.animateMove(
+        scrambleDisplayedMoves(current),
+        scrambleDisplayedMoves(next),
+        motion,
+        SCRAMBLE_PLAYBACK_STEP_MS,
+      )
+      .then(() => {
+        if (scrambleMotionGen.current !== motionId) {
+          return;
+        }
+        if (motion === "forward") {
+          scrambleCursorRef.current = next;
+          setScrambleCursor(next);
+        }
+      });
   }
 
   async function onScramblePlay() {
@@ -320,19 +347,20 @@ export default function App() {
       scramblePlayingRef.current = true;
       setScramblePlaying(true);
       while (scramblePlayRun.current === run && !isScrambleAtEnd(current)) {
+        // 高亮停在 current.index（正在执行的步），动画结束后再 next。
         const next = scrambleStepNext(current);
-        scrambleCursorRef.current = next;
-        setScrambleCursor(next);
         await cube.current?.animateMove(
           scrambleDisplayedMoves(current),
           scrambleDisplayedMoves(next),
           "forward",
-          PLAYBACK_STEP_MS,
+          SCRAMBLE_PLAYBACK_STEP_MS,
         );
         if (scramblePlayRun.current !== run) {
           return;
         }
         current = next;
+        scrambleCursorRef.current = next;
+        setScrambleCursor(next);
       }
     } finally {
       if (scramblePlayRun.current === run && scramblePlayingRef.current) {
@@ -954,6 +982,12 @@ export default function App() {
   }
 
   const timingHoldRef = useRef(false);
+  /** 从 3D 上按下：记录起点，拖过阈值则取消开表、交给旋转。 */
+  const cubeTimingPointerRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   function onTimingPointerDown(event: ReactPointerEvent<HTMLElement>) {
     if (
@@ -971,16 +1005,60 @@ export default function App() {
     if (moyuSessionRef.current) {
       return;
     }
-    event.preventDefault();
-    stopScramblePlay();
+    // 打乱播放中：点按只暂停，不进入开表手势。
+    if (scramblePlayingRef.current) {
+      event.preventDefault();
+      stopScramblePlay();
+      return;
+    }
+    const onCube = isTimingPointerOnCube(event.target);
     timingHoldRef.current = true;
+    if (onCube) {
+      // 不 preventDefault / capture，以便拖动时 twisty 仍能旋转。
+      cubeTimingPointerRef.current = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+      };
+      timer.current?.pressDown();
+      return;
+    }
+    cubeTimingPointerRef.current = null;
+    event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     timer.current?.pressDown();
+  }
+
+  function onTimingPointerMove(event: ReactPointerEvent<HTMLElement>) {
+    if (focus.kind !== "计时") {
+      return;
+    }
+    const pending = cubeTimingPointerRef.current;
+    if (!pending || pending.pointerId !== event.pointerId) {
+      return;
+    }
+    if (
+      !shouldCancelTimingHoldForCubeDrag(
+        pending.x,
+        pending.y,
+        event.clientX,
+        event.clientY,
+      )
+    ) {
+      return;
+    }
+    // 拖动旋转：取消计时手势，后续事件交给魔方。
+    cubeTimingPointerRef.current = null;
+    timingHoldRef.current = false;
+    timer.current?.pressCancel();
   }
 
   function onTimingPointerUp(event: ReactPointerEvent<HTMLElement>) {
     if (focus.kind !== "计时") {
       return;
+    }
+    if (cubeTimingPointerRef.current?.pointerId === event.pointerId) {
+      cubeTimingPointerRef.current = null;
     }
     if (!timingHoldRef.current) {
       return;
@@ -998,6 +1076,7 @@ export default function App() {
     if (focus.kind !== "计时") {
       return;
     }
+    cubeTimingPointerRef.current = null;
     if (!timingHoldRef.current) {
       return;
     }
@@ -1321,6 +1400,7 @@ export default function App() {
         data-timer-phase={focus.kind === "计时" ? timerPhase : undefined}
         data-bt={focus.kind === "计时" && moyuSession ? "1" : undefined}
         onPointerDown={focus.kind === "计时" ? onTimingPointerDown : undefined}
+        onPointerMove={focus.kind === "计时" ? onTimingPointerMove : undefined}
         onPointerUp={focus.kind === "计时" ? onTimingPointerUp : undefined}
         onPointerCancel={
           focus.kind === "计时" ? onTimingPointerCancel : undefined
@@ -1413,6 +1493,12 @@ export default function App() {
               inputEnabled={!pendingResult && !pendingBluetoothStats}
               allowHoldStart={!moyuSession}
               allowManualStop={allowManualTimerStop(Boolean(moyuSession))}
+              scrambleHomeGestures={!moyuSession}
+              scramblePlaying={scramblePlaying}
+              scrambleComplete={Boolean(
+                scrambleCursor && isScrambleAtEnd(scrambleCursor),
+              )}
+              onPlayScramble={() => void onScramblePlay()}
             />
           ) : null}
         </div>

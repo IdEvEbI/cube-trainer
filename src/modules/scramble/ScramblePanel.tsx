@@ -19,7 +19,10 @@ export function ScramblePanel({
   waitingForStart?: boolean;
   /** 非蓝牙逐步打乱：已拆分的公式步；有值时按播放进度高亮。 */
   playbackSteps?: string[] | null;
-  /** 已应用到魔方的步数（0 = 还原态）。 */
+  /**
+   * 当前 / 正在执行的步下标（0 = 第一步）。
+   * 与游标一致：动画播完前不要先 +1，否则高亮会快一拍。
+   */
   playbackIndex?: number;
   /** 公式条下方内容（如非蓝牙播放控制条）。 */
   footer?: ReactNode;
