@@ -23,7 +23,7 @@ export function nextInspectPhaseOnGuideDone(
   return "inspecting";
 }
 
-/** 跳过、倒计时结束、或观察中拧动 → 待转（随后可开表）。 */
+/** 跳过观察、或观察中拧动结束倒计时 → 待转（拧动路径会立刻开表）。 */
 export function finishBluetoothInspect(
   current: BluetoothInspectPhase,
 ): BluetoothInspectPhase {
@@ -31,6 +31,15 @@ export function finishBluetoothInspect(
     return "ready";
   }
   return current;
+}
+
+/**
+ * 观察倒计时自然归零：直接进入计时并开表（不再停留「转动开始计时」）。
+ */
+export function shouldAutoStartTimerOnInspectTimeout(
+  phase: BluetoothInspectPhase,
+): boolean {
+  return phase === "inspecting";
 }
 
 /** 观察中实体转动时，应结束倒计时并开表。 */

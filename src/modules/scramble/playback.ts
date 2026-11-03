@@ -4,7 +4,7 @@ import { parseScramble } from "./scramble.ts";
  * 非蓝牙打乱自动播放：单步墙钟毫秒（含转动动画）。
  * 偏慢，方便对照实体魔方跟拧；练习页仍用 `PLAYBACK_STEP_MS`。
  */
-export const SCRAMBLE_PLAYBACK_STEP_MS = 1000;
+export const SCRAMBLE_PLAYBACK_STEP_MS = 800;
 
 /** Cursor over a face-turn scramble: index 0 = solved, length = fully scrambled. */
 export type ScrambleCursor = {

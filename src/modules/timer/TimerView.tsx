@@ -17,7 +17,8 @@ import {
   type SessionPhase,
   type TimingInputSource,
 } from "./session.ts";
-import { createTimer, formatElapsedParts, timerDisplayScale } from "./timer.ts";
+import { ElapsedDigits } from "./ElapsedDigits.tsx";
+import { createTimer, timerDisplayScale } from "./timer.ts";
 import "./timer.css";
 
 export type TimerHandle = {
@@ -368,21 +369,14 @@ export function TimerView({
     stopRunning,
   }));
 
-  const parts = formatElapsedParts(elapsed);
-  const scale = timerDisplayScale(elapsed, viewportWidth);
-
   return (
     <section
       className={showControls ? "timer" : "timer timer-surface"}
       data-phase={shown}
-      data-scale={scale}
+      data-scale={timerDisplayScale(elapsed, viewportWidth)}
     >
       {showChrome ? <p className="timer-status">{statusLabel[shown]}</p> : null}
-      <p className={shown === "armed" ? "timer-time is-armed" : "timer-time"}>
-        <span className="timer-time-main">{parts.main}</span>
-        <span className="timer-time-dot" aria-hidden="true" />
-        <span className="timer-time-frac">{parts.fraction}</span>
-      </p>
+      <ElapsedDigits ms={elapsed} armed={shown === "armed"} />
       {showControls ? (
         <div className="timer-actions">
           <button

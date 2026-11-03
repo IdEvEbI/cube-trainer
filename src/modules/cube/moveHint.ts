@@ -1,4 +1,5 @@
 import {
+  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   DoubleSide,
@@ -24,7 +25,7 @@ type Face = "U" | "D" | "L" | "R" | "F" | "B";
 
 /**
  * 面外法向 = 转动轴。
- * U/D：水平环绕；F/B/L/R：垂直环绕。
+ * 贴面弯箭头在对应面局部 XY 上绘制（VisualCube / twistysvg 风格）。
  */
 const FACE_FRAME: Record<
   Face,
@@ -42,37 +43,39 @@ const FACE_TURN = /^([UDLRFB])(')?$/;
 
 const FILL_COLORS: Record<MoveHintTone, number> = {
   guide: 0xffffff,
-  error: 0xff5a3d,
+  error: 0xff6b4a,
 };
 
-const SEAM_COLOR = 0x2a303c;
-const SHADOW_COLOR = 0x000000;
-/** 浅灰描边，衬出白底箭头。 */
-const BORDER_COLOR = 0xeeeeee;
-/** 描边相对填充外扩（本地单位）。 */
-const BORDER_EXTRA = 0.022;
+const OUTLINE_COLORS: Record<MoveHintTone, number> = {
+  guide: 0x1a2230,
+  error: 0x5a180c,
+};
 
 export const MOVE_HINT_CUBE_EDGE = 3;
 export const MOVE_HINT_CUBE_RADIUS = 1.5;
-export const MOVE_HINT_RADIUS_SCALE = 1.45;
+/** 贴面弧落在色块环上（略小于半宽，不压中心块）。 */
+export const MOVE_HINT_RADIUS_SCALE = 0.82;
 export const MOVE_HINT_RING_RADIUS =
   MOVE_HINT_CUBE_RADIUS * MOVE_HINT_RADIUS_SCALE;
-export const MOVE_HINT_LAYER_OFFSET = MOVE_HINT_CUBE_RADIUS + 0.18;
-/** 半宽 ≈ 24–32px。 */
-export const MOVE_HINT_TUBE_RADIUS = 0.2;
-export const MOVE_HINT_TUBE_RADIUS_DOUBLE = 0.22;
-/** 径向半厚；全厚约 6px（本地 1 ≈ 边长/3 屏像素）。 */
-export const MOVE_HINT_HALF_THICK = 0.045;
-const SHADOW_EXTRA = 0.038;
-const SHADOW_OPACITY = 0.14;
-/** 单步与双步同弧长（约 150°），单步更易辨认；双步另有中段小三角。 */
-const ARC_SINGLE = Math.PI * 1.45;
-const ARC_DOUBLE = Math.PI * 1.45;
-/** 等边三角：底 = 带宽，高 = √3/2·底；略放大底边更醒目。 */
-const HEAD_BASE_SCALE = 1.15;
-const FLOW_PERIOD_MS = 3200;
-const FLOW_CHEVRON_COUNT = 4;
-const ARC_SEGMENTS = 72;
+/** 提示组略抬出面，避免与贴纸 z-fight。 */
+export const MOVE_HINT_LAYER_OFFSET = MOVE_HINT_CUBE_RADIUS + 0.1;
+/** 弯箭头半宽：细线更接近 VisualCube。 */
+export const MOVE_HINT_TUBE_RADIUS = 0.07;
+
+/** 厚层高亮：盖住要转的那一层，半透明但足够醒目。 */
+const LAYER_FACE = MOVE_HINT_CUBE_EDGE + 0.08;
+const LAYER_THICK = 1.08;
+const LAYER_OPACITY = 0.34;
+const ARROW_LIFT = 0.05;
+const SHADOW_LIFT = 0.02;
+const ARC_SEGMENTS = 64;
+const ARC_SINGLE = Math.PI * 1.62;
+const ARC_DOUBLE = Math.PI * 1.82;
+const ARC_HALF = Math.PI * 0.92;
+const HEAD_BASE_SCALE = 1.55;
+const FLOW_PERIOD_MS = 1800;
+const FLOW_CHEVRON_COUNT = 3;
+const OUTLINE_EXTRA = 0.028;
 
 type HintHost = {
   add(object: Group): void;
@@ -83,6 +86,16 @@ type HintHost = {
 type HintGroup = Group & {
   userData: {
     stopAnim?: () => void;
+    face?: Face;
+    tipAngle?: number;
+    tailAngle?: number;
+    seamAngle?: number;
+    ringRadius?: number;
+    layerOffset?: number;
+    depthTest?: boolean;
+    double?: boolean;
+    fillColor?: number;
+    horizontal?: boolean;
   };
 };
 
@@ -90,7 +103,6 @@ function solidMaterial(
   color: number,
   opacity: number,
   depthTest: boolean,
-  vertexColors = false,
 ): MeshBasicMaterial {
   return new MeshBasicMaterial({
     color,
@@ -99,7 +111,6 @@ function solidMaterial(
     transparent: true,
     opacity,
     side: DoubleSide,
-    vertexColors,
   });
 }
 
@@ -107,334 +118,43 @@ function easeInOut(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/** 头部半宽相对尾部的倍率（头比尾宽约 1/3）。 */
-const BAND_HEAD_WIDTH_SCALE = 4 / 3;
-/** 纯白（含侧面）；厚度靠几何本身。 */
-const FACE_RGB: [number, number, number] = [1, 1, 1];
-const SIDE_RGB: [number, number, number] = [1, 1, 1];
-
-/**
- * 长方截面环带：顶底用亮色、内外侧用暗色顶点色。
- * Twisty 场景无灯光，MeshBasic 必须靠顶点色才能看出厚度。
- */
-function createBandGeometry(
+/** 贴面扁环带：尾细头略宽，几乎无厚度。 */
+function createFlatBandGeometry(
   ringRadius: number,
   halfWidth: number,
-  halfThick: number,
   tailAngle: number,
   arcLength: number,
   travelSign: number,
   segments: number,
+  taper = 0.35,
 ): BufferGeometry {
   const positions: number[] = [];
-  const colors: number[] = [];
+  const indices: number[] = [];
 
-  function pushVert(
-    x: number,
-    y: number,
-    z: number,
-    rgb: [number, number, number],
-  ): void {
-    positions.push(x, y, z);
-    colors.push(rgb[0], rgb[1], rgb[2]);
-  }
-
-  function pushTri(
-    ax: number,
-    ay: number,
-    az: number,
-    bx: number,
-    by: number,
-    bz: number,
-    cx: number,
-    cy: number,
-    cz: number,
-    rgb: [number, number, number],
-  ): void {
-    pushVert(ax, ay, az, rgb);
-    pushVert(bx, by, bz, rgb);
-    pushVert(cx, cy, cz, rgb);
-  }
-
-  function ringCorners(
-    angle: number,
-    widthScale: number,
-  ): Array<[number, number, number]> {
+  for (let i = 0; i <= segments; i++) {
+    const u = i / segments;
+    const angle = tailAngle + travelSign * u * arcLength;
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    const cx = ringRadius * cos;
-    const cy = ringRadius * sin;
-    const hw = halfWidth * widthScale;
-    const ht = halfThick;
-    // 外+/内- 径向，上+/下- 法向
-    return [
-      [cx + cos * ht, cy + sin * ht, hw], // 0 外上
-      [cx - cos * ht, cy - sin * ht, hw], // 1 内上
-      [cx - cos * ht, cy - sin * ht, -hw], // 2 内下
-      [cx + cos * ht, cy + sin * ht, -hw], // 3 外下
-    ];
+    const scale = 1 + taper * u;
+    const hw = halfWidth * scale;
+    positions.push(
+      (ringRadius - hw) * cos,
+      (ringRadius - hw) * sin,
+      0,
+      (ringRadius + hw) * cos,
+      (ringRadius + hw) * sin,
+      0,
+    );
   }
 
   for (let i = 0; i < segments; i++) {
-    const u0 = i / segments;
-    const u1 = (i + 1) / segments;
-    const a0 = tailAngle + travelSign * u0 * arcLength;
-    const a1 = tailAngle + travelSign * u1 * arcLength;
-    const s0 = 1 + (BAND_HEAD_WIDTH_SCALE - 1) * u0;
-    const s1 = 1 + (BAND_HEAD_WIDTH_SCALE - 1) * u1;
-    const c0 = ringCorners(a0, s0);
-    const c1 = ringCorners(a1, s1);
-
-    // 顶面 (z+)
-    pushTri(
-      c0[0]![0],
-      c0[0]![1],
-      c0[0]![2],
-      c0[1]![0],
-      c0[1]![1],
-      c0[1]![2],
-      c1[1]![0],
-      c1[1]![1],
-      c1[1]![2],
-      FACE_RGB,
-    );
-    pushTri(
-      c0[0]![0],
-      c0[0]![1],
-      c0[0]![2],
-      c1[1]![0],
-      c1[1]![1],
-      c1[1]![2],
-      c1[0]![0],
-      c1[0]![1],
-      c1[0]![2],
-      FACE_RGB,
-    );
-    // 底面 (z-)
-    pushTri(
-      c0[3]![0],
-      c0[3]![1],
-      c0[3]![2],
-      c1[2]![0],
-      c1[2]![1],
-      c1[2]![2],
-      c0[2]![0],
-      c0[2]![1],
-      c0[2]![2],
-      FACE_RGB,
-    );
-    pushTri(
-      c0[3]![0],
-      c0[3]![1],
-      c0[3]![2],
-      c1[3]![0],
-      c1[3]![1],
-      c1[3]![2],
-      c1[2]![0],
-      c1[2]![1],
-      c1[2]![2],
-      FACE_RGB,
-    );
-    // 外侧壁（径向外）
-    pushTri(
-      c0[0]![0],
-      c0[0]![1],
-      c0[0]![2],
-      c1[0]![0],
-      c1[0]![1],
-      c1[0]![2],
-      c1[3]![0],
-      c1[3]![1],
-      c1[3]![2],
-      SIDE_RGB,
-    );
-    pushTri(
-      c0[0]![0],
-      c0[0]![1],
-      c0[0]![2],
-      c1[3]![0],
-      c1[3]![1],
-      c1[3]![2],
-      c0[3]![0],
-      c0[3]![1],
-      c0[3]![2],
-      SIDE_RGB,
-    );
-    // 内侧壁（径向内）
-    pushTri(
-      c0[1]![0],
-      c0[1]![1],
-      c0[1]![2],
-      c0[2]![0],
-      c0[2]![1],
-      c0[2]![2],
-      c1[2]![0],
-      c1[2]![1],
-      c1[2]![2],
-      SIDE_RGB,
-    );
-    pushTri(
-      c0[1]![0],
-      c0[1]![1],
-      c0[1]![2],
-      c1[2]![0],
-      c1[2]![1],
-      c1[2]![2],
-      c1[1]![0],
-      c1[1]![1],
-      c1[1]![2],
-      SIDE_RGB,
-    );
+    const a = i * 2;
+    const b = a + 1;
+    const c = a + 2;
+    const d = a + 3;
+    indices.push(a, c, b, b, c, d);
   }
-
-  // 尾端封闭
-  {
-    const c = ringCorners(tailAngle, 1);
-    pushTri(
-      c[0]![0],
-      c[0]![1],
-      c[0]![2],
-      c[3]![0],
-      c[3]![1],
-      c[3]![2],
-      c[2]![0],
-      c[2]![1],
-      c[2]![2],
-      SIDE_RGB,
-    );
-    pushTri(
-      c[0]![0],
-      c[0]![1],
-      c[0]![2],
-      c[2]![0],
-      c[2]![1],
-      c[2]![2],
-      c[1]![0],
-      c[1]![1],
-      c[1]![2],
-      SIDE_RGB,
-    );
-  }
-  // 头端封闭（贴 seam）
-  {
-    const c = ringCorners(
-      tailAngle + travelSign * arcLength,
-      BAND_HEAD_WIDTH_SCALE,
-    );
-    pushTri(
-      c[0]![0],
-      c[0]![1],
-      c[0]![2],
-      c[1]![0],
-      c[1]![1],
-      c[1]![2],
-      c[2]![0],
-      c[2]![1],
-      c[2]![2],
-      SIDE_RGB,
-    );
-    pushTri(
-      c[0]![0],
-      c[0]![1],
-      c[0]![2],
-      c[2]![0],
-      c[2]![1],
-      c[2]![2],
-      c[3]![0],
-      c[3]![1],
-      c[3]![2],
-      SIDE_RGB,
-    );
-  }
-
-  const geometry = new BufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new BufferAttribute(new Float32Array(positions), 3),
-  );
-  geometry.setAttribute(
-    "color",
-    new BufferAttribute(new Float32Array(colors), 3),
-  );
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
-/**
- * 头带分界线：横跨带宽的薄片（截图 2 红线位置）。
- */
-function createSeamGeometry(
-  ringRadius: number,
-  halfWidth: number,
-  halfThick: number,
-  seamAngle: number,
-  travelSign: number,
-): BufferGeometry {
-  const cos = Math.cos(seamAngle);
-  const sin = Math.sin(seamAngle);
-  const tx = -sin * travelSign;
-  const ty = cos * travelSign;
-  const cx = ringRadius * cos;
-  const cy = ringRadius * sin;
-  const hw = halfWidth * 1.02;
-  const ht = halfThick * 1.15;
-  const halfSeam = 0.018;
-
-  // 局部：radial / normal / tangent
-  const corners: Array<[number, number, number]> = [
-    [ht, hw, -halfSeam],
-    [-ht, hw, -halfSeam],
-    [-ht, -hw, -halfSeam],
-    [ht, -hw, -halfSeam],
-    [ht, hw, halfSeam],
-    [-ht, hw, halfSeam],
-    [-ht, -hw, halfSeam],
-    [ht, -hw, halfSeam],
-  ];
-
-  const positions: number[] = [];
-  for (const [dr, dn, dt] of corners) {
-    positions.push(cx + cos * dr + tx * dt, cy + sin * dr + ty * dt, dn);
-  }
-
-  const indices = [
-    0,
-    1,
-    2,
-    0,
-    2,
-    3, // back
-    4,
-    6,
-    5,
-    4,
-    7,
-    6, // front
-    0,
-    4,
-    5,
-    0,
-    5,
-    1,
-    1,
-    5,
-    6,
-    1,
-    6,
-    2,
-    2,
-    6,
-    7,
-    2,
-    7,
-    3,
-    3,
-    7,
-    4,
-    3,
-    4,
-    0,
-  ];
 
   const geometry = new BufferGeometry();
   geometry.setAttribute(
@@ -446,160 +166,72 @@ function createSeamGeometry(
   return geometry;
 }
 
-/**
- * 等边三角箭头头：底 ≈ 带宽，高 = √3/2·底。
- * 顶底亮、侧壁暗，与环带同一套顶点色。
- */
-function createTriangleHeadGeometry(
+/** VisualCube 风格三角箭头头：底宽、尖细。 */
+function createFlatHeadGeometry(
   ringRadius: number,
   halfWidth: number,
-  halfThick: number,
   seamAngle: number,
   travelSign: number,
 ): BufferGeometry {
-  const base = halfWidth * 2 * HEAD_BASE_SCALE;
-  const height = base * (Math.sqrt(3) / 2);
   const cos = Math.cos(seamAngle);
   const sin = Math.sin(seamAngle);
   const tx = -sin * travelSign;
   const ty = cos * travelSign;
+  const base = halfWidth * HEAD_BASE_SCALE * 2.35;
+  const height = base * 1.05;
   const cx = ringRadius * cos;
   const cy = ringRadius * sin;
-  const ht = halfThick * 1.05;
-  const baseLeft = -base / 2;
-  const baseRight = base / 2;
-  const tipAlong = height;
-
-  function vert(along: number, across: number, radial: number): number[] {
-    return [
-      cx + tx * along + cos * radial,
-      cy + ty * along + sin * radial,
-      across,
-    ];
-  }
-
-  const positions: number[] = [];
-  const colors: number[] = [];
-
-  function pushTri(
-    a: number[],
-    b: number[],
-    c: number[],
-    rgb: [number, number, number],
-  ): void {
-    for (const p of [a, b, c]) {
-      positions.push(p[0]!, p[1]!, p[2]!);
-      colors.push(rgb[0], rgb[1], rgb[2]);
-    }
-  }
-
-  const bln = vert(0, baseLeft, -ht);
-  const brn = vert(0, baseRight, -ht);
-  const tpn = vert(tipAlong, 0, -ht);
-  const blp = vert(0, baseLeft, ht);
-  const brp = vert(0, baseRight, ht);
-  const tpp = vert(tipAlong, 0, ht);
-
-  // 径向 - / + 视为顶底（亮）；其余侧壁暗
-  pushTri(bln, tpn, brn, FACE_RGB);
-  pushTri(blp, brp, tpp, FACE_RGB);
-  pushTri(bln, brn, brp, SIDE_RGB);
-  pushTri(bln, brp, blp, SIDE_RGB);
-  pushTri(brn, tpn, tpp, SIDE_RGB);
-  pushTri(brn, tpp, brp, SIDE_RGB);
-  pushTri(tpn, bln, blp, SIDE_RGB);
-  pushTri(tpn, blp, tpp, SIDE_RGB);
-
-  const geometry = new BufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new BufferAttribute(new Float32Array(positions), 3),
-  );
-  geometry.setAttribute(
-    "color",
-    new BufferAttribute(new Float32Array(colors), 3),
-  );
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
-/** 流动短划（小三角），沿环带指向箭头，方向更直观。 */
-function createChevronGeometry(
-  halfWidth: number,
-  halfThick: number,
-): BufferGeometry {
-  const len = halfWidth * 1.1;
-  const halfBase = halfWidth * 0.55;
-  const ht = halfThick * 0.85;
-  // 局部：沿 +Y 为行进，X 为 across，Z 为厚；再由调用方旋转到弧上
+  const bx = -ty;
+  const by = tx;
+  // 底座略嵌进弧带，接缝更干净
+  const nest = halfWidth * 0.35;
+  const baseX = cx - tx * nest;
+  const baseY = cy - ty * nest;
+  const tipX = baseX + tx * height;
+  const tipY = baseY + ty * height;
   const positions = new Float32Array([
+    tipX,
+    tipY,
     0,
+    baseX + bx * base,
+    baseY + by * base,
     0,
-    -ht,
-    halfBase,
+    baseX - bx * base,
+    baseY - by * base,
     0,
-    -ht,
-    0,
-    len,
-    -ht,
-    -halfBase,
-    0,
-    -ht,
-    0,
-    0,
-    ht,
-    halfBase,
-    0,
-    ht,
-    0,
-    len,
-    ht,
-    -halfBase,
-    0,
-    ht,
   ]);
-  // 简化为两个面片 + 侧面
-  const indices = [
-    0,
-    1,
-    2,
-    0,
-    2,
-    3, // -ht
-    4,
-    6,
-    5,
-    4,
-    7,
-    6, // +ht
-    0,
-    4,
-    5,
-    0,
-    5,
-    1,
-    1,
-    5,
-    6,
-    1,
-    6,
-    2,
-    2,
-    6,
-    7,
-    2,
-    7,
-    3,
-    3,
-    7,
-    4,
-    3,
-    4,
-    0,
-  ];
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
+  geometry.setIndex([0, 1, 2]);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createFlatChevronGeometry(halfWidth: number): BufferGeometry {
+  const w = halfWidth * 1.05;
+  const h = halfWidth * 1.55;
+  const positions = new Float32Array([
+    0,
+    h,
+    0,
+    -w,
+    -h * 0.4,
+    0,
+    0,
+    -h * 0.08,
+    0,
+    0,
+    h,
+    0,
+    0,
+    -h * 0.08,
+    0,
+    w,
+    -h * 0.4,
+    0,
+  ]);
+  const geometry = new BufferGeometry();
+  geometry.setAttribute("position", new BufferAttribute(positions, 3));
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -644,6 +276,10 @@ function disposeHintGroup(group: Group) {
   });
 }
 
+/**
+ * 厚层高亮 + VisualCube 风格贴面弯箭头。
+ * 本地系：Z 朝外法向，XY 为面平面。
+ */
 function buildHintGroup(
   move: string,
   options: MoveHintOptions,
@@ -658,8 +294,11 @@ function buildHintGroup(
   const frame = FACE_FRAME[face];
   const tone = options.tone ?? "guide";
   const fillColor = FILL_COLORS[tone];
+  const outlineColor = OUTLINE_COLORS[tone];
   const double = Boolean(options.double) && !options.half;
-  const arcLength = double ? ARC_DOUBLE : ARC_SINGLE;
+  const half = Boolean(options.half);
+  const travelSign = prime ? 1 : -1;
+  const arcLength = half ? ARC_HALF : double ? ARC_DOUBLE : ARC_SINGLE;
 
   const normal = new Vector3(...frame.normal).normalize();
   const up = new Vector3(...frame.up).normalize();
@@ -668,6 +307,7 @@ function buildHintGroup(
 
   const ringRadius = MOVE_HINT_RING_RADIUS;
   const layerOffset = MOVE_HINT_LAYER_OFFSET;
+  const halfWidth = MOVE_HINT_TUBE_RADIUS;
 
   const group = new Group() as HintGroup;
   group.name = "cube-move-hint";
@@ -678,116 +318,142 @@ function buildHintGroup(
   );
   group.renderOrder = 20;
 
-  const halfWidth = double
-    ? MOVE_HINT_TUBE_RADIUS_DOUBLE
-    : MOVE_HINT_TUBE_RADIUS;
-  const halfThick = MOVE_HINT_HALF_THICK;
-  const travelSign = prime ? 1 : -1;
+  const depthTest = false;
+
+  // 厚层高亮：半透明盒子盖住要转的那一层
+  const layer = new Mesh(
+    new BoxGeometry(LAYER_FACE, LAYER_FACE, LAYER_THICK),
+    solidMaterial(fillColor, LAYER_OPACITY, depthTest),
+  );
+  layer.name = "cube-move-hint-layer";
+  layer.renderOrder = 18;
+  layer.position.z = MOVE_HINT_CUBE_RADIUS - LAYER_THICK / 2 - layerOffset;
+  group.add(layer);
+
+  const arrows = new Group();
+  arrows.name = "cube-move-hint-arrow";
+  arrows.position.z = ARROW_LIFT;
+  arrows.renderOrder = 22;
 
   const mid = Math.PI / 2;
-  const half = arcLength / 2;
-  const tailAngle = mid - travelSign * half;
-  const tipAngle = mid + travelSign * half;
-  // 环带止于 seam；三角头接在 seam 之后（底边对齐加宽后的环带头）
-  const headHalfWidth = halfWidth * BAND_HEAD_WIDTH_SCALE;
-  const headHeight = headHalfWidth * 2 * HEAD_BASE_SCALE * (Math.sqrt(3) / 2);
+  const halfArc = arcLength / 2;
+  const tailAngle = mid - travelSign * halfArc;
+  const tipAngle = mid + travelSign * halfArc;
+  const headHalfWidth = halfWidth * 1.85;
+  const headHeight = headHalfWidth * 2 * HEAD_BASE_SCALE * 0.58;
   const headAngle = headHeight / ringRadius;
   const seamAngle = tipAngle - travelSign * headAngle;
   const bandLength = Math.abs(seamAngle - tailAngle);
 
-  const depthTest = false;
-  const shadowMat = solidMaterial(SHADOW_COLOR, SHADOW_OPACITY, depthTest);
-  const borderMat = solidMaterial(BORDER_COLOR, 0.98, depthTest);
-  // 纯白填充 + 浅灰描边
-  const fillMat = solidMaterial(fillColor, 0.96, depthTest, true);
-  const seamMat = solidMaterial(SEAM_COLOR, 0.9, depthTest);
+  const outlineMat = solidMaterial(outlineColor, 0.72, depthTest);
+  const fillMat = solidMaterial(fillColor, 0.97, depthTest);
+  const shadowMat = solidMaterial(0x000000, 0.18, depthTest);
 
-  function addBand(
-    hw: number,
-    ht: number,
-    material: MeshBasicMaterial,
-    renderOrder: number,
-  ): Mesh {
-    const mesh = new Mesh(
-      createBandGeometry(
-        ringRadius,
-        hw,
-        ht,
-        tailAngle,
-        bandLength,
-        travelSign,
-        ARC_SEGMENTS,
-      ),
-      material,
-    );
-    mesh.renderOrder = renderOrder;
-    group.add(mesh);
-    return mesh;
-  }
-
-  const shadow = addBand(
-    halfWidth + SHADOW_EXTRA,
-    halfThick + SHADOW_EXTRA,
+  // 轻阴影，略偏尾侧
+  const shadow = new Mesh(
+    createFlatBandGeometry(
+      ringRadius,
+      halfWidth + OUTLINE_EXTRA * 1.4,
+      tailAngle,
+      bandLength,
+      travelSign,
+      ARC_SEGMENTS,
+      0.4,
+    ),
     shadowMat,
-    18,
   );
-  shadow.position.z = -0.028;
+  shadow.position.set(0.015, -0.02, SHADOW_LIFT - ARROW_LIFT);
+  shadow.renderOrder = 19;
+  arrows.add(shadow);
 
-  addBand(
-    halfWidth + BORDER_EXTRA,
-    halfThick + BORDER_EXTRA * 0.5,
-    borderMat,
-    19,
-  );
-  addBand(halfWidth, halfThick, fillMat, 20);
-
-  // 头带分界线（保留，便于辨认箭头方向）
-  const seam = new Mesh(
-    createSeamGeometry(
+  const outline = new Mesh(
+    createFlatBandGeometry(
       ringRadius,
-      headHalfWidth,
-      halfThick,
-      seamAngle,
+      halfWidth + OUTLINE_EXTRA,
+      tailAngle,
+      bandLength,
       travelSign,
+      ARC_SEGMENTS,
+      0.4,
     ),
-    seamMat,
+    outlineMat,
   );
-  seam.renderOrder = 24;
-  group.add(seam);
+  outline.renderOrder = 21;
+  arrows.add(outline);
 
-  const headBorder = new Mesh(
-    createTriangleHeadGeometry(
+  const band = new Mesh(
+    createFlatBandGeometry(
       ringRadius,
-      headHalfWidth + BORDER_EXTRA,
-      halfThick + BORDER_EXTRA * 0.5,
-      seamAngle,
+      halfWidth,
+      tailAngle,
+      bandLength,
       travelSign,
-    ),
-    borderMat,
-  );
-  headBorder.renderOrder = 25;
-  group.add(headBorder);
-
-  const head = new Mesh(
-    createTriangleHeadGeometry(
-      ringRadius,
-      headHalfWidth,
-      halfThick,
-      seamAngle,
-      travelSign,
+      ARC_SEGMENTS,
+      0.4,
     ),
     fillMat,
   );
-  head.renderOrder = 26;
+  band.renderOrder = 22;
+  arrows.add(band);
+
+  const headOutline = new Mesh(
+    createFlatHeadGeometry(
+      ringRadius,
+      headHalfWidth + OUTLINE_EXTRA,
+      seamAngle,
+      travelSign,
+    ),
+    outlineMat,
+  );
+  headOutline.renderOrder = 23;
+  arrows.add(headOutline);
+
+  const head = new Mesh(
+    createFlatHeadGeometry(ringRadius, headHalfWidth, seamAngle, travelSign),
+    fillMat,
+  );
   head.name = "cube-move-hint-head";
-  group.add(head);
+  head.renderOrder = 24;
+  arrows.add(head);
+
+  if (double) {
+    const midHead = new Mesh(
+      createFlatHeadGeometry(ringRadius, halfWidth * 1.35, mid, travelSign),
+      fillMat,
+    );
+    midHead.renderOrder = 23;
+    arrows.add(midHead);
+    const midOutline = new Mesh(
+      createFlatHeadGeometry(
+        ringRadius,
+        halfWidth * 1.35 + OUTLINE_EXTRA,
+        mid,
+        travelSign,
+      ),
+      outlineMat,
+    );
+    midOutline.renderOrder = 22;
+    arrows.add(midOutline);
+  }
+
+  const chevronGeom = createFlatChevronGeometry(halfWidth);
+  const chevrons: Array<{ mesh: Mesh; mat: MeshBasicMaterial }> = [];
+  for (let i = 0; i < FLOW_CHEVRON_COUNT; i++) {
+    const mat = solidMaterial(fillColor, 0.55, depthTest);
+    const mesh = new Mesh(chevronGeom, mat);
+    mesh.renderOrder = 25;
+    arrows.add(mesh);
+    chevrons.push({ mesh, mat });
+  }
+
+  group.add(arrows);
 
   const tipAnchor = new Object3D();
   tipAnchor.name = "cube-move-hint-tip";
   tipAnchor.position.set(
     ringRadius * Math.cos(tipAngle),
     ringRadius * Math.sin(tipAngle),
-    0,
+    ARROW_LIFT,
   );
   group.add(tipAnchor);
 
@@ -801,40 +467,13 @@ function buildHintGroup(
   group.userData.fillColor = fillColor;
   group.userData.horizontal = face === "U" || face === "D";
 
-  // 双步：中段再加一个小三角头，强调 180°
-  if (double) {
-    const midSeam = mid;
-    const midHead = new Mesh(
-      createTriangleHeadGeometry(
-        ringRadius,
-        halfWidth * 0.75,
-        halfThick,
-        midSeam,
-        travelSign,
-      ),
-      fillMat,
-    );
-    midHead.renderOrder = 23;
-    group.add(midHead);
-  }
-
-  // 流动短划（类似常见 App 的方向点/箭头串），沿环带滑向三角头
-  const chevronGeom = createChevronGeometry(halfWidth, halfThick);
-  const chevrons: Array<{ mesh: Mesh; mat: MeshBasicMaterial }> = [];
-  for (let i = 0; i < FLOW_CHEVRON_COUNT; i++) {
-    const mat = solidMaterial(fillColor, 0.85, depthTest);
-    const mesh = new Mesh(chevronGeom, mat);
-    mesh.renderOrder = 22;
-    group.add(mesh);
-    chevrons.push({ mesh, mat });
-  }
-
   const startedAt = performance.now();
   let raf = 0;
   const hasRaf = typeof requestAnimationFrame === "function";
   const tick = (now: number) => {
     const elapsed = now - startedAt;
     const base = (elapsed / FLOW_PERIOD_MS) % 1;
+
     for (let i = 0; i < chevrons.length; i++) {
       const raw = (base + i / FLOW_CHEVRON_COUNT) % 1;
       const phase = easeInOut(raw);
@@ -844,14 +483,12 @@ function buildHintGroup(
       const tx = -sin * travelSign;
       const ty = cos * travelSign;
       const { mesh, mat } = chevrons[i]!;
-      mesh.position.set(ringRadius * cos, ringRadius * sin, 0);
-      // 局部 +Y → 切线
+      mesh.position.set(ringRadius * cos, ringRadius * sin, 0.002);
       mesh.quaternion.setFromUnitVectors(
         new Vector3(0, 1, 0),
         new Vector3(tx, ty, 0),
       );
-      // 靠近箭头更实，形成明确流向
-      mat.opacity = 0.35 + 0.6 * phase;
+      mat.opacity = 0.18 + 0.55 * phase;
     }
     onFrame();
     if (hasRaf) {

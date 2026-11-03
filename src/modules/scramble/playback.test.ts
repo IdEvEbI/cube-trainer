@@ -17,7 +17,7 @@ import {
 
 describe("scramble playback", () => {
   it("打乱自动播放步进慢于练习，便于手跟拧", () => {
-    assert.equal(SCRAMBLE_PLAYBACK_STEP_MS, 1000);
+    assert.equal(SCRAMBLE_PLAYBACK_STEP_MS, 800);
     assert.ok(SCRAMBLE_PLAYBACK_STEP_MS > PLAYBACK_STEP_MS);
   });
 

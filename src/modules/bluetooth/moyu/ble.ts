@@ -141,7 +141,7 @@ export type MoyuCubeStatus = {
 };
 
 export type MoyuBleConnection = {
-  /** 本地别名存储键（优先 device.id）。 */
+  /** 设备稳定键（优先 device.id）。 */
   id: string;
   name: string;
   disconnect(): void;
