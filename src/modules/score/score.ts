@@ -133,6 +133,12 @@ export function summarizeAttempts(
   };
 }
 
+/** 成绩列表按最新在前；取上一把总时间，无成绩为 null。 */
+export function latestSolveTimeMs(scores: readonly Score[]): number | null {
+  const latest = scores[0];
+  return latest ? latest.timeMs : null;
+}
+
 export function createScoreLog(
   storage: ScoreStorage,
   now: () => Date = () => new Date(),

@@ -5,6 +5,7 @@ import {
   finishBluetoothInspect,
   formatInspectCountdown,
   nextInspectPhaseOnGuideDone,
+  shouldAutoStartTimerOnInspectTimeout,
   shouldEndInspectOnCubeTurn,
 } from "./bluetoothInspect.ts";
 import { shouldStartBluetoothTimer } from "../timer/session.ts";
@@ -20,10 +21,13 @@ describe("bluetoothInspect", () => {
     assert.equal(nextInspectPhaseOnGuideDone("ready"), "ready");
   });
 
-  it("跳过、倒计时结束或观察中拧动进入待转", () => {
+  it("跳过观察进入待转；倒计时归零应自动开表", () => {
     assert.equal(finishBluetoothInspect("inspecting"), "ready");
     assert.equal(finishBluetoothInspect("ready"), "ready");
     assert.equal(finishBluetoothInspect("off"), "off");
+    assert.equal(shouldAutoStartTimerOnInspectTimeout("inspecting"), true);
+    assert.equal(shouldAutoStartTimerOnInspectTimeout("ready"), false);
+    assert.equal(shouldAutoStartTimerOnInspectTimeout("off"), false);
   });
 
   it("仅观察中拧动应结束倒计时", () => {

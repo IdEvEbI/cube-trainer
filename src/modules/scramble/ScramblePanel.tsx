@@ -122,7 +122,7 @@ export function ScramblePanel({
       </div>
       {footer}
       {guided && guide?.correction ? (
-        <p className="scramble-guide-note scramble-guide-fix" role="status">
+        <p className="scramble-guide-note scramble-guide-error" role="status">
           转错了，请转 {guide.correction}
         </p>
       ) : null}

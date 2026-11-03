@@ -35,19 +35,19 @@ describe("applyMoveHint", () => {
     assert.equal(children.length, 0);
   });
 
-  it("半径为魔方半径 1.4–1.5 倍，白色且不被深度挡住", () => {
+  it("贴面弯箭头落在对应层外侧", () => {
     assert.equal(MOVE_HINT_CUBE_EDGE, 3);
     assert.equal(MOVE_HINT_CUBE_RADIUS, 1.5);
     assert.ok(
-      MOVE_HINT_RADIUS_SCALE >= 1.4 && MOVE_HINT_RADIUS_SCALE <= 1.5,
-      `半径倍率=${MOVE_HINT_RADIUS_SCALE}`,
+      MOVE_HINT_RADIUS_SCALE >= 0.75 && MOVE_HINT_RADIUS_SCALE <= 0.9,
+      `贴面半径倍率=${MOVE_HINT_RADIUS_SCALE}`,
     );
     assert.equal(
       MOVE_HINT_RING_RADIUS,
       MOVE_HINT_CUBE_RADIUS * MOVE_HINT_RADIUS_SCALE,
     );
     assert.ok(MOVE_HINT_LAYER_OFFSET > MOVE_HINT_CUBE_RADIUS);
-    assert.ok(MOVE_HINT_TUBE_RADIUS >= 0.16 && MOVE_HINT_TUBE_RADIUS <= 0.26);
+    assert.ok(MOVE_HINT_TUBE_RADIUS >= 0.05 && MOVE_HINT_TUBE_RADIUS <= 0.1);
 
     const puzzle = {
       add(_object: Group) {},
@@ -82,17 +82,19 @@ describe("applyMoveHint", () => {
       assert.equal(group!.userData.ringRadius, MOVE_HINT_RING_RADIUS);
       assert.equal(group!.userData.depthTest, false);
       assert.equal(group!.userData.fillColor, 0xffffff);
+      assert.ok(group!.getObjectByName("cube-move-hint-layer"));
+      assert.ok(group!.getObjectByName("cube-move-hint-arrow"));
+      assert.ok(group!.getObjectByName("cube-move-hint-head"));
       if (item.move === "U" || item.move === "D") {
         assert.equal(group!.userData.horizontal, true);
       } else {
         assert.equal(group!.userData.horizontal, false);
       }
-      prev = group;
     }
     applyMoveHint(puzzle, prev, null);
   });
 
-  it("锥头在弧末端；双步弧更长", () => {
+  it("双步弧更长；有 tip 锚点", () => {
     const puzzle = {
       add(_object: Group) {},
       remove(_object: Group) {},
@@ -101,20 +103,9 @@ describe("applyMoveHint", () => {
     assert.ok(single);
     const tip = single!.getObjectByName("cube-move-hint-tip");
     assert.ok(tip);
-    const tipAngle = single!.userData.tipAngle as number;
     const singleSpan = Math.abs(
-      tipAngle - (single!.userData.tailAngle as number),
-    );
-    const radius = single!.userData.ringRadius as number;
-    // 楔底座嵌进条带，仍应靠近弧末端
-    const arcEnd = new Vector3(
-      radius * Math.cos(tipAngle),
-      radius * Math.sin(tipAngle),
-      0,
-    );
-    assert.ok(
-      tip!.position.distanceTo(arcEnd) < 0.4,
-      `锥头应在弧末端附近，delta=${tip!.position.distanceTo(arcEnd)}`,
+      (single!.userData.tipAngle as number) -
+        (single!.userData.tailAngle as number),
     );
 
     const double = applyMoveHint(puzzle, single, "L", {
@@ -123,12 +114,11 @@ describe("applyMoveHint", () => {
     });
     assert.ok(double);
     assert.equal(double!.userData.double, true);
-    const span = Math.abs(
+    const doubleSpan = Math.abs(
       (double!.userData.tipAngle as number) -
         (double!.userData.tailAngle as number),
     );
-    // 单双步弧长相同；双步靠中段小三角区分
-    assert.ok(Math.abs(span - singleSpan) < 1e-6, "单双步弧长应一致");
+    assert.ok(doubleSpan > singleSpan, "双步贴面弧应更长");
     applyMoveHint(puzzle, double, null);
   });
 
@@ -148,7 +138,14 @@ describe("applyMoveHint", () => {
     });
     assert.ok(next);
     assert.equal(next!.userData.double, false);
-    assert.equal(next!.userData.fillColor, 0xff5a3d);
+    assert.equal(next!.userData.fillColor, 0xff6b4a);
     assert.ok(next!.getObjectByName("cube-move-hint-tip"));
+    assert.ok(next!.getObjectByName("cube-move-hint-layer"));
+    assert.ok(next!.getObjectByName("cube-move-hint-arrow"));
+    const halfSpan = Math.abs(
+      (next!.userData.tipAngle as number) -
+        (next!.userData.tailAngle as number),
+    );
+    assert.ok(halfSpan < Math.PI * 1.2, "半步弧应更短");
   });
 });

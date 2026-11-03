@@ -21,6 +21,8 @@ import {
   shouldCancelTimingHoldForCubeDrag,
   shouldEndHoldOnRelease,
   shouldResetCubeOnTimingHome,
+  shouldShowAbandonTimingControl,
+  shouldShowLastSolveSlotOnHome,
   shouldStartBluetoothTimer,
   showCubeLayerControls,
   timerHomeToolsLayout,
@@ -192,6 +194,13 @@ describe("showCubeLayerControls", () => {
   });
 });
 
+describe("shouldShowLastSolveSlotOnHome", () => {
+  it("计时首页常驻上次成绩槽，避免有无成绩时布局跳动", () => {
+    assert.equal(shouldShowLastSolveSlotOnHome(true), true);
+    assert.equal(shouldShowLastSolveSlotOnHome(false), false);
+  });
+});
+
 describe("keepElapsedOnScrambleRefresh", () => {
   it("停止后刷新打乱仍保留本次时长显示", () => {
     let phase: SessionPhase = "running";
@@ -242,6 +251,14 @@ describe("timingPreviewExclusive", () => {
 });
 
 describe("timingShellVisible", () => {
+  it("准备态与计时中显示放弃按钮", () => {
+    assert.equal(shouldShowAbandonTimingControl("armed"), true);
+    assert.equal(shouldShowAbandonTimingControl("running"), true);
+    assert.equal(shouldShowAbandonTimingControl("idle"), false);
+    assert.equal(shouldShowAbandonTimingControl("arming"), false);
+    assert.equal(shouldShowAbandonTimingControl("stopped"), false);
+  });
+
   it("非蓝牙计时中只显示计时器", () => {
     assert.equal(timingShellVisible("running", "timer"), true);
     assert.equal(timingShellVisible("running", "scramble"), false);

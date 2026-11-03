@@ -54,12 +54,17 @@ import {
   type BluetoothSolveStats,
 } from "./modules/score/bluetoothSolveStats.ts";
 import { BluetoothSolveStatsDialog } from "./modules/score/BluetoothSolveStatsDialog.tsx";
-import { browserScoreStorage, createScoreLog } from "./modules/score/score.ts";
+import {
+  browserScoreStorage,
+  createScoreLog,
+  latestSolveTimeMs,
+} from "./modules/score/score.ts";
 import type { TimedSolveMove } from "./modules/score/solveMetrics.ts";
 import {
   BLUETOOTH_INSPECT_MS,
   finishBluetoothInspect,
   nextInspectPhaseOnGuideDone,
+  shouldAutoStartTimerOnInspectTimeout,
   shouldEndInspectOnCubeTurn,
   type BluetoothInspectPhase,
 } from "./modules/scramble/bluetoothInspect.ts";
@@ -100,19 +105,18 @@ import {
   keepElapsedOnScrambleRefresh,
   shouldCancelTimingHoldForCubeDrag,
   shouldResetCubeOnTimingHome,
+  shouldShowAbandonTimingControl,
+  shouldShowLastSolveSlotOnHome,
   shouldStartBluetoothTimer,
   showCubeLayerControls,
   timingShellVisible,
   type SessionPhase,
 } from "./modules/timer/session.ts";
+import { ElapsedDigits } from "./modules/timer/ElapsedDigits.tsx";
+import { TimingAbandonButton } from "./modules/timer/TimingAbandonButton.tsx";
 import { TimerStats } from "./modules/timer/TimerStats.tsx";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
-import { BluetoothDeviceDialog } from "./modules/bluetooth/BluetoothDeviceDialog.tsx";
-import {
-  browserDeviceAliasStorage,
-  getDeviceAlias,
-  setDeviceAlias,
-} from "./modules/bluetooth/deviceAlias.ts";
+import { BluetoothDisconnectDialog } from "./modules/bluetooth/BluetoothDisconnectDialog.tsx";
 import {
   connectMoyuCube,
   formatMoyuConnectError,
@@ -142,11 +146,9 @@ export default function App() {
     () => createDefaultAlgorithmPrefs(browserDefaultAlgorithmStorage()),
     [],
   );
-  const deviceAliasStorage = useMemo(() => browserDeviceAliasStorage(), []);
   const webBluetoothOk = useMemo(() => isWebBluetoothAvailable(), []);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [aliasRevision, setAliasRevision] = useState(0);
-  const [btDevicePanelOpen, setBtDevicePanelOpen] = useState(false);
+  const [btDisconnectConfirmOpen, setBtDisconnectConfirmOpen] = useState(false);
   const [scoreRevision, setScoreRevision] = useState(0);
   const [defaultAlgRevision, setDefaultAlgRevision] = useState(0);
   const [scrambleMoves, setScrambleMoves] = useState<string | null>(null);
@@ -158,6 +160,10 @@ export default function App() {
   const [pendingResult, setPendingResult] = useState<PendingSolve | null>(null);
   const pendingResultRef = useRef<PendingSolve | null>(null);
   pendingResultRef.current = pendingResult;
+  /** 首页大字上次成绩：启动时从本机成绩恢复，停表后再更新。 */
+  const [lastSolveTimeMs, setLastSolveTimeMs] = useState<number | null>(() =>
+    latestSolveTimeMs(scoreLog.list()),
+  );
   const [pendingBluetoothStats, setPendingBluetoothStats] =
     useState<BluetoothSolveStats | null>(null);
   const pendingBluetoothStatsRef = useRef<BluetoothSolveStats | null>(null);
@@ -609,6 +615,23 @@ export default function App() {
     setBtInspectPhase(next);
   }
 
+  /** 观察倒计时归零：进入计时画面并立刻开表（无待转旁注）。 */
+  function startBluetoothTimerAfterInspectTimeout() {
+    if (
+      !shouldAutoStartTimerOnInspectTimeout(btInspectPhaseRef.current) ||
+      timerPhaseRef.current === "running" ||
+      hasPendingSolveUi()
+    ) {
+      return;
+    }
+    bluetoothSolveStartSetupRef.current = bluetoothSetupBeforeMoves();
+    bluetoothSolveTimedRef.current = [];
+    bluetoothSolveClockRef.current = performance.now();
+    cube.current?.setMoveHint(null);
+    resetBluetoothInspect();
+    timer.current?.startRunning();
+  }
+
   function syncScrambleGuide(moves: string | null, connected: boolean) {
     if (!connected || !moves) {
       scrambleGuideRef.current = null;
@@ -818,7 +841,7 @@ export default function App() {
     // 计时首页默认还原态；非蓝牙由播放条跟播，不在刷新公式时写回 3D。
   }, [focus.kind, scrambleMoves]);
 
-  // 蓝牙引导：立体魔方旋转箭头（仅计时 + 已连接 + 引导中）
+  // 蓝牙引导：3D 贴面弯箭头（VisualCube 风格；仅计时 + 已连接 + 引导中）
   useEffect(() => {
     if (focus.kind !== "计时" || !moyuSession || !scrambleGuide) {
       cube.current?.setMoveHint(null);
@@ -843,7 +866,7 @@ export default function App() {
     });
   }, [focus.kind, moyuSession, scrambleGuide, btInspectPhase]);
 
-  // 蓝牙观察倒计时：到期自动进入待转
+  // 蓝牙观察倒计时：到期直接进入计时并开表
   useEffect(() => {
     if (btInspectPhase !== "inspecting") {
       return;
@@ -852,9 +875,7 @@ export default function App() {
       const remaining = Math.max(0, inspectEndsAtRef.current - Date.now());
       setInspectRemainingMs(remaining);
       if (remaining <= 0) {
-        const next = finishBluetoothInspect(btInspectPhaseRef.current);
-        btInspectPhaseRef.current = next;
-        setBtInspectPhase(next);
+        startBluetoothTimerAfterInspectTimeout();
       }
     }, 100);
     return () => window.clearInterval(id);
@@ -884,6 +905,20 @@ export default function App() {
     }
     cube.current?.cancelAnimation();
     void cube.current?.showMoves("");
+  }
+
+  /** 放弃准备 / 计时：不记成绩，回首页并刷新打乱。 */
+  function abandonTiming() {
+    if (!shouldShowAbandonTimingControl(timerPhaseRef.current)) {
+      return;
+    }
+    bluetoothSolveTimedRef.current = [];
+    bluetoothSolveStartSetupRef.current = "";
+    bluetoothSolveClockRef.current = 0;
+    bluetoothSolveCheckGen.current += 1;
+    resetBluetoothInspect();
+    refreshScramble(true);
+    resetNonBluetoothCubeToSolved();
   }
 
   function recordSolveAndRefresh(
@@ -933,6 +968,7 @@ export default function App() {
     if (kind !== "计时" || !scrambleMoves) {
       return;
     }
+    setLastSolveTimeMs(timeMs);
     // 非蓝牙：停表回首页时魔方回到白上绿前复原态；蓝牙继续跟实体。
     resetNonBluetoothCubeToSolved();
     const pending = createPendingSolve({ timeMs, scramble: scrambleMoves });
@@ -1087,6 +1123,7 @@ export default function App() {
   const timingRunning =
     focus.kind === "计时" && isTimingChromeHidden(timerPhase);
   const showTimingHome = focus.kind === "计时" && !timingRunning;
+  const showLastSolveSlot = shouldShowLastSolveSlotOnHome(showTimingHome);
   const timingShellOpts = { bluetoothConnected: Boolean(moyuSession) };
   const modeEntry = modeSwitchPresentation(mode);
 
@@ -1116,11 +1153,6 @@ export default function App() {
     moyuOrientation.current.reset();
   }
 
-  function currentDeviceAlias(session: MoyuBleConnection): string {
-    void aliasRevision;
-    return getDeviceAlias(deviceAliasStorage, session.id) ?? "";
-  }
-
   function disconnectMoyuSession() {
     const session = moyuSessionRef.current;
     if (!session) {
@@ -1133,18 +1165,9 @@ export default function App() {
     moyuSessionRef.current = null;
     syncScrambleGuide(null, false);
     setMoyuNote(null);
-    setBtDevicePanelOpen(false);
+    setBtDisconnectConfirmOpen(false);
     // 断开后回到首页还原态预览，不写回打乱目标。
     cube.current?.setAbsoluteAlg("");
-  }
-
-  function onSaveDeviceAlias(alias: string) {
-    const session = moyuSessionRef.current;
-    if (!session) {
-      return;
-    }
-    setDeviceAlias(deviceAliasStorage, session.id, alias);
-    setAliasRevision((n) => n + 1);
   }
 
   function onMoyuAlignOrientation() {
@@ -1171,7 +1194,7 @@ export default function App() {
       return;
     }
     if (moyuSession) {
-      setBtDevicePanelOpen(true);
+      setBtDisconnectConfirmOpen(true);
       return;
     }
     setMoyuBusy(true);
@@ -1185,7 +1208,7 @@ export default function App() {
           moyuSessionRef.current = null;
           resetBluetoothCubeStateTracking();
           syncScrambleGuide(null, false);
-          setBtDevicePanelOpen(false);
+          setBtDisconnectConfirmOpen(false);
           setMoyuNote("魔方已断开");
           cube.current?.setAbsoluteAlg("");
         },
@@ -1232,13 +1255,10 @@ export default function App() {
       {toastMessage ? (
         <Toast message={toastMessage} onDone={() => setToastMessage(null)} />
       ) : null}
-      {btDevicePanelOpen && moyuSession ? (
-        <BluetoothDeviceDialog
-          alias={currentDeviceAlias(moyuSession)}
-          rawName={moyuSession.name}
-          onSaveAlias={onSaveDeviceAlias}
-          onDisconnect={disconnectMoyuSession}
-          onClose={() => setBtDevicePanelOpen(false)}
+      {btDisconnectConfirmOpen && moyuSession ? (
+        <BluetoothDisconnectDialog
+          onConfirm={disconnectMoyuSession}
+          onCancel={() => setBtDisconnectConfirmOpen(false)}
         />
       ) : null}
       {pendingResult ? (
@@ -1359,14 +1379,14 @@ export default function App() {
                 moyuBusy
                   ? "连接中…"
                   : moyuSession
-                    ? "已连接，打开设备设置"
+                    ? "已连接，点击断开"
                     : "连接魔方"
               }
               title={
                 moyuBusy
                   ? "连接中…"
                   : moyuSession
-                    ? "已连接，打开设备设置"
+                    ? "已连接，点击断开"
                     : "连接魔方"
               }
               onClick={() => {
@@ -1424,6 +1444,20 @@ export default function App() {
             </div>
           ) : (
             <CubeView ref={cube} showLayerControls={false} />
+          )}
+        </div>
+        <div className="slot-last-time" hidden={!showLastSolveSlot}>
+          {lastSolveTimeMs !== null ? (
+            <ElapsedDigits ms={lastSolveTimeMs} className="last-solve-time" />
+          ) : (
+            <p
+              className="last-solve-time last-solve-time-placeholder"
+              aria-hidden="true"
+            >
+              <span className="timer-time-main">0</span>
+              <span className="timer-time-dot" />
+              <span className="timer-time-frac">00</span>
+            </p>
           )}
         </div>
         <div
@@ -1502,6 +1536,9 @@ export default function App() {
             />
           ) : null}
         </div>
+        {focus.kind === "计时" && shouldShowAbandonTimingControl(timerPhase) ? (
+          <TimingAbandonButton onAbandon={abandonTiming} />
+        ) : null}
         <div className="slot-session" hidden={focus.kind !== "练习"}>
           <div className="practice-rail">
             <PracticeFormulaPicker

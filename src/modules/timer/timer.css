@@ -30,6 +30,45 @@ body {
   padding: 8px;
 }
 
+/*
+ * 计时画面右下角「放弃」：用 fixed，避免落在 CSS Grid 自动格子里被裁切。
+ * 预留安全区 + 额外内边距，手机底栏也能完整看见。
+ */
+.timing-abandon {
+  position: fixed;
+  right: max(16px, calc(env(safe-area-inset-right, 0px) + 12px));
+  bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px));
+  z-index: 40;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgb(247 251 255 / 42%);
+  border-radius: 999px;
+  background: rgb(18 28 42 / 55%);
+  color: #f7fbff;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.timing-abandon:hover {
+  background: rgb(247 251 255 / 16%);
+  border-color: rgb(247 251 255 / 70%);
+}
+
+.timing-abandon:active {
+  background: rgb(247 251 255 / 22%);
+}
+
+.timing-abandon-svg {
+  display: block;
+}
+
 .timer-status {
   margin: 0;
   color: #b7b1a4;
@@ -81,6 +120,54 @@ body {
   margin-left: -0.08em;
   border-radius: 50%;
   background: currentColor;
+}
+
+/* 手机端：菱形小数点，更易辨认 */
+@media (max-width: 900px) {
+  .timer-time-dot::after {
+    width: 0.14em;
+    height: 0.14em;
+    margin-left: -0.07em;
+    border-radius: 0;
+    transform: rotate(45deg);
+  }
+
+  .timer-surface[data-phase="armed"] .timer-time-dot::after,
+  .timer-surface[data-phase="running"] .timer-time-dot::after,
+  .last-solve-time .timer-time-dot::after {
+    width: 0.12em;
+    height: 0.12em;
+    margin-left: -0.06em;
+    bottom: 0.1em;
+  }
+}
+
+/* 首页上次成绩：大号数码，非全屏计时级别；无成绩时用同高占位防魔方跳动 */
+.last-solve-time {
+  display: inline-flex;
+  align-items: baseline;
+  margin: 0;
+  min-height: 1.15em;
+  font-family: "DSEG7-Classic", ui-monospace, monospace;
+  font-size: clamp(2.8rem, 16vw, 4.8rem);
+  font-weight: 700;
+  font-variant-numeric: normal;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+  color: #f7fbff;
+}
+
+.last-solve-time-placeholder {
+  visibility: hidden;
+}
+
+.last-solve-time .timer-time-frac {
+  font-size: 0.52em;
+}
+
+.last-solve-time .timer-time-dot {
+  width: 0.2em;
+  height: 0.52em;
 }
 
 .timer-surface .timer-time {

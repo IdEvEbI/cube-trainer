@@ -191,6 +191,13 @@ export function isTimingChromeHidden(phase: SessionPhase): boolean {
   return phase === "armed" || phase === "running";
 }
 
+/**
+ * 计时画面显示「放弃」：准备态 / 计时中均可退出，避免蓝牙无法还原时卡死。
+ */
+export function shouldShowAbandonTimingControl(phase: SessionPhase): boolean {
+  return phase === "armed" || phase === "running";
+}
+
 /** Timing and practice both hide the manual layer turn pad. */
 export function showCubeLayerControls(focusKind: string): boolean {
   return focusKind !== "计时" && focusKind !== "练习";
@@ -257,6 +264,14 @@ export function timingShellVisible(
  */
 export function keepElapsedOnScrambleRefresh(phase: SessionPhase): boolean {
   return phase === "stopped";
+}
+
+/**
+ * 首页上次成绩槽：计时首页常驻占位（避免有无成绩时魔方高度跳动）；
+ * 有成绩则显示数字，无成绩则占位隐藏数字。
+ */
+export function shouldShowLastSolveSlotOnHome(timingHome: boolean): boolean {
+  return timingHome;
 }
 
 /** 非蓝牙停表回首页时复位白上绿前复原态；蓝牙跟实体，不复位。 */

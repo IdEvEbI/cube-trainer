@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   averageOf5,
   createScoreLog,
+  latestSolveTimeMs,
   summarizeAttempts,
   trimmedAverage,
   type ScoreStorage,
@@ -67,6 +68,24 @@ describe("summarizeAttempts", () => {
     assert.equal(summary.ao5Ms, averageOf5(times));
     assert.equal(summary.ao12Ms, null);
     assert.equal(summary.ao100Ms, null);
+  });
+});
+
+describe("latestSolveTimeMs", () => {
+  it("取列表首条为上一把；空列表为 null", () => {
+    assert.equal(latestSolveTimeMs([]), null);
+    assert.equal(
+      latestSolveTimeMs([
+        {
+          timeMs: 12340,
+          scramble: "R",
+          recordedAt: "2026-01-01T00:00:00.000Z",
+          mode: "非蓝牙",
+          split: false,
+        },
+      ]),
+      12340,
+    );
   });
 });
 

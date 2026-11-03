@@ -1,0 +1,61 @@
+.bt-disconnect-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(18 28 42 / 42%);
+}
+
+.bt-disconnect-dialog-card {
+  box-sizing: border-box;
+  width: min(100%, 360px);
+  padding: 22px 20px 18px;
+  border-radius: 18px;
+  background: #4a7eb5;
+  color: #f7fbff;
+  box-shadow: 0 16px 40px rgb(12 24 40 / 28%);
+}
+
+.bt-disconnect-dialog-title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.bt-disconnect-dialog-copy {
+  margin: 0 0 18px;
+  color: rgb(247 251 255 / 86%);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.bt-disconnect-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bt-disconnect-dialog-confirm,
+.bt-disconnect-dialog-cancel {
+  flex: 1 1 120px;
+  min-height: 44px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bt-disconnect-dialog-confirm {
+  border: 1px solid rgb(247 251 255 / 48%);
+  background: transparent;
+  color: #ffe0e0;
+}
+
+.bt-disconnect-dialog-cancel {
+  border: 0;
+  background: #f7fbff;
+  color: #2a5078;
+}
