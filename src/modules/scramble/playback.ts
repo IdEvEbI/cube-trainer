@@ -1,5 +1,11 @@
 import { parseScramble } from "./scramble.ts";
 
+/**
+ * 非蓝牙打乱自动播放：单步墙钟毫秒（含转动动画）。
+ * 偏慢，方便对照实体魔方跟拧；练习页仍用 `PLAYBACK_STEP_MS`。
+ */
+export const SCRAMBLE_PLAYBACK_STEP_MS = 1000;
+
 /** Cursor over a face-turn scramble: index 0 = solved, length = fully scrambled. */
 export type ScrambleCursor = {
   moves: string[];
@@ -51,4 +57,17 @@ export function scrambleHighlightedStep(cursor: ScrambleCursor): number | null {
     return null;
   }
   return Math.min(cursor.index, cursor.moves.length) - 1;
+}
+
+/**
+ * 公式条「当前步」高亮：游标停在「即将 / 正在执行」的步上。
+ * 播放时须等该步动画结束后再 `scrambleStepNext`，否则会快一拍。
+ */
+export function scrambleCurrentStepIndex(
+  cursor: ScrambleCursor,
+): number | null {
+  if (cursor.moves.length === 0 || isScrambleAtEnd(cursor)) {
+    return null;
+  }
+  return cursor.index;
 }

@@ -20,16 +20,41 @@ export type SessionEvent =
   | { type: "hold_ready" }
   | { type: "hold_cancel" }
   | { type: "hold_release" }
+  /** 非蓝牙：长按达标后进入倒计时（准备态）。 */
+  | { type: "arm" }
   /** 蓝牙：打乱完成后实体首次转动直接进入计时（跳过长按预备）。 */
   | { type: "bt_start" }
   | { type: "stop" }
   | { type: "reset" };
 
+/** 非蓝牙短按松手：未打乱完 → 播放打乱；已打乱完 → 直接开表。 */
+export type NonBluetoothShortReleaseAction = "play_scramble" | "start_now";
+
+export function nonBluetoothShortReleaseAction(
+  scrambleComplete: boolean,
+): NonBluetoothShortReleaseAction {
+  return scrambleComplete ? "start_now" : "play_scramble";
+}
+
+/** 非蓝牙长按达标：仅打乱已完成才进入浅绿倒计时。 */
+export function nonBluetoothHoldReadyAction(
+  scrambleComplete: boolean,
+): "enter_armed" | "stay_arming" {
+  return scrambleComplete ? "enter_armed" : "stay_arming";
+}
+
 /**
  * Keyboard Space must arm on keydown so one press (down + up) starts.
  * Soft-key taps are shorter than {@link ARM_HOLD_MS} and would cancel otherwise.
+ * 非蓝牙首页手势需区分短按 / 长按，空格与触控统一用 {@link ARM_HOLD_MS}。
  */
-export function armHoldDelayMs(source: TimingInputSource): number {
+export function armHoldDelayMs(
+  source: TimingInputSource,
+  options: { uniformHold?: boolean } = {},
+): number {
+  if (options.uniformHold) {
+    return ARM_HOLD_MS;
+  }
   return source === "keyboard" ? 0 : ARM_HOLD_MS;
 }
 
@@ -108,6 +133,11 @@ export function reduceSession(
       }
       if (phase === "arming") {
         return "idle";
+      }
+      return phase;
+    case "arm":
+      if (phase === "idle" || phase === "stopped" || phase === "arming") {
+        return "armed";
       }
       return phase;
     case "bt_start":
@@ -251,13 +281,19 @@ export function releaseTimingFocus(target: { blur(): void } | null): void {
   target?.blur();
 }
 
-/** Selector for UI that must not arm/stop the timer (buttons, 3D cube drag, etc.). */
+/** Selector for UI that must not arm/stop the timer（按钮等；不含 3D，短按可开表）。 */
 export const TIMING_POINTER_IGNORE =
-  "button, summary, a, input, textarea, select, .cube-view, twisty-player";
+  "button, summary, a, input, textarea, select";
+
+/** 3D 魔方区域：短按走计时手势，拖过阈值则取消并交给旋转。 */
+export const TIMING_POINTER_CUBE = ".cube-view, twisty-player";
+
+/** 魔方上按下后移动超过该像素，视为旋转而非点按开表。 */
+export const CUBE_ORBIT_MOVE_PX = 12;
 
 /**
  * Pointer targets inside controls must not start a hold.
- * Includes SVG inside buttons and the 3D cube (drag to inspect, not to time).
+ * Includes SVG inside buttons；3D 见 {@link isTimingPointerOnCube}。
  */
 export function isTimingPointerOnControl(target: EventTarget | null): boolean {
   if (
@@ -267,4 +303,27 @@ export function isTimingPointerOnControl(target: EventTarget | null): boolean {
     return false;
   }
   return Boolean((target as Element).closest(TIMING_POINTER_IGNORE));
+}
+
+export function isTimingPointerOnCube(target: EventTarget | null): boolean {
+  if (
+    !target ||
+    typeof (target as { closest?: unknown }).closest !== "function"
+  ) {
+    return false;
+  }
+  return Boolean((target as Element).closest(TIMING_POINTER_CUBE));
+}
+
+/** 魔方指针移动是否已超出点按范围，应取消计时手势、保留旋转。 */
+export function shouldCancelTimingHoldForCubeDrag(
+  startX: number,
+  startY: number,
+  clientX: number,
+  clientY: number,
+  thresholdPx: number = CUBE_ORBIT_MOVE_PX,
+): boolean {
+  const dx = clientX - startX;
+  const dy = clientY - startY;
+  return dx * dx + dy * dy >= thresholdPx * thresholdPx;
 }

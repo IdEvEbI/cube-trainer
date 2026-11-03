@@ -6,19 +6,24 @@ import {
   type Ref,
 } from "react";
 import {
+  ARM_HOLD_MS,
   armHoldDelayMs,
   displayPhase,
+  nonBluetoothHoldReadyAction,
+  nonBluetoothShortReleaseAction,
   reduceHoldStart,
   reduceSession,
   shouldEndHoldOnRelease,
   type SessionPhase,
   type TimingInputSource,
 } from "./session.ts";
-import { createTimer, formatElapsed } from "./timer.ts";
+import { createTimer, formatElapsedParts, timerDisplayScale } from "./timer.ts";
 import "./timer.css";
 
 export type TimerHandle = {
   prepare(): void;
+  /** 非蓝牙：长按达标后进入倒计时（浅绿闪烁 0.00）。 */
+  enterArmed(): void;
   pressDown(source?: TimingInputSource): void;
   pressUp(): void;
   pressCancel(): void;
@@ -44,6 +49,10 @@ export function TimerView({
   inputEnabled = true,
   allowHoldStart = true,
   allowManualStop = true,
+  scrambleHomeGestures = false,
+  scramblePlaying = false,
+  scrambleComplete = false,
+  onPlayScramble,
 }: {
   ref?: Ref<TimerHandle>;
   onStop?: (timeMs: number) => void;
@@ -63,6 +72,16 @@ export function TimerView({
    * `stopRunning()` 仍可用。
    */
   allowManualStop?: boolean;
+  /**
+   * 非蓝牙首页：短按播打乱 / 直接开表；长按进入浅绿倒计时。
+   */
+  scrambleHomeGestures?: boolean;
+  /** 打乱自动播放中；空格 / 点击应暂停而非开表。 */
+  scramblePlaying?: boolean;
+  /** 打乱游标是否已到末步（与播放条进度一致）。 */
+  scrambleComplete?: boolean;
+  /** 短按且未打乱完时触发自动播放；播放中再调则暂停。 */
+  onPlayScramble?: () => void;
 }) {
   const timer = useRef(createTimer());
   const phaseRef = useRef<SessionPhase>("idle");
@@ -73,14 +92,33 @@ export function TimerView({
   const inputEnabledRef = useRef(inputEnabled);
   const allowHoldStartRef = useRef(allowHoldStart);
   const allowManualStopRef = useRef(allowManualStop);
+  const scrambleHomeGesturesRef = useRef(scrambleHomeGestures);
+  const scramblePlayingRef = useRef(scramblePlaying);
+  const scrambleCompleteRef = useRef(scrambleComplete);
+  const onPlayScrambleRef = useRef(onPlayScramble);
   onStopRef.current = onStop;
   onPhaseChangeRef.current = onPhaseChange;
   inputEnabledRef.current = inputEnabled;
   allowHoldStartRef.current = allowHoldStart;
   allowManualStopRef.current = allowManualStop;
+  scrambleHomeGesturesRef.current = scrambleHomeGestures;
+  scramblePlayingRef.current = scramblePlaying;
+  scrambleCompleteRef.current = scrambleComplete;
+  onPlayScrambleRef.current = onPlayScramble;
   const [phase, setPhase] = useState<SessionPhase>("idle");
   const [elapsed, setElapsed] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1280 : window.innerWidth,
+  );
   const shown = displayPhase(phase);
+
+  useEffect(() => {
+    function onResize() {
+      setViewportWidth(window.innerWidth);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   function moveTo(next: SessionPhase) {
     if (phaseRef.current === next) {
@@ -102,6 +140,12 @@ export function TimerView({
     }
   }
 
+  function goRunning() {
+    timer.current.start();
+    setElapsed(timer.current.current());
+    apply({ type: "hold_release" });
+  }
+
   function beginHold(source: TimingInputSource) {
     const current = phaseRef.current;
     if (current === "running") {
@@ -114,9 +158,24 @@ export function TimerView({
     // 每次进入准备都复位显示，避免仍停在上一次成绩。
     timer.current.reset();
     setElapsed(0);
+
+    if (scrambleHomeGesturesRef.current) {
+      // 空格 / 触控统一延迟，区分短按与长按。
+      apply({ type: "hold_start" });
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null;
+        if (
+          nonBluetoothHoldReadyAction(scrambleCompleteRef.current) ===
+          "enter_armed"
+        ) {
+          apply({ type: "hold_ready" });
+        }
+      }, ARM_HOLD_MS);
+      return;
+    }
+
     const next = reduceHoldStart(current, source);
     moveTo(next);
-    // Keyboard arms synchronously; pointer still waits out the hold delay.
     const delayMs = armHoldDelayMs(source);
     if (delayMs > 0 && next === "arming") {
       holdTimer.current = setTimeout(() => {
@@ -130,13 +189,25 @@ export function TimerView({
     clearHold();
     const current = phaseRef.current;
     if (current === "arming") {
+      if (scrambleHomeGesturesRef.current) {
+        const action = nonBluetoothShortReleaseAction(
+          scrambleCompleteRef.current,
+        );
+        apply({ type: "hold_cancel" });
+        if (action === "play_scramble") {
+          onPlayScrambleRef.current?.();
+        } else {
+          timer.current.start();
+          setElapsed(timer.current.current());
+          apply({ type: "bt_start" });
+        }
+        return;
+      }
       apply({ type: "hold_cancel" });
       return;
     }
     if (current === "armed") {
-      timer.current.start();
-      setElapsed(timer.current.current());
-      apply({ type: "hold_release" });
+      goRunning();
     }
   }
 
@@ -170,6 +241,17 @@ export function TimerView({
     apply({ type: "reset" });
   }
 
+  function enterArmed() {
+    if (phaseRef.current === "running" || phaseRef.current === "armed") {
+      return;
+    }
+    clearHold();
+    ignoreNextRelease.current = false;
+    timer.current.reset();
+    setElapsed(0);
+    apply({ type: "arm" });
+  }
+
   function pressDown(source: TimingInputSource = "pointer") {
     if (!inputEnabledRef.current) {
       return;
@@ -179,6 +261,12 @@ export function TimerView({
         return;
       }
       finish();
+      ignoreNextRelease.current = true;
+      return;
+    }
+    // 打乱播放中：空格只暂停，不进入开表 / 倒计时手势。
+    if (scrambleHomeGesturesRef.current && scramblePlayingRef.current) {
+      onPlayScrambleRef.current?.();
       ignoreNextRelease.current = true;
       return;
     }
@@ -272,6 +360,7 @@ export function TimerView({
 
   useImperativeHandle(ref, () => ({
     prepare: reset,
+    enterArmed,
     pressDown,
     pressUp,
     pressCancel: cancelHold,
@@ -279,14 +368,20 @@ export function TimerView({
     stopRunning,
   }));
 
+  const parts = formatElapsedParts(elapsed);
+  const scale = timerDisplayScale(elapsed, viewportWidth);
+
   return (
     <section
       className={showControls ? "timer" : "timer timer-surface"}
       data-phase={shown}
+      data-scale={scale}
     >
       {showChrome ? <p className="timer-status">{statusLabel[shown]}</p> : null}
       <p className={shown === "armed" ? "timer-time is-armed" : "timer-time"}>
-        {formatElapsed(elapsed)}
+        <span className="timer-time-main">{parts.main}</span>
+        <span className="timer-time-dot" aria-hidden="true" />
+        <span className="timer-time-frac">{parts.fraction}</span>
       </p>
       {showControls ? (
         <div className="timer-actions">
@@ -305,15 +400,15 @@ export function TimerView({
             停止
           </button>
           <button type="button" onClick={reset}>
-            重置
+            复位
           </button>
         </div>
       ) : null}
       {showChrome ? (
         <p className="timer-hint">
-          {showControls
-            ? "空格开始，再按空格停止；触控仍长按预备"
-            : "长按预备，松手开始；计时中点击停止"}
+          {scrambleHomeGestures
+            ? "短按播打乱或开表；长按进入倒计时，松手开表；计时中再按停止"
+            : "打乱完成后自动进入倒计时；空格或点击开始 / 停止"}
         </p>
       ) : null}
     </section>

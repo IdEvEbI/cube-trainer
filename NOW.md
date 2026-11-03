@@ -6,10 +6,12 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-**蓝牙计时 3D 与还原成绩统计**：已开 PR，等待合入。
+**计时显示与非蓝牙手势**：已开 PR，等待合入。
 
-- Issue [#84](https://github.com/IdEvEbI/cube-trainer/issues/84) / PR [#85](https://github.com/IdEvEbI/cube-trainer/pull/85)
-- 分支 `feat/#84-bt-timing-stats`
+- Issue [#86](https://github.com/IdEvEbI/cube-trainer/issues/86) / PR [#87](https://github.com/IdEvEbI/cube-trainer/pull/87)
+- 分支 `feat/#86-timer-display-gestures`（叠在 `#84` / PR [#85](https://github.com/IdEvEbI/cube-trainer/pull/85) 之上）
+
+仍待合入：蓝牙计时 3D 与还原成绩统计 — [#84](https://github.com/IdEvEbI/cube-trainer/issues/84) / [#85](https://github.com/IdEvEbI/cube-trainer/pull/85)。
 
 ## 下一步计划
 
@@ -19,7 +21,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 4. ~~公式更新与默认算法~~（A #57 / B #59 已合入）
 5. ~~公式目录 Wiki 对齐 + 空槽~~（已合入 #61）
 6. ~~蓝牙模式打乱计时流程~~（引导 #73、计时闭环 #75 已合入）
-7. **UI/UE 统一**：~~设计文档 #77~~ → ~~首页布局 #79~~ → ~~非蓝牙播放/开表 #81~~ → ~~蓝牙连接反馈 #83~~ → 练习页（另开）。
+7. **UI/UE 统一**：~~设计文档 #77~~ → ~~首页布局 #79~~ → ~~非蓝牙播放/开表 #81~~ → ~~蓝牙连接反馈 #83~~ → 计时显示/非蓝牙手势 #86（待合入）→ 练习页（另开）。
 8. ~~**蓝牙还原统计**~~（弹层基础版 #85 待合入）→ 成绩详情 / 复盘另做。
 9. **成绩列表 + 图表**。
 10. **公式练习蓝牙闭环**：打乱到练习状态 + 练习次数统计。

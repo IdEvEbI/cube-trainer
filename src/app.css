@@ -200,10 +200,11 @@
   grid-template-columns: 1fr;
   /* 顶栏外：魔方 → 打乱 → 统计 → 计时器（计时器仅准备态/计时中全屏显示） */
   grid-template-rows: minmax(0, 1fr) auto auto auto;
-  gap: 6px;
+  /* 魔方 → 打乱 → 统计：与 design space.3 对齐，避免贴死 */
+  gap: 12px;
   align-items: stretch;
   justify-items: center;
-  padding: 0 10px 10px;
+  padding: 0 12px 14px;
   user-select: none;
   -webkit-user-select: none;
   transition: background-color 0.2s ease;
@@ -290,7 +291,7 @@ body:has(
   min-width: 0;
   display: grid;
   justify-items: center;
-  padding: 0 0 4px;
+  padding: 4px 0 8px;
 }
 
 .focus[data-focus="计时"] .preview-stage {
@@ -505,9 +506,28 @@ body:has(
   font-size: clamp(2.8rem, 12vw, 4rem);
 }
 
+.focus[data-focus="计时"] .timer-surface[data-phase="armed"] .timer-time,
 .focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
-  font-size: clamp(4.2rem, 22vw, 7.5rem);
-  font-weight: 600;
+  font-size: clamp(5.2rem, 28vw, 9.5rem);
+  font-weight: 700;
+}
+
+.focus[data-focus="计时"]
+  .timer-surface[data-scale="compact"]:is(
+    [data-phase="armed"],
+    [data-phase="running"]
+  )
+  .timer-time {
+  font-size: clamp(3.6rem, 16vw, 6.2rem);
+}
+
+.focus[data-focus="计时"]
+  .timer-surface[data-scale="tight"]:is(
+    [data-phase="armed"],
+    [data-phase="running"]
+  )
+  .timer-time {
+  font-size: clamp(2.6rem, 11vw, 4.4rem);
 }
 
 /* Practice: soft-blue home; cube upper-middle; picker overlays (does not push layout). */
@@ -902,8 +922,28 @@ body:has(.focus[data-focus="练习"]),
     font-size: clamp(3.6rem, 7vw, 5.6rem);
   }
 
+  .focus[data-focus="计时"] .timer-surface[data-phase="armed"] .timer-time,
   .focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
-    font-size: clamp(5.5rem, 12vw, 9rem);
+    font-size: clamp(6rem, 14vw, 10.5rem);
+    font-weight: 700;
+  }
+
+  .focus[data-focus="计时"]
+    .timer-surface[data-scale="compact"]:is(
+      [data-phase="armed"],
+      [data-phase="running"]
+    )
+    .timer-time {
+    font-size: clamp(4rem, 10vw, 7rem);
+  }
+
+  .focus[data-focus="计时"]
+    .timer-surface[data-scale="tight"]:is(
+      [data-phase="armed"],
+      [data-phase="running"]
+    )
+    .timer-time {
+    font-size: clamp(3rem, 7vw, 5rem);
   }
 
   /* Wide practice: cube upper-middle; compact picker overlays less. */
@@ -1033,8 +1073,27 @@ body:has(.focus[data-focus="练习"]),
     font-size: clamp(2.6rem, 11vw, 3.6rem);
   }
 
+  .focus[data-focus="计时"] .timer-surface[data-phase="armed"] .timer-time,
   .focus[data-focus="计时"] .timer-surface[data-phase="running"] .timer-time {
-    font-size: clamp(3.8rem, 18vw, 5.5rem);
+    font-size: clamp(4.8rem, 24vw, 8rem);
     font-weight: 700;
+  }
+
+  .focus[data-focus="计时"]
+    .timer-surface[data-scale="compact"]:is(
+      [data-phase="armed"],
+      [data-phase="running"]
+    )
+    .timer-time {
+    font-size: clamp(3.2rem, 14vw, 5.2rem);
+  }
+
+  .focus[data-focus="计时"]
+    .timer-surface[data-scale="tight"]:is(
+      [data-phase="armed"],
+      [data-phase="running"]
+    )
+    .timer-time {
+    font-size: clamp(2.4rem, 10vw, 3.8rem);
   }
 }

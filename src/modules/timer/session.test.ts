@@ -7,13 +7,18 @@ import {
   displayPhase,
   isTimerHomeToolsGapComfortable,
   isTimingChromeHidden,
+  CUBE_ORBIT_MOVE_PX,
   isTimingPointerOnControl,
+  isTimingPointerOnCube,
   keepElapsedOnScrambleRefresh,
   nextCubePreviewMode,
+  nonBluetoothHoldReadyAction,
+  nonBluetoothShortReleaseAction,
   reduceHoldStart,
   reduceSession,
   releaseTimingFocus,
   allowManualTimerStop,
+  shouldCancelTimingHoldForCubeDrag,
   shouldEndHoldOnRelease,
   shouldResetCubeOnTimingHome,
   shouldStartBluetoothTimer,
@@ -127,6 +132,33 @@ describe("reduceSession", () => {
     assert.equal(reduceSession("armed", { type: "bt_start" }), "running");
     assert.equal(reduceSession("running", { type: "bt_start" }), "running");
     assert.equal(isTimingChromeHidden("running"), true);
+  });
+
+  it("非蓝牙打乱完成后可 arm 直接进入倒计时，按下开表", () => {
+    let phase: SessionPhase = "idle";
+    phase = reduceSession(phase, { type: "arm" });
+    assert.equal(phase, "armed");
+    phase = reduceSession(phase, { type: "hold_release" });
+    assert.equal(phase, "running");
+    phase = reduceSession(phase, { type: "stop" });
+    assert.equal(phase, "stopped");
+  });
+});
+
+describe("nonBluetooth home gestures", () => {
+  it("短按：未打乱完播打乱，已打乱完直接开表", () => {
+    assert.equal(nonBluetoothShortReleaseAction(false), "play_scramble");
+    assert.equal(nonBluetoothShortReleaseAction(true), "start_now");
+  });
+
+  it("长按达标：仅打乱完成后进入倒计时；空格与触控统一延迟", () => {
+    assert.equal(nonBluetoothHoldReadyAction(false), "stay_arming");
+    assert.equal(nonBluetoothHoldReadyAction(true), "enter_armed");
+    assert.equal(
+      armHoldDelayMs("keyboard", { uniformHold: true }),
+      ARM_HOLD_MS,
+    );
+    assert.equal(armHoldDelayMs("pointer", { uniformHold: true }), ARM_HOLD_MS);
   });
 });
 
@@ -364,7 +396,7 @@ describe("isTimingPointerOnControl", () => {
     );
   });
 
-  it("拖动三维魔方不启动计时", () => {
+  it("三维魔方不算控件：短可开表，拖过阈值才取消", () => {
     const cube = {
       closest(selector: string) {
         return selector.includes(".cube-view") ||
@@ -375,7 +407,11 @@ describe("isTimingPointerOnControl", () => {
     };
     assert.equal(
       isTimingPointerOnControl(cube as unknown as EventTarget),
-      true,
+      false,
     );
+    assert.equal(isTimingPointerOnCube(cube as unknown as EventTarget), true);
+    assert.equal(CUBE_ORBIT_MOVE_PX, 12);
+    assert.equal(shouldCancelTimingHoldForCubeDrag(0, 0, 5, 5), false);
+    assert.equal(shouldCancelTimingHoldForCubeDrag(0, 0, 12, 0), true);
   });
 });

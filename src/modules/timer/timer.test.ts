@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createTimer, formatElapsed } from "./timer.ts";
+import {
+  createTimer,
+  formatElapsed,
+  formatElapsedParts,
+  timerDisplayScale,
+  TIMER_NARROW_VIEWPORT_PX,
+} from "./timer.ts";
 
 function fakeClock(start = 1_000) {
   let now = start;
@@ -107,10 +113,56 @@ describe("createTimer", () => {
 });
 
 describe("formatElapsed", () => {
-  it("把毫秒格式化成分秒", () => {
-    assert.equal(formatElapsed(0), "0.000");
-    assert.equal(formatElapsed(1500), "1.500");
-    assert.equal(formatElapsed(65_000), "1:05.000");
-    assert.equal(formatElapsed(-20), "0.000");
+  it("按厘秒两位显示，减轻毫秒位闪烁", () => {
+    assert.equal(formatElapsed(0), "0.00");
+    assert.equal(formatElapsed(1500), "1.50");
+    assert.equal(formatElapsed(1509), "1.50");
+    assert.equal(formatElapsed(65_000), "1:05.00");
+    assert.equal(formatElapsed(-20), "0.00");
+  });
+});
+
+describe("formatElapsedParts", () => {
+  it("拆出主段与两位厘秒，供大号/小号排版", () => {
+    assert.deepEqual(formatElapsedParts(0), { main: "0", fraction: "00" });
+    assert.deepEqual(formatElapsedParts(21_040), {
+      main: "21",
+      fraction: "04",
+    });
+    assert.deepEqual(formatElapsedParts(103_000), {
+      main: "1:43",
+      fraction: "00",
+    });
+  });
+});
+
+describe("timerDisplayScale", () => {
+  const tenMin = 10 * 60_000;
+  const hundredMin = 100 * 60_000;
+
+  it("未满 10 分钟保持 normal，宽窄屏一致", () => {
+    assert.equal(timerDisplayScale(0), "normal");
+    assert.equal(timerDisplayScale(tenMin - 1), "normal");
+    assert.equal(
+      timerDisplayScale(tenMin - 1, TIMER_NARROW_VIEWPORT_PX),
+      "normal",
+    );
+  });
+
+  it("满 10 分钟：宽屏 compact，窄屏（手机）tight", () => {
+    assert.equal(timerDisplayScale(tenMin, 1280), "compact");
+    assert.equal(timerDisplayScale(tenMin, TIMER_NARROW_VIEWPORT_PX), "tight");
+    assert.equal(
+      timerDisplayScale(tenMin, TIMER_NARROW_VIEWPORT_PX - 1),
+      "tight",
+    );
+  });
+
+  it("满 100 分钟一律 tight，避免三位分钟溢出", () => {
+    assert.equal(timerDisplayScale(hundredMin, 1280), "tight");
+    assert.equal(
+      timerDisplayScale(hundredMin, TIMER_NARROW_VIEWPORT_PX),
+      "tight",
+    );
   });
 });
