@@ -8,7 +8,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 **计时显示与非蓝牙手势**：已开 PR，等待合入。
 
-- Issue [#86](https://github.com/IdEvEbI/cube-trainer/issues/86) / PR（见下）
+- Issue [#86](https://github.com/IdEvEbI/cube-trainer/issues/86) / PR [#87](https://github.com/IdEvEbI/cube-trainer/pull/87)
 - 分支 `feat/#86-timer-display-gestures`（叠在 `#84` / PR [#85](https://github.com/IdEvEbI/cube-trainer/pull/85) 之上）
 
 仍待合入：蓝牙计时 3D 与还原成绩统计 — [#84](https://github.com/IdEvEbI/cube-trainer/issues/84) / [#85](https://github.com/IdEvEbI/cube-trainer/pull/85)。
