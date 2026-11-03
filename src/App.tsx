@@ -49,7 +49,13 @@ import {
   type PracticeCase,
 } from "./modules/practice/setup.ts";
 import { practiceStickering } from "./modules/practice/stickering.ts";
+import {
+  buildBluetoothSolveStats,
+  type BluetoothSolveStats,
+} from "./modules/score/bluetoothSolveStats.ts";
+import { BluetoothSolveStatsDialog } from "./modules/score/BluetoothSolveStatsDialog.tsx";
 import { browserScoreStorage, createScoreLog } from "./modules/score/score.ts";
+import type { TimedSolveMove } from "./modules/score/solveMetrics.ts";
 import {
   BLUETOOTH_INSPECT_MS,
   finishBluetoothInspect,
@@ -58,7 +64,7 @@ import {
   type BluetoothInspectPhase,
 } from "./modules/scramble/bluetoothInspect.ts";
 import { BluetoothInspectPanel } from "./modules/scramble/BluetoothInspectPanel.tsx";
-import { isSolvedAfterScramble } from "./modules/scramble/bluetoothSolve.ts";
+import { isSolvedFromSetup } from "./modules/scramble/bluetoothSolve.ts";
 import {
   applyGuidedMove,
   createGuidedScramble,
@@ -81,10 +87,12 @@ import { randomScramble3x3 } from "./modules/scramble/scramble.ts";
 import {
   createPendingSolve,
   resolveResultConfirm,
+  shouldShowBluetoothSolveStats,
   type PendingSolve,
 } from "./modules/timer/resultConfirm.ts";
 import { ResultConfirmDialog } from "./modules/timer/ResultConfirmDialog.tsx";
 import {
+  allowManualTimerStop,
   isTimingChromeHidden,
   isTimingPointerOnControl,
   keepElapsedOnScrambleRefresh,
@@ -147,6 +155,10 @@ export default function App() {
   const [pendingResult, setPendingResult] = useState<PendingSolve | null>(null);
   const pendingResultRef = useRef<PendingSolve | null>(null);
   pendingResultRef.current = pendingResult;
+  const [pendingBluetoothStats, setPendingBluetoothStats] =
+    useState<BluetoothSolveStats | null>(null);
+  const pendingBluetoothStatsRef = useRef<BluetoothSolveStats | null>(null);
+  pendingBluetoothStatsRef.current = pendingBluetoothStats;
   const [focus, setFocus] = useState<Focus>({ kind: "计时" });
   const [practice, setPractice] = useState<PracticeCase | null>(null);
   const [practiceNote, setPracticeNote] = useState<string | null>(null);
@@ -174,10 +186,15 @@ export default function App() {
   const scrambleGuideRef = useRef<GuidedScramble | null>(null);
   const btInspectPhaseRef = useRef<BluetoothInspectPhase>("off");
   btInspectPhaseRef.current = btInspectPhase;
-  /** 计时中累计的实体转动（相对本轮打乱），用于还原检测。 */
-  const bluetoothSolveMovesRef = useRef<string[]>([]);
-  /** 观察 / 待转阶段已发生的转动，开表时并入还原序列。 */
-  const bluetoothPreStartMovesRef = useRef<string[]>([]);
+  /** 连接时 facelets 对应的 setupAlg（从复原到当时状态）。 */
+  const bluetoothSetupAlgRef = useRef("");
+  /** 连接后全部实体转动，用于白上绿前复原判定。 */
+  const bluetoothStateMovesRef = useRef<string[]>([]);
+  /** 开表瞬间相对复原的 setup（不含开表当次转动）。 */
+  const bluetoothSolveStartSetupRef = useRef("");
+  /** 计时中带时刻的转动，用于分段统计。 */
+  const bluetoothSolveTimedRef = useRef<TimedSolveMove[]>([]);
+  const bluetoothSolveClockRef = useRef(0);
   const bluetoothSolveCheckGen = useRef(0);
   const inspectEndsAtRef = useRef(0);
   const moyuOrientation = useRef(new MoyuOrientationTracker());
@@ -517,7 +534,31 @@ export default function App() {
     setBtInspectPhase("off");
     setInspectRemainingMs(BLUETOOTH_INSPECT_MS);
     inspectEndsAtRef.current = 0;
-    bluetoothPreStartMovesRef.current = [];
+  }
+
+  function resetBluetoothCubeStateTracking(setupAlg = "") {
+    bluetoothSetupAlgRef.current = setupAlg;
+    bluetoothStateMovesRef.current = [];
+    bluetoothSolveStartSetupRef.current = "";
+    bluetoothSolveTimedRef.current = [];
+    bluetoothSolveClockRef.current = 0;
+    bluetoothSolveCheckGen.current += 1;
+  }
+
+  function bluetoothSetupBeforeMoves(): string {
+    const parts = [
+      bluetoothSetupAlgRef.current,
+      ...bluetoothStateMovesRef.current,
+    ]
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return parts.join(" ");
+  }
+
+  function hasPendingSolveUi(): boolean {
+    return Boolean(
+      pendingResultRef.current || pendingBluetoothStatsRef.current,
+    );
   }
 
   function beginBluetoothInspect() {
@@ -540,17 +581,6 @@ export default function App() {
     setBtInspectPhase(next);
   }
 
-  /** 观察中拧动：结束倒计时进入待转，再开表并记账。 */
-  function startBluetoothTimerFromMoves(samples: readonly MoyuMoveSample[]) {
-    if (shouldEndInspectOnCubeTurn(btInspectPhaseRef.current)) {
-      const next = finishBluetoothInspect(btInspectPhaseRef.current);
-      btInspectPhaseRef.current = next;
-      setBtInspectPhase(next);
-    }
-    maybeStartBluetoothTimer();
-    appendBluetoothSolveMoves(samples);
-  }
-
   function syncScrambleGuide(moves: string | null, connected: boolean) {
     if (!connected || !moves) {
       scrambleGuideRef.current = null;
@@ -570,58 +600,94 @@ export default function App() {
     }
   }
 
-  function resetBluetoothSolveTracking() {
-    bluetoothSolveMovesRef.current = [];
-    bluetoothSolveCheckGen.current += 1;
+  function recordBluetoothStateMoves(samples: readonly MoyuMoveSample[]) {
+    for (const sample of samples) {
+      bluetoothStateMovesRef.current.push(sample.move);
+    }
   }
 
-  function maybeStartBluetoothTimer() {
-    if (!moyuSessionRef.current || pendingResultRef.current) {
-      return;
+  function appendBluetoothSolveTimedMoves(
+    samples: readonly MoyuMoveSample[],
+  ): void {
+    const origin = bluetoothSolveClockRef.current;
+    for (const sample of samples) {
+      bluetoothSolveTimedRef.current.push({
+        move: sample.move,
+        atMs: Math.max(0, Math.round(performance.now() - origin)),
+      });
     }
-    const guide = scrambleGuideRef.current;
-    if (
-      !shouldStartBluetoothTimer(
-        guide?.phase === "done",
-        timerPhaseRef.current,
-        btInspectPhaseRef.current,
-      )
-    ) {
-      return;
-    }
-    cube.current?.setMoveHint(null);
-    resetBluetoothSolveTracking();
-    bluetoothSolveMovesRef.current = bluetoothPreStartMovesRef.current.slice();
-    bluetoothPreStartMovesRef.current = [];
-    timer.current?.startRunning();
   }
 
-  function appendBluetoothSolveMoves(samples: readonly MoyuMoveSample[]) {
+  function maybeStopBluetoothTimerOnSolved() {
     if (
       !moyuSessionRef.current ||
-      pendingResultRef.current ||
+      hasPendingSolveUi() ||
       timerPhaseRef.current !== "running"
     ) {
       return;
     }
-    const scramble = scrambleMovesRef.current;
-    if (!scramble) {
-      return;
-    }
-    for (const sample of samples) {
-      bluetoothSolveMovesRef.current.push(sample.move);
-    }
-    const movesSnapshot = bluetoothSolveMovesRef.current.slice();
+    const movesSnapshot = bluetoothStateMovesRef.current.slice();
+    const setupAlg = bluetoothSetupAlgRef.current;
     const checkGen = bluetoothSolveCheckGen.current;
-    void isSolvedAfterScramble(scramble, movesSnapshot).then((solved) => {
+    void isSolvedFromSetup(setupAlg, movesSnapshot).then((solved) => {
       if (!solved || checkGen !== bluetoothSolveCheckGen.current) {
         return;
       }
-      if (pendingResultRef.current || timerPhaseRef.current !== "running") {
+      if (hasPendingSolveUi() || timerPhaseRef.current !== "running") {
         return;
       }
       timer.current?.stopRunning();
     });
+  }
+
+  /**
+   * 打乱完成后的实体转动：观察中拧动开表；计时中记账并检测还原。
+   * 开表前快照 setup，开表当次转动计入解题序列。
+   */
+  function handlePostGuideBluetoothMoves(
+    samples: readonly MoyuMoveSample[],
+  ): void {
+    if (samples.length === 0) {
+      return;
+    }
+    if (btInspectPhaseRef.current === "off") {
+      beginBluetoothInspect();
+    }
+    if (shouldEndInspectOnCubeTurn(btInspectPhaseRef.current)) {
+      const next = finishBluetoothInspect(btInspectPhaseRef.current);
+      btInspectPhaseRef.current = next;
+      setBtInspectPhase(next);
+    }
+    if (hasPendingSolveUi()) {
+      recordBluetoothStateMoves(samples);
+      return;
+    }
+    if (timerPhaseRef.current === "running") {
+      recordBluetoothStateMoves(samples);
+      appendBluetoothSolveTimedMoves(samples);
+      maybeStopBluetoothTimerOnSolved();
+      return;
+    }
+    const guideDone = scrambleGuideRef.current?.phase === "done";
+    if (
+      !shouldStartBluetoothTimer(
+        Boolean(guideDone),
+        timerPhaseRef.current,
+        btInspectPhaseRef.current,
+      )
+    ) {
+      recordBluetoothStateMoves(samples);
+      return;
+    }
+    const setupBefore = bluetoothSetupBeforeMoves();
+    bluetoothSolveStartSetupRef.current = setupBefore;
+    bluetoothSolveTimedRef.current = [];
+    bluetoothSolveClockRef.current = performance.now();
+    cube.current?.setMoveHint(null);
+    recordBluetoothStateMoves(samples);
+    timer.current?.startRunning();
+    appendBluetoothSolveTimedMoves(samples);
+    maybeStopBluetoothTimerOnSolved();
   }
 
   function applyBluetoothGuideMoves(samples: readonly MoyuMoveSample[]) {
@@ -643,10 +709,7 @@ export default function App() {
     }
     // 打乱已完成：观察中拧动即结束倒计时并开表；待转首转开表；计时中检测还原。
     if (guide.phase === "done") {
-      if (btInspectPhaseRef.current === "off") {
-        beginBluetoothInspect();
-      }
-      startBluetoothTimerFromMoves(samples);
+      handlePostGuideBluetoothMoves(samples);
       return;
     }
     try {
@@ -661,6 +724,9 @@ export default function App() {
           break;
         }
       }
+      const guideSamples = samples.slice(0, sampleIndex);
+      const extraSamples = samples.slice(sampleIndex);
+      recordBluetoothStateMoves(guideSamples);
       scrambleGuideRef.current = next;
       // GATT 异步回调里强制同步刷新，避免部分 WebKit / Bluefy 丢更新。
       flushSync(() => {
@@ -668,8 +734,8 @@ export default function App() {
       });
       if (next.phase === "done") {
         beginBluetoothInspect();
-        if (sampleIndex < samples.length) {
-          startBluetoothTimerFromMoves(samples.slice(sampleIndex));
+        if (extraSamples.length > 0) {
+          handlePostGuideBluetoothMoves(extraSamples);
         }
       }
     } catch {
@@ -694,7 +760,6 @@ export default function App() {
       setScrambleCursor(null);
     }
     syncScrambleGuide(moves, Boolean(moyuSessionRef.current));
-    resetBluetoothSolveTracking();
     if (resetTimer) {
       timer.current?.prepare();
       setTimerPhase("idle");
@@ -793,6 +858,48 @@ export default function App() {
     void cube.current?.showMoves("");
   }
 
+  function recordSolveAndRefresh(
+    timeMs: number,
+    scramble: string,
+    options: {
+      mode?: "非蓝牙" | "蓝牙";
+      split?: false | BluetoothSolveStats;
+    } = {},
+  ) {
+    const split =
+      options.split === undefined || options.split === false
+        ? false
+        : {
+            overview: {
+              moves: options.split.overview.moves,
+              rotations: options.split.overview.rotations,
+              tps: options.split.overview.tps,
+              pauseRate: options.split.overview.pauseRate,
+            },
+            phases: options.split.phases.map((phase) => ({
+              id: phase.id,
+              label: phase.label,
+              timeMs: phase.timeMs,
+              timeShare: phase.timeShare,
+              moves: phase.moves,
+              rotations: phase.rotations,
+              tps: phase.tps,
+              pauseRate: phase.pauseRate,
+            })),
+          };
+    scoreLog.record({
+      timeMs,
+      scramble,
+      mode: options.mode ?? "非蓝牙",
+      split,
+    });
+    setScoreRevision((current) => current + 1);
+    setPendingResult(null);
+    setPendingBluetoothStats(null);
+    // Keep the stopped time on screen; only refresh scramble / cube / net.
+    refreshScramble(!keepElapsedOnScrambleRefresh(timerPhaseRef.current));
+  }
+
   function onTimerStop(timeMs: number) {
     const kind = focusRef.current.kind;
     if (kind !== "计时" || !scrambleMoves) {
@@ -800,8 +907,26 @@ export default function App() {
     }
     // 非蓝牙：停表回首页时魔方回到白上绿前复原态；蓝牙继续跟实体。
     resetNonBluetoothCubeToSolved();
-    // Ask keep/discard before recording or refreshing scramble.
-    setPendingResult(createPendingSolve({ timeMs, scramble: scrambleMoves }));
+    const pending = createPendingSolve({ timeMs, scramble: scrambleMoves });
+    // 蓝牙还原：先弹成绩统计，确认后再保存。
+    if (shouldShowBluetoothSolveStats(Boolean(moyuSessionRef.current))) {
+      const timedMoves = bluetoothSolveTimedRef.current.slice();
+      const startSetupAlg = bluetoothSolveStartSetupRef.current;
+      const scramble = pending.scramble;
+      void buildBluetoothSolveStats({
+        scramble,
+        startSetupAlg,
+        timedMoves,
+        totalTimeMs: pending.timeMs,
+      }).then((stats) => {
+        if (focusRef.current.kind !== "计时") {
+          return;
+        }
+        setPendingBluetoothStats(stats);
+      });
+      return;
+    }
+    setPendingResult(pending);
   }
 
   function settlePendingResult(choice: "keep" | "discard") {
@@ -810,28 +935,40 @@ export default function App() {
     }
     const decision = resolveResultConfirm(pendingResult, choice);
     if (decision.shouldRecord) {
-      scoreLog.record({
-        timeMs: decision.timeMs,
-        scramble: decision.scramble,
-      });
-      setScoreRevision((current) => current + 1);
+      recordSolveAndRefresh(decision.timeMs, decision.scramble);
+      return;
     }
     setPendingResult(null);
-    // Keep the stopped time on screen; only refresh scramble / cube / net.
     refreshScramble(!keepElapsedOnScrambleRefresh(timerPhaseRef.current));
+  }
+
+  function confirmBluetoothSolveStats() {
+    if (!pendingBluetoothStats) {
+      return;
+    }
+    recordSolveAndRefresh(
+      pendingBluetoothStats.overview.timeMs,
+      pendingBluetoothStats.scramble,
+      { mode: "蓝牙", split: pendingBluetoothStats },
+    );
   }
 
   const timingHoldRef = useRef(false);
 
   function onTimingPointerDown(event: ReactPointerEvent<HTMLElement>) {
-    if (focus.kind !== "计时" || event.button !== 0 || pendingResult) {
+    if (
+      focus.kind !== "计时" ||
+      event.button !== 0 ||
+      pendingResult ||
+      pendingBluetoothStats
+    ) {
       return;
     }
     if (isTimingPointerOnControl(event.target)) {
       return;
     }
-    // 蓝牙模式：未计时时不用长按开表；计时中仍可点按停止。
-    if (moyuSessionRef.current && timerPhaseRef.current !== "running") {
+    // 蓝牙：仅还原自动停，点击不开关表。
+    if (moyuSessionRef.current) {
       return;
     }
     event.preventDefault();
@@ -871,6 +1008,7 @@ export default function App() {
   const timingRunning =
     focus.kind === "计时" && isTimingChromeHidden(timerPhase);
   const showTimingHome = focus.kind === "计时" && !timingRunning;
+  const timingShellOpts = { bluetoothConnected: Boolean(moyuSession) };
   const modeEntry = modeSwitchPresentation(mode);
 
   function flushMoyuOrientation() {
@@ -966,6 +1104,7 @@ export default function App() {
           resetMoyuOrientationFollow();
           setMoyuSession(null);
           moyuSessionRef.current = null;
+          resetBluetoothCubeStateTracking();
           syncScrambleGuide(null, false);
           setBtDevicePanelOpen(false);
           setMoyuNote("魔方已断开");
@@ -992,6 +1131,7 @@ export default function App() {
       setMoyuNote(null);
       const status = await session.requestStatus();
       // 计时首屏白上：setupAlg 可直接展示物理魔方状态（不改打乱公式文案）
+      resetBluetoothCubeStateTracking(status.setupAlg);
       cube.current?.setAbsoluteAlg(status.setupAlg);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
       syncScrambleGuide(scrambleMovesRef.current, true);
@@ -1000,6 +1140,7 @@ export default function App() {
       resetMoyuOrientationFollow();
       setMoyuSession(null);
       moyuSessionRef.current = null;
+      resetBluetoothCubeStateTracking();
       syncScrambleGuide(null, false);
       setMoyuNote(formatMoyuConnectError(error));
     } finally {
@@ -1028,11 +1169,17 @@ export default function App() {
           onDiscard={() => settlePendingResult("discard")}
         />
       ) : null}
+      {pendingBluetoothStats ? (
+        <BluetoothSolveStatsDialog
+          stats={pendingBluetoothStats}
+          onConfirm={confirmBluetoothSolveStats}
+        />
+      ) : null}
       <header
         className={focus.kind === "计时" ? "topbar topbar-timing" : "topbar"}
         hidden={
           focus.kind === "计时"
-            ? !timingShellVisible(timerPhase, "topbar")
+            ? !timingShellVisible(timerPhase, "topbar", timingShellOpts)
             : false
         }
       >
@@ -1172,6 +1319,7 @@ export default function App() {
         className="focus"
         data-focus={focus.kind}
         data-timer-phase={focus.kind === "计时" ? timerPhase : undefined}
+        data-bt={focus.kind === "计时" && moyuSession ? "1" : undefined}
         onPointerDown={focus.kind === "计时" ? onTimingPointerDown : undefined}
         onPointerUp={focus.kind === "计时" ? onTimingPointerUp : undefined}
         onPointerCancel={
@@ -1182,7 +1330,7 @@ export default function App() {
           className="slot-cube"
           hidden={
             focus.kind === "计时"
-              ? !timingShellVisible(timerPhase, "preview")
+              ? !timingShellVisible(timerPhase, "preview", timingShellOpts)
               : !showCube
           }
         >
@@ -1201,7 +1349,8 @@ export default function App() {
         <div
           className="slot-scramble"
           hidden={
-            focus.kind !== "计时" || !timingShellVisible(timerPhase, "scramble")
+            focus.kind !== "计时" ||
+            !timingShellVisible(timerPhase, "scramble", timingShellOpts)
           }
         >
           {btInspectPhase === "inspecting" ? (
@@ -1241,7 +1390,8 @@ export default function App() {
         <div
           className="slot-stats"
           hidden={
-            !showTimingHome || !timingShellVisible(timerPhase, "scramble")
+            !showTimingHome ||
+            !timingShellVisible(timerPhase, "scramble", timingShellOpts)
           }
         >
           <TimerStats summary={scoreSummary} />
@@ -1249,7 +1399,8 @@ export default function App() {
         <div
           className="slot-tools"
           hidden={
-            focus.kind !== "计时" || !timingShellVisible(timerPhase, "timer")
+            focus.kind !== "计时" ||
+            !timingShellVisible(timerPhase, "timer", timingShellOpts)
           }
         >
           {showScrambleTimer ? (
@@ -1259,8 +1410,9 @@ export default function App() {
               onPhaseChange={onTimerPhase}
               showControls={false}
               showChrome={false}
-              inputEnabled={!pendingResult}
+              inputEnabled={!pendingResult && !pendingBluetoothStats}
               allowHoldStart={!moyuSession}
+              allowManualStop={allowManualTimerStop(Boolean(moyuSession))}
             />
           ) : null}
         </div>

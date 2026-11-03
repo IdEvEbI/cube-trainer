@@ -185,17 +185,35 @@ export function timingPreviewExclusive(mode: CubePreviewMode): {
 
 export type TimingShellSlot = "scramble" | "preview" | "timer" | "topbar";
 
+export type TimingShellOptions = {
+  /** 已连接蓝牙时，计时中（running）保留 3D 魔方跟随。 */
+  bluetoothConnected?: boolean;
+};
+
 /**
- * armed / running：只显示计时器（计时画面）。
+ * armed / running：计时画面。
+ * - 非蓝牙：只显示计时器。
+ * - 蓝牙 running：计时器 + 3D 预览；顶栏 / 打乱 / 统计仍隐藏。
  * 首页（idle / stopped / arming）：顶栏、魔方、打乱、统计；计时器不常驻。
  * arming 仍停在首页（触控未满 300ms）；进入 armed 后再切计时画面。
  */
 export function timingShellVisible(
   phase: SessionPhase,
   slot: TimingShellSlot,
+  options: TimingShellOptions = {},
 ): boolean {
   if (isTimingChromeHidden(phase)) {
-    return slot === "timer";
+    if (slot === "timer") {
+      return true;
+    }
+    if (
+      slot === "preview" &&
+      options.bluetoothConnected &&
+      phase === "running"
+    ) {
+      return true;
+    }
+    return false;
   }
   if (slot === "timer") {
     return false;
@@ -215,6 +233,14 @@ export function keepElapsedOnScrambleRefresh(phase: SessionPhase): boolean {
 export function shouldResetCubeOnTimingHome(
   bluetoothConnected: boolean,
 ): boolean {
+  return !bluetoothConnected;
+}
+
+/**
+ * 蓝牙计时中禁止点击 / 空格手动停表，仅还原自动停。
+ * 非蓝牙仍允许手动停。
+ */
+export function allowManualTimerStop(bluetoothConnected: boolean): boolean {
   return !bluetoothConnected;
 }
 

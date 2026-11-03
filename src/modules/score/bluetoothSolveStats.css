@@ -1,0 +1,140 @@
+.bt-solve-stats {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgb(18 28 42 / 42%);
+  overflow: auto;
+}
+
+.bt-solve-stats-card {
+  box-sizing: border-box;
+  width: min(100%, 560px);
+  max-height: min(92vh, 840px);
+  overflow: auto;
+  padding: 20px 16px 16px;
+  border-radius: 18px;
+  background: #4a7eb5;
+  color: #f7fbff;
+  text-align: center;
+  box-shadow: 0 16px 40px rgb(12 24 40 / 28%);
+}
+
+.bt-solve-stats-heading {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  color: rgb(247 251 255 / 82%);
+}
+
+.bt-solve-stats-time {
+  margin: 0 0 16px;
+  font-family: "DSEG7-Classic", ui-monospace, monospace;
+  font-size: clamp(2rem, 9vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+}
+
+.bt-solve-stats-section {
+  margin: 0 0 14px;
+  text-align: left;
+}
+
+.bt-solve-stats-section-title {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgb(247 251 255 / 88%);
+}
+
+.bt-solve-stats-overview {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bt-solve-stats-overview > div {
+  padding: 8px 6px;
+  border-radius: 10px;
+  background: rgb(12 32 56 / 18%);
+  text-align: center;
+}
+
+.bt-solve-stats-overview dt {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  color: rgb(247 251 255 / 72%);
+}
+
+.bt-solve-stats-overview dd {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.bt-solve-stats-table-wrap {
+  overflow: auto;
+  border-radius: 10px;
+  background: rgb(12 32 56 / 18%);
+}
+
+.bt-solve-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.bt-solve-stats-table th,
+.bt-solve-stats-table td {
+  padding: 7px 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.bt-solve-stats-table thead th {
+  font-weight: 600;
+  color: rgb(247 251 255 / 78%);
+  border-bottom: 1px solid rgb(247 251 255 / 18%);
+}
+
+.bt-solve-stats-table tbody th {
+  font-weight: 600;
+  text-align: left;
+  padding-left: 10px;
+}
+
+.bt-solve-stats-table tbody tr + tr th,
+.bt-solve-stats-table tbody tr + tr td {
+  border-top: 1px solid rgb(247 251 255 / 10%);
+}
+
+.bt-solve-stats-confirm {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: #f7fbff;
+  color: #2a5078;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 480px) {
+  .bt-solve-stats-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bt-solve-stats-table {
+    font-size: 0.7rem;
+  }
+}

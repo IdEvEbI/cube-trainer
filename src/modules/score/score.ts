@@ -1,11 +1,33 @@
-export type ScoreMode = "非蓝牙";
+export type ScoreMode = "非蓝牙" | "蓝牙";
+
+/** 蓝牙分段快照（与弹层展示字段对齐，便于成绩详情复用）。 */
+export type ScorePhaseSplit = {
+  id: string;
+  label: string;
+  timeMs: number;
+  timeShare: number;
+  moves: number;
+  rotations: number;
+  tps: number;
+  pauseRate: number;
+};
+
+export type ScoreSplit = {
+  overview: {
+    moves: number;
+    rotations: number;
+    tps: number;
+    pauseRate: number;
+  };
+  phases: ScorePhaseSplit[];
+};
 
 export type Score = {
   timeMs: number;
   scramble: string;
   recordedAt: string;
   mode: ScoreMode;
-  split: false;
+  split: false | ScoreSplit;
 };
 
 export type ScoreStorage = {
@@ -124,7 +146,12 @@ export function createScoreLog(
         readScores(storage.read()).map((score) => score.timeMs),
       );
     },
-    record(input: { timeMs: number; scramble: string }): Score {
+    record(input: {
+      timeMs: number;
+      scramble: string;
+      mode?: ScoreMode;
+      split?: false | ScoreSplit;
+    }): Score {
       const score = createScore(input, now());
       const scores = [score, ...readScores(storage.read())].slice(
         0,
@@ -137,7 +164,12 @@ export function createScoreLog(
 }
 
 function createScore(
-  input: { timeMs: number; scramble: string },
+  input: {
+    timeMs: number;
+    scramble: string;
+    mode?: ScoreMode;
+    split?: false | ScoreSplit;
+  },
   now: Date,
 ): Score {
   if (!Number.isFinite(input.timeMs) || input.timeMs < 0) {
@@ -147,12 +179,17 @@ function createScore(
   if (scramble === "") {
     throw new Error("打乱是空的");
   }
+  const mode = input.mode ?? "非蓝牙";
+  const split = input.split ?? false;
+  if (mode === "非蓝牙" && split !== false) {
+    throw new Error("非蓝牙成绩不支持分段");
+  }
   return {
     timeMs: Math.trunc(input.timeMs),
     scramble,
     recordedAt: now.toISOString(),
-    mode: "非蓝牙",
-    split: false,
+    mode,
+    split,
   };
 }
 
@@ -171,20 +208,65 @@ function readScores(raw: string | null): Score[] {
   }
 }
 
+function isScoreSplit(value: unknown): value is ScoreSplit {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const split = value as Record<string, unknown>;
+  if (typeof split.overview !== "object" || split.overview === null) {
+    return false;
+  }
+  const overview = split.overview as Record<string, unknown>;
+  if (
+    typeof overview.moves !== "number" ||
+    typeof overview.rotations !== "number" ||
+    typeof overview.tps !== "number" ||
+    typeof overview.pauseRate !== "number"
+  ) {
+    return false;
+  }
+  if (!Array.isArray(split.phases)) {
+    return false;
+  }
+  return split.phases.every((phase) => {
+    if (typeof phase !== "object" || phase === null) {
+      return false;
+    }
+    const row = phase as Record<string, unknown>;
+    return (
+      typeof row.id === "string" &&
+      typeof row.label === "string" &&
+      typeof row.timeMs === "number" &&
+      typeof row.timeShare === "number" &&
+      typeof row.moves === "number" &&
+      typeof row.rotations === "number" &&
+      typeof row.tps === "number" &&
+      typeof row.pauseRate === "number"
+    );
+  });
+}
+
 function isScore(value: unknown): value is Score {
   if (typeof value !== "object" || value === null) {
     return false;
   }
   const item = value as Record<string, unknown>;
-  return (
-    typeof item.timeMs === "number" &&
-    Number.isFinite(item.timeMs) &&
-    item.timeMs >= 0 &&
-    typeof item.scramble === "string" &&
-    item.scramble.trim() !== "" &&
-    typeof item.recordedAt === "string" &&
-    !Number.isNaN(Date.parse(item.recordedAt)) &&
-    item.mode === "非蓝牙" &&
-    item.split === false
-  );
+  if (
+    typeof item.timeMs !== "number" ||
+    !Number.isFinite(item.timeMs) ||
+    item.timeMs < 0 ||
+    typeof item.scramble !== "string" ||
+    item.scramble.trim() === "" ||
+    typeof item.recordedAt !== "string" ||
+    Number.isNaN(Date.parse(item.recordedAt))
+  ) {
+    return false;
+  }
+  if (item.mode === "非蓝牙") {
+    return item.split === false;
+  }
+  if (item.mode === "蓝牙") {
+    return item.split === false || isScoreSplit(item.split);
+  }
+  return false;
 }
