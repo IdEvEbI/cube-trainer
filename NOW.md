@@ -8,7 +8,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 **成绩复盘 · 第 1 步（转动序列）**：已开 PR，等待合入。
 
-- Issue [#99](https://github.com/IdEvEbI/cube-trainer/issues/99) / PR（开出后填入）
+- Issue [#99](https://github.com/IdEvEbI/cube-trainer/issues/99) / PR [#100](https://github.com/IdEvEbI/cube-trainer/pull/100)（待合入）
 - 分支 `feat/#99-solve-trace`
 - 范围：`solveTrace` 数据层（含转体与朝向转换）+ 单元测试；不改 UI
 
