@@ -8,7 +8,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 **计时体验收口**：已开 PR，等待合入。
 
-- Issue [#89](https://github.com/IdEvEbI/cube-trainer/issues/89) / PR（见下，创建后回填）
+- Issue [#89](https://github.com/IdEvEbI/cube-trainer/issues/89) / PR [#90](https://github.com/IdEvEbI/cube-trainer/pull/90)
 - 分支 `feat/#89-timer-inspect-abandon-arrow`
 - 范围：观察到期自动开表、计时放弃、贴面弯箭头、首页上次成绩、蓝牙断开确认、打乱播放 800ms
 
