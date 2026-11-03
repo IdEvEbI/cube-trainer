@@ -6,11 +6,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-**成绩复盘**（规划文档）：记录转动序列 → 全屏复盘页 → 回放 → 再练一次。
-
-- Issue [#95](https://github.com/IdEvEbI/cube-trainer/issues/95) / PR [#96](https://github.com/IdEvEbI/cube-trainer/pull/96)（待合入）
-- 分支 `docs/#95-solve-review-plan`
-- 范围：`prd.md` 成绩复盘章节 + `NOW.md` 同步；仅文档
+**成绩复盘**：规划已合入（[#95](https://github.com/IdEvEbI/cube-trainer/issues/95) / [#96](https://github.com/IdEvEbI/cube-trainer/pull/96)）。下一步从「记录转动序列」开实现 Issue；尚未写代码。
 
 ## 下一步计划
 
