@@ -49,17 +49,32 @@ import {
   type PracticeCase,
 } from "./modules/practice/setup.ts";
 import { practiceStickering } from "./modules/practice/stickering.ts";
-import {
-  buildBluetoothSolveStats,
-  type BluetoothSolveStats,
-} from "./modules/score/bluetoothSolveStats.ts";
-import { BluetoothSolveStatsDialog } from "./modules/score/BluetoothSolveStatsDialog.tsx";
+import type { BluetoothSolveStats } from "./modules/score/bluetoothSolveStats.ts";
 import {
   browserScoreStorage,
   createScoreLog,
   latestSolveTimeMs,
 } from "./modules/score/score.ts";
-import type { TimedSolveMove } from "./modules/score/solveMetrics.ts";
+import {
+  clearOrientationHoldPending,
+  createOrientationHoldState,
+  midSolveOrientationCandidate,
+  nearestCubeOrientationAlg,
+  orientationRotationPath,
+  ORIENTATION_FACE_QUIET_MS,
+  scrambleToHeldPrepRotations,
+  tickOrientationHold,
+  type OrientationHoldState,
+} from "./modules/score/cubeOrientation.ts";
+import {
+  buildSolveReview,
+  type SolveReview,
+} from "./modules/score/solveReview.ts";
+import { SolveReviewPage } from "./modules/score/SolveReviewPage.tsx";
+import {
+  createSolveTraceSession,
+  type SolveTraceSession,
+} from "./modules/score/solveTrace.ts";
 import {
   BLUETOOTH_INSPECT_MS,
   finishBluetoothInspect,
@@ -120,6 +135,7 @@ import { BluetoothDisconnectDialog } from "./modules/bluetooth/BluetoothDisconne
 import {
   connectMoyuCube,
   formatMoyuConnectError,
+  IDENTITY_QUAT,
   isWebBluetoothAvailable,
   MOYU_REST_ORBIT,
   MoyuOrientationTracker,
@@ -164,10 +180,10 @@ export default function App() {
   const [lastSolveTimeMs, setLastSolveTimeMs] = useState<number | null>(() =>
     latestSolveTimeMs(scoreLog.list()),
   );
-  const [pendingBluetoothStats, setPendingBluetoothStats] =
-    useState<BluetoothSolveStats | null>(null);
-  const pendingBluetoothStatsRef = useRef<BluetoothSolveStats | null>(null);
-  pendingBluetoothStatsRef.current = pendingBluetoothStats;
+  const [pendingSolveReview, setPendingSolveReview] =
+    useState<SolveReview | null>(null);
+  const pendingSolveReviewRef = useRef<SolveReview | null>(null);
+  pendingSolveReviewRef.current = pendingSolveReview;
   const [focus, setFocus] = useState<Focus>({ kind: "计时" });
   const [practice, setPractice] = useState<PracticeCase | null>(null);
   const [practiceNote, setPracticeNote] = useState<string | null>(null);
@@ -201,9 +217,16 @@ export default function App() {
   const bluetoothStateMovesRef = useRef<string[]>([]);
   /** 开表瞬间相对复原的 setup（不含开表当次转动）。 */
   const bluetoothSolveStartSetupRef = useRef("");
-  /** 计时中带时刻的转动，用于分段统计。 */
-  const bluetoothSolveTimedRef = useRef<TimedSolveMove[]>([]);
-  const bluetoothSolveClockRef = useRef(0);
+  /** 计时中转动轨迹（复盘 / 分段）。 */
+  const bluetoothSolveTraceRef = useRef<SolveTraceSession | null>(null);
+  /** 计时中已提交的手持朝向（含稳定防抖）。 */
+  const bluetoothSolveOrientHoldRef = useRef<OrientationHoldState>(
+    createOrientationHoldState(),
+  );
+  /** 面转后此时间戳前忽略陀螺仪转体推断。 */
+  const bluetoothSolveOrientQuietUntilRef = useRef(0);
+  /** 复盘页 history 标记，供滑动返回保存。 */
+  const solveReviewHistoryEpochRef = useRef(0);
   const bluetoothSolveCheckGen = useRef(0);
   const inspectEndsAtRef = useRef(0);
   const moyuOrientation = useRef(new MoyuOrientationTracker());
@@ -574,8 +597,7 @@ export default function App() {
     bluetoothSetupAlgRef.current = setupAlg;
     bluetoothStateMovesRef.current = [];
     bluetoothSolveStartSetupRef.current = "";
-    bluetoothSolveTimedRef.current = [];
-    bluetoothSolveClockRef.current = 0;
+    bluetoothSolveTraceRef.current = null;
     bluetoothSolveCheckGen.current += 1;
   }
 
@@ -590,9 +612,93 @@ export default function App() {
   }
 
   function hasPendingSolveUi(): boolean {
-    return Boolean(
-      pendingResultRef.current || pendingBluetoothStatsRef.current,
+    return Boolean(pendingResultRef.current || pendingSolveReviewRef.current);
+  }
+
+  function currentBluetoothRelativeQuat(): typeof IDENTITY_QUAT {
+    const last = moyuOrientation.current.lastQuat();
+    if (!last) {
+      return IDENTITY_QUAT;
+    }
+    return moyuOrientation.current.toOrientation(last);
+  }
+
+  function beginBluetoothSolveTrace(startSetupAlg: string) {
+    bluetoothSolveStartSetupRef.current = startSetupAlg;
+    const session = createSolveTraceSession({
+      scramble: scrambleMovesRef.current ?? "",
+      startSetupAlg,
+    });
+    // 观察阶段常先 z2（黄上）再 y 选十字；开表前未记轨迹，这里补相对白上绿前的准备转体。
+    const held = nearestCubeOrientationAlg(currentBluetoothRelativeQuat());
+    const prep = scrambleToHeldPrepRotations(held);
+    for (const move of prep) {
+      session.appendAt(move, 0);
+    }
+    bluetoothSolveOrientHoldRef.current = createOrientationHoldState(held);
+    bluetoothSolveTraceRef.current = session;
+  }
+
+  /** 陀螺仪朝向变化 → 写入 x/y/z（需稳定片刻，避免 z z' 抖动）。 */
+  function syncBluetoothSolveRotationsFromGyro(): void {
+    const session = bluetoothSolveTraceRef.current;
+    if (!session || timerPhaseRef.current !== "running") {
+      return;
+    }
+    const now = performance.now();
+    if (now < bluetoothSolveOrientQuietUntilRef.current) {
+      return;
+    }
+    const candidate = midSolveOrientationCandidate(
+      currentBluetoothRelativeQuat(),
+      bluetoothSolveOrientHoldRef.current.committed,
     );
+    // 稳定判定只需单调时钟；写入时刻仍由 session.append 的开表时钟负责。
+    const tick = tickOrientationHold(
+      bluetoothSolveOrientHoldRef.current,
+      candidate,
+      now,
+    );
+    bluetoothSolveOrientHoldRef.current = tick.state;
+    for (const move of tick.path) {
+      session.append(move);
+    }
+  }
+
+  function appendBluetoothSolveTraceMoves(
+    samples: readonly MoyuMoveSample[],
+  ): void {
+    const session = bluetoothSolveTraceRef.current;
+    if (!session) {
+      return;
+    }
+    const now = performance.now();
+    if (now >= bluetoothSolveOrientQuietUntilRef.current) {
+      // 停顿后再拧：先按当前手持朝向补记 y 等（F2L 换槽），再记面转。
+      const held = midSolveOrientationCandidate(
+        currentBluetoothRelativeQuat(),
+        bluetoothSolveOrientHoldRef.current.committed,
+      );
+      const path = orientationRotationPath(
+        bluetoothSolveOrientHoldRef.current.committed,
+        held,
+      );
+      for (const move of path) {
+        session.append(move);
+      }
+      bluetoothSolveOrientHoldRef.current = createOrientationHoldState(held);
+    } else {
+      // 连拧中：取消未稳定的陀螺仪候选，避免打断 R2。
+      bluetoothSolveOrientHoldRef.current = clearOrientationHoldPending(
+        bluetoothSolveOrientHoldRef.current,
+        now,
+      );
+    }
+    bluetoothSolveOrientQuietUntilRef.current = now + ORIENTATION_FACE_QUIET_MS;
+    for (const sample of samples) {
+      // 魔域面转是色心绝对坐标；展示时再按累积转体映成握持公式。
+      session.append(sample.move, { remapFace: false });
+    }
   }
 
   function beginBluetoothInspect() {
@@ -624,9 +730,7 @@ export default function App() {
     ) {
       return;
     }
-    bluetoothSolveStartSetupRef.current = bluetoothSetupBeforeMoves();
-    bluetoothSolveTimedRef.current = [];
-    bluetoothSolveClockRef.current = performance.now();
+    beginBluetoothSolveTrace(bluetoothSetupBeforeMoves());
     cube.current?.setMoveHint(null);
     resetBluetoothInspect();
     timer.current?.startRunning();
@@ -654,18 +758,6 @@ export default function App() {
   function recordBluetoothStateMoves(samples: readonly MoyuMoveSample[]) {
     for (const sample of samples) {
       bluetoothStateMovesRef.current.push(sample.move);
-    }
-  }
-
-  function appendBluetoothSolveTimedMoves(
-    samples: readonly MoyuMoveSample[],
-  ): void {
-    const origin = bluetoothSolveClockRef.current;
-    for (const sample of samples) {
-      bluetoothSolveTimedRef.current.push({
-        move: sample.move,
-        atMs: Math.max(0, Math.round(performance.now() - origin)),
-      });
     }
   }
 
@@ -715,7 +807,7 @@ export default function App() {
     }
     if (timerPhaseRef.current === "running") {
       recordBluetoothStateMoves(samples);
-      appendBluetoothSolveTimedMoves(samples);
+      appendBluetoothSolveTraceMoves(samples);
       maybeStopBluetoothTimerOnSolved();
       return;
     }
@@ -730,14 +822,11 @@ export default function App() {
       recordBluetoothStateMoves(samples);
       return;
     }
-    const setupBefore = bluetoothSetupBeforeMoves();
-    bluetoothSolveStartSetupRef.current = setupBefore;
-    bluetoothSolveTimedRef.current = [];
-    bluetoothSolveClockRef.current = performance.now();
+    beginBluetoothSolveTrace(bluetoothSetupBeforeMoves());
     cube.current?.setMoveHint(null);
     recordBluetoothStateMoves(samples);
     timer.current?.startRunning();
-    appendBluetoothSolveTimedMoves(samples);
+    appendBluetoothSolveTraceMoves(samples);
     maybeStopBluetoothTimerOnSolved();
   }
 
@@ -912,13 +1001,46 @@ export default function App() {
     if (!shouldShowAbandonTimingControl(timerPhaseRef.current)) {
       return;
     }
-    bluetoothSolveTimedRef.current = [];
+    bluetoothSolveTraceRef.current = null;
     bluetoothSolveStartSetupRef.current = "";
-    bluetoothSolveClockRef.current = 0;
     bluetoothSolveCheckGen.current += 1;
     resetBluetoothInspect();
     refreshScramble(true);
     resetNonBluetoothCubeToSolved();
+  }
+
+  function toScoreSplit(
+    stats: BluetoothSolveStats,
+  ): NonNullable<Parameters<typeof scoreLog.record>[0]["split"]> {
+    return {
+      overview: {
+        moves: stats.overview.moves,
+        rotations: stats.overview.rotations,
+        tps: stats.overview.tps,
+        pauseRate: stats.overview.pauseRate,
+      },
+      phases: stats.phases.map((phase) => ({
+        id: phase.id,
+        label: phase.label,
+        timeMs: phase.timeMs,
+        timeShare: phase.timeShare,
+        moves: phase.moves,
+        rotations: phase.rotations,
+        tps: phase.tps,
+        pauseRate: phase.pauseRate,
+      })),
+    };
+  }
+
+  /** 写入本机成绩；不关闭复盘、不刷新打乱。 */
+  function persistBluetoothSolveReview(review: SolveReview) {
+    scoreLog.record({
+      timeMs: review.overview.timeMs,
+      scramble: review.scramble,
+      mode: "蓝牙",
+      split: toScoreSplit(review),
+    });
+    setScoreRevision((current) => current + 1);
   }
 
   function recordSolveAndRefresh(
@@ -932,24 +1054,7 @@ export default function App() {
     const split =
       options.split === undefined || options.split === false
         ? false
-        : {
-            overview: {
-              moves: options.split.overview.moves,
-              rotations: options.split.overview.rotations,
-              tps: options.split.overview.tps,
-              pauseRate: options.split.overview.pauseRate,
-            },
-            phases: options.split.phases.map((phase) => ({
-              id: phase.id,
-              label: phase.label,
-              timeMs: phase.timeMs,
-              timeShare: phase.timeShare,
-              moves: phase.moves,
-              rotations: phase.rotations,
-              tps: phase.tps,
-              pauseRate: phase.pauseRate,
-            })),
-          };
+        : toScoreSplit(options.split);
     scoreLog.record({
       timeMs,
       scramble,
@@ -958,7 +1063,7 @@ export default function App() {
     });
     setScoreRevision((current) => current + 1);
     setPendingResult(null);
-    setPendingBluetoothStats(null);
+    setPendingSolveReview(null);
     // Keep the stopped time on screen; only refresh scramble / cube / net.
     refreshScramble(!keepElapsedOnScrambleRefresh(timerPhaseRef.current));
   }
@@ -974,19 +1079,23 @@ export default function App() {
     const pending = createPendingSolve({ timeMs, scramble: scrambleMoves });
     // 蓝牙还原：先弹成绩统计，确认后再保存。
     if (shouldShowBluetoothSolveStats(Boolean(moyuSessionRef.current))) {
-      const timedMoves = bluetoothSolveTimedRef.current.slice();
-      const startSetupAlg = bluetoothSolveStartSetupRef.current;
-      const scramble = pending.scramble;
-      void buildBluetoothSolveStats({
-        scramble,
-        startSetupAlg,
-        timedMoves,
+      const session = bluetoothSolveTraceRef.current;
+      const trace =
+        session?.snapshot() ??
+        createSolveTraceSession({
+          scramble: pending.scramble,
+          startSetupAlg: bluetoothSolveStartSetupRef.current,
+        }).snapshot();
+      void buildSolveReview({
+        trace,
         totalTimeMs: pending.timeMs,
-      }).then((stats) => {
+      }).then((review) => {
         if (focusRef.current.kind !== "计时") {
           return;
         }
-        setPendingBluetoothStats(stats);
+        // 进入复盘即保存；返回只退出查看。
+        persistBluetoothSolveReview(review);
+        setPendingSolveReview(review);
       });
       return;
     }
@@ -1006,16 +1115,66 @@ export default function App() {
     refreshScramble(!keepElapsedOnScrambleRefresh(timerPhaseRef.current));
   }
 
-  function confirmBluetoothSolveStats() {
-    if (!pendingBluetoothStats) {
+  /** 关闭复盘查看：不重复保存，刷新打乱进入下一轮。 */
+  function closeSolveReviewView() {
+    if (!pendingSolveReviewRef.current) {
       return;
     }
-    recordSolveAndRefresh(
-      pendingBluetoothStats.overview.timeMs,
-      pendingBluetoothStats.scramble,
-      { mode: "蓝牙", split: pendingBluetoothStats },
-    );
+    setPendingSolveReview(null);
+    refreshScramble(!keepElapsedOnScrambleRefresh(timerPhaseRef.current));
   }
+
+  /** 左上角返回：走 history.back，与手机滑动返回同一路径。 */
+  function dismissSolveReview() {
+    if (!pendingSolveReviewRef.current) {
+      return;
+    }
+    const epoch = solveReviewHistoryEpochRef.current;
+    if (
+      epoch > 0 &&
+      window.history.state &&
+      typeof window.history.state === "object" &&
+      "cubeTrainerSolveReview" in window.history.state &&
+      (window.history.state as { cubeTrainerSolveReview?: number })
+        .cubeTrainerSolveReview === epoch
+    ) {
+      window.history.back();
+      return;
+    }
+    closeSolveReviewView();
+  }
+
+  useEffect(() => {
+    if (!pendingSolveReview) {
+      return;
+    }
+    const epoch = solveReviewHistoryEpochRef.current + 1;
+    solveReviewHistoryEpochRef.current = epoch;
+    window.history.pushState({ cubeTrainerSolveReview: epoch }, "");
+    const onPopState = () => {
+      if (!pendingSolveReviewRef.current) {
+        return;
+      }
+      if (solveReviewHistoryEpochRef.current !== epoch) {
+        return;
+      }
+      closeSolveReviewView();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      const state = window.history.state;
+      if (
+        state &&
+        typeof state === "object" &&
+        "cubeTrainerSolveReview" in state &&
+        (state as { cubeTrainerSolveReview?: number })
+          .cubeTrainerSolveReview === epoch
+      ) {
+        window.history.back();
+      }
+    };
+  }, [pendingSolveReview]);
 
   const timingHoldRef = useRef(false);
   /** 从 3D 上按下：记录起点，拖过阈值则取消开表、交给旋转。 */
@@ -1030,7 +1189,7 @@ export default function App() {
       focus.kind !== "计时" ||
       event.button !== 0 ||
       pendingResult ||
-      pendingBluetoothStats
+      pendingSolveReview
     ) {
       return;
     }
@@ -1134,6 +1293,7 @@ export default function App() {
       return;
     }
     cube.current?.setOrientation(moyuOrientation.current.toOrientation(quat));
+    syncBluetoothSolveRotationsFromGyro();
   }
 
   function onMoyuOrientation(quat: MoyuQuat) {
@@ -1268,10 +1428,10 @@ export default function App() {
           onDiscard={() => settlePendingResult("discard")}
         />
       ) : null}
-      {pendingBluetoothStats ? (
-        <BluetoothSolveStatsDialog
-          stats={pendingBluetoothStats}
-          onConfirm={confirmBluetoothSolveStats}
+      {pendingSolveReview ? (
+        <SolveReviewPage
+          review={pendingSolveReview}
+          onBack={dismissSolveReview}
         />
       ) : null}
       <header
@@ -1524,7 +1684,7 @@ export default function App() {
               onPhaseChange={onTimerPhase}
               showControls={false}
               showChrome={false}
-              inputEnabled={!pendingResult && !pendingBluetoothStats}
+              inputEnabled={!pendingResult && !pendingSolveReview}
               allowHoldStart={!moyuSession}
               allowManualStop={allowManualTimerStop(Boolean(moyuSession))}
               scrambleHomeGestures={!moyuSession}

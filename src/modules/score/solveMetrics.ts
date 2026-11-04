@@ -18,6 +18,7 @@ export function isRotationMove(move: string): boolean {
   return ROTATION_MOVE.test(move.trim());
 }
 
+/** 面转记号条数（未合并；R 与 R2 各计 1）。蓝牙原始四分之一转请用 HTM。 */
 export function countFaceMoves(moves: readonly string[]): number {
   let n = 0;
   for (const move of moves) {
@@ -85,10 +86,15 @@ export type SolveOverviewMetrics = {
 export function computeOverviewMetrics(
   timedMoves: readonly TimedSolveMove[],
   totalTimeMs: number,
+  options: {
+    /** 面转步数；默认按记号条数。复盘应传入 HTM（R2=1）。 */
+    faceMoves?: number;
+    rotations?: number;
+  } = {},
 ): SolveOverviewMetrics {
   const tokens = timedMoves.map((step) => step.move);
-  const moves = countFaceMoves(tokens);
-  const rotations = countRotations(tokens);
+  const moves = options.faceMoves ?? countFaceMoves(tokens);
+  const rotations = options.rotations ?? countRotations(tokens);
   return {
     timeMs: Math.max(0, Math.trunc(totalTimeMs)),
     moves,

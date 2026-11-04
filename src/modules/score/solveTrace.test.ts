@@ -87,6 +87,18 @@ describe("createSolveTraceSession", () => {
     assert.equal(session.orientationAlg(), "y x");
   });
 
+  it("remapFace:false 时面转保持色心绝对记号", () => {
+    const session = createSolveTraceSession({
+      scramble: "U",
+      startSetupAlg: "",
+    });
+    session.appendAt("y", 50);
+    const face = session.appendAt("R", 120, { remapFace: false });
+    assert.equal(face.move, "R");
+    assert.equal(face.rawMove, "R");
+    assert.equal(face.orientationAfter, "y");
+  });
+
   it("拒绝无法识别的记号", () => {
     const session = createSolveTraceSession({ scramble: "" });
     assert.throws(() => session.append("M"), /无法识别/);

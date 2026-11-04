@@ -44,11 +44,23 @@ export type SolveTraceSessionOptions = {
   nowMs?: () => number;
 };
 
+export type SolveTraceAppendOptions = {
+  /**
+   * 面转是否按当前朝向转换后写入 `move`。
+   * 默认 true（键盘 / 握持相对输入）；蓝牙魔方面转已是色心绝对坐标，应传 false。
+   */
+  remapFace?: boolean;
+};
+
 export type SolveTraceSession = {
-  /** 追加一步（面转或 x/y/z）；面转会按当前朝向转换后写入 `move`。 */
-  append(rawMove: string): SolveTraceStep;
+  /** 追加一步（面转或 x/y/z）；面转默认按当前朝向转换后写入 `move`。 */
+  append(rawMove: string, options?: SolveTraceAppendOptions): SolveTraceStep;
   /** 指定相对开表时刻追加（测试 / 回放对齐用）。 */
-  appendAt(rawMove: string, atMs: number): SolveTraceStep;
+  appendAt(
+    rawMove: string,
+    atMs: number,
+    options?: SolveTraceAppendOptions,
+  ): SolveTraceStep;
   /** 当前累积转体（如 `y x'`）。 */
   orientationAlg(): string;
   /** 不可变快照。 */
@@ -162,7 +174,11 @@ export function createSolveTraceSession(
     return orientation.join(" ");
   }
 
-  function appendAt(rawMove: string, atMs: number): SolveTraceStep {
+  function appendAt(
+    rawMove: string,
+    atMs: number,
+    options?: SolveTraceAppendOptions,
+  ): SolveTraceStep {
     const parsed = parseMoveToken(rawMove);
     if (!parsed) {
       throw new Error(`无法识别转动: ${rawMove}`);
@@ -185,7 +201,10 @@ export function createSolveTraceSession(
       throw new Error(`无法识别转动: ${rawMove}`);
     }
     const faceToken = parsed.family.toUpperCase() + parsed.suffix;
-    const move = remapFaceMoveThroughOrientation(faceToken, orientation);
+    const remapFace = options?.remapFace !== false;
+    const move = remapFace
+      ? remapFaceMoveThroughOrientation(faceToken, orientation)
+      : faceToken;
     const step: SolveTraceStep = {
       move,
       rawMove: faceToken,
@@ -197,8 +216,11 @@ export function createSolveTraceSession(
     return step;
   }
 
-  function append(rawMove: string): SolveTraceStep {
-    return appendAt(rawMove, nowMs());
+  function append(
+    rawMove: string,
+    options?: SolveTraceAppendOptions,
+  ): SolveTraceStep {
+    return appendAt(rawMove, nowMs(), options);
   }
 
   function snapshot(): SolveTrace {
