@@ -6,14 +6,14 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-**成绩复盘**：第 1 步转动序列数据层已合入（[#99](https://github.com/IdEvEbI/cube-trainer/issues/99) / [#100](https://github.com/IdEvEbI/cube-trainer/pull/100)）。下一步：接入开表记账，或第 2 步全屏复盘页。
+**成绩复盘**：第 2 步全屏复盘页待合入（[#103](https://github.com/IdEvEbI/cube-trainer/issues/103) / [#104](https://github.com/IdEvEbI/cube-trainer/pull/104)）。下一步：回放，或再练一次。
 
 ## 下一步计划
 
 近期按复盘分步推进：
 
 1. ~~记录转动序列（含转体与朝向）~~（已合入 #100）
-2. 成绩页改为全屏，显示分段公式。
+2. ~~成绩页改为全屏，显示分段公式~~（待合入 #103 / #104）
 3. 回放。
 4. 再练一次。
 

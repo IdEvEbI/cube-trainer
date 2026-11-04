@@ -1,0 +1,230 @@
+.solve-review {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  background: #4a7eb5;
+  color: #f7fbff;
+}
+
+.solve-review-topbar {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 0;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
+.solve-review-back {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(247 251 255 / 42%);
+  border-radius: 999px;
+  background: transparent;
+  color: #f7fbff;
+  cursor: pointer;
+}
+
+.solve-review-back-svg {
+  display: block;
+}
+
+.solve-review-topbar-spacer {
+  width: 40px;
+  height: 40px;
+}
+
+.solve-review-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.solve-review-eyebrow {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  color: rgb(247 251 255 / 82%);
+}
+
+.solve-review-time {
+  margin: 4px 0 16px;
+  text-align: center;
+  font-family: "DSEG7-Classic", ui-monospace, monospace;
+  font-size: clamp(2rem, 9vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+}
+
+.solve-review-section {
+  margin: 0 0 18px;
+}
+
+.solve-review-section-title {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgb(247 251 255 / 88%);
+}
+
+.solve-review-overview {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.solve-review-overview > div {
+  padding: 8px 6px;
+  border-radius: 10px;
+  background: rgb(12 32 56 / 18%);
+  text-align: center;
+}
+
+.solve-review-overview dt {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  color: rgb(247 251 255 / 72%);
+}
+
+.solve-review-overview dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.solve-review-phases {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.solve-review-phase {
+  border-radius: 12px;
+  background: rgb(12 32 56 / 18%);
+  min-width: 0;
+  border-left: 4px solid transparent;
+  overflow: hidden;
+}
+
+.solve-review-phase-cross {
+  border-left-color: #7dd3fc;
+  background: rgb(125 211 252 / 14%);
+}
+
+.solve-review-phase-f2l {
+  border-left-color: #86efac;
+  background: rgb(134 239 172 / 12%);
+}
+
+.solve-review-phase-oll {
+  border-left-color: #fcd34d;
+  background: rgb(252 211 77 / 14%);
+}
+
+.solve-review-phase-pll {
+  border-left-color: #f9a8d4;
+  background: rgb(249 168 212 / 14%);
+}
+
+.solve-review-phase-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px 10px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 12px 12px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.solve-review-phase-wide {
+  display: none;
+}
+
+.solve-review-phase-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.solve-review-phase-stats {
+  font-size: 0.8rem;
+  color: rgb(247 251 255 / 82%);
+  white-space: nowrap;
+}
+
+.solve-review-phase-chevron {
+  font-size: 0.75rem;
+  color: rgb(247 251 255 / 70%);
+}
+
+.solve-review-phase-alg {
+  margin: 0;
+  padding: 0 12px 12px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  color: rgb(247 251 255 / 92%);
+}
+
+.solve-review-scramble {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgb(12 32 56 / 18%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+@media (min-width: 640px) {
+  .solve-review-overview {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .solve-review-phase-narrow,
+  .solve-review-phase-alg-narrow {
+    display: none;
+  }
+
+  .solve-review-phase-wide {
+    display: grid;
+    grid-template-columns: 5.5rem auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 8px 14px;
+    padding: 12px 14px 12px 10px;
+  }
+
+  .solve-review-phase-wide .solve-review-phase-alg {
+    padding: 0;
+    min-width: 0;
+  }
+}
