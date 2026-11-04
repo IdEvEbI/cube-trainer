@@ -133,6 +133,10 @@ import { TimerStats } from "./modules/timer/TimerStats.tsx";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
 import { BluetoothDisconnectDialog } from "./modules/bluetooth/BluetoothDisconnectDialog.tsx";
 import {
+  shouldAbandonTimingAfterForegroundSolvedResync,
+  shouldRequestStatusOnForeground,
+} from "./modules/bluetooth/foregroundResync.ts";
+import {
   connectMoyuCube,
   formatMoyuConnectError,
   IDENTITY_QUAT,
@@ -198,6 +202,12 @@ export default function App() {
     null,
   );
   const [moyuBusy, setMoyuBusy] = useState(false);
+  const moyuBusyRef = useRef(false);
+  moyuBusyRef.current = moyuBusy;
+  const bluetoothResyncInFlightRef = useRef(false);
+  const resyncBluetoothOnForegroundRef = useRef<() => Promise<void>>(
+    async () => undefined,
+  );
   const [moyuNote, setMoyuNote] = useState<string | null>(null);
   const [scrambleGuide, setScrambleGuide] = useState<GuidedScrambleView | null>(
     null,
@@ -249,6 +259,25 @@ export default function App() {
   useEffect(() => {
     return () => {
       moyuSessionRef.current?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void resyncBluetoothOnForegroundRef.current();
+      }
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        void resyncBluetoothOnForegroundRef.current();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, []);
 
@@ -600,6 +629,70 @@ export default function App() {
     bluetoothSolveTraceRef.current = null;
     bluetoothSolveCheckGen.current += 1;
   }
+
+  /** 用设备绝对状态对表 3D；保留解题轨迹，不清空计时中的复盘序列。 */
+  function applyBluetoothStatusToCube(setupAlg: string) {
+    bluetoothSetupAlgRef.current = setupAlg;
+    bluetoothStateMovesRef.current = [];
+    bluetoothSolveCheckGen.current += 1;
+    cube.current?.setAbsoluteAlg(setupAlg);
+  }
+
+  async function resyncBluetoothCubeOnForeground() {
+    const visibilityState =
+      document.visibilityState === "visible" ? "visible" : "hidden";
+    if (
+      !shouldRequestStatusOnForeground({
+        visibilityState,
+        connected: Boolean(moyuSessionRef.current),
+        busy: moyuBusyRef.current,
+        resyncInFlight: bluetoothResyncInFlightRef.current,
+      })
+    ) {
+      return;
+    }
+    const session = moyuSessionRef.current;
+    if (!session) {
+      return;
+    }
+    bluetoothResyncInFlightRef.current = true;
+    try {
+      const status = await session.requestStatus();
+      if (moyuSessionRef.current !== session) {
+        return;
+      }
+      applyBluetoothStatusToCube(status.setupAlg);
+      if (
+        !shouldAbandonTimingAfterForegroundSolvedResync({
+          timerPhase: timerPhaseRef.current,
+          hasPendingSolveUi: hasPendingSolveUi(),
+        })
+      ) {
+        return;
+      }
+      const checkGen = bluetoothSolveCheckGen.current;
+      void isSolvedFromSetup(status.setupAlg, []).then((solved) => {
+        if (!solved || checkGen !== bluetoothSolveCheckGen.current) {
+          return;
+        }
+        if (
+          !shouldAbandonTimingAfterForegroundSolvedResync({
+            timerPhase: timerPhaseRef.current,
+            hasPendingSolveUi: hasPendingSolveUi(),
+          })
+        ) {
+          return;
+        }
+        // 息屏丢步，轨迹不完整：作废本局，不记成绩、不进复盘。
+        abandonTimingAfterForegroundResync();
+      });
+    } catch {
+      // 息屏后 GATT 偶发不可用；保留会话，下次可见或转动再试。
+    } finally {
+      bluetoothResyncInFlightRef.current = false;
+    }
+  }
+  resyncBluetoothOnForegroundRef.current = resyncBluetoothCubeOnForeground;
 
   function bluetoothSetupBeforeMoves(): string {
     const parts = [
@@ -1007,6 +1100,12 @@ export default function App() {
     resetBluetoothInspect();
     refreshScramble(true);
     resetNonBluetoothCubeToSolved();
+  }
+
+  /** 回前台对表发现已复原：轨迹缺步，作废本局且不进成绩页。 */
+  function abandonTimingAfterForegroundResync() {
+    abandonTiming();
+    setToastMessage("息屏期间转动未完整记录，本局未计成绩");
   }
 
   function toScoreSplit(
