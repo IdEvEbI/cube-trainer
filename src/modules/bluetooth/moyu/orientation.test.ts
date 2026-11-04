@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 import {
   IDENTITY_QUAT,
   MoyuOrientationTracker,
+  quatAngle,
   quatInvert,
   quatMultiply,
   quatNormalize,
+  quatSlerp,
   toTwistyOrientation,
   type MoyuQuat,
 } from "./orientation.ts";
@@ -81,6 +83,15 @@ describe("orientation math", () => {
     const u = quatNormalize(q);
     const id = quatMultiply(u, quatInvert(u));
     almostEqualQuat(id, IDENTITY_QUAT);
+  });
+
+  it("quatSlerp 端点与中点，z2 夹角为 π", () => {
+    const z2: MoyuQuat = { x: 0, y: 0, z: 1, w: 0 };
+    almostEqualQuat(quatSlerp(IDENTITY_QUAT, z2, 0), IDENTITY_QUAT);
+    almostEqualQuat(quatSlerp(IDENTITY_QUAT, z2, 1), z2);
+    const mid = quatSlerp(IDENTITY_QUAT, z2, 0.5);
+    assert.ok(Math.abs(quatAngle(IDENTITY_QUAT, mid) - Math.PI / 2) < 1e-6);
+    assert.ok(Math.abs(quatAngle(IDENTITY_QUAT, z2) - Math.PI) < 1e-6);
   });
 });
 

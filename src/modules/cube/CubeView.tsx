@@ -1,4 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
+import { Alg } from "cubing/alg";
 import { TwistyPlayer, type ExperimentalStickering } from "cubing/twisty";
 import type { Group } from "three";
 import {
@@ -7,6 +8,11 @@ import {
   shouldForceInstantForPending,
   type MoyuMoveAnimConfig,
 } from "../bluetooth/moyu/animation.ts";
+import {
+  quatAngle,
+  quatSlerp,
+  type MoyuQuat,
+} from "../bluetooth/moyu/orientation.ts";
 import { parseAlgorithm } from "../formula/formulas.ts";
 import {
   scrambleDisplayAlgorithm,
@@ -16,6 +22,9 @@ import { CUBE_ORIENTATION_ALG, isLayerMove } from "./cube.ts";
 import { applyMoveHint, type MoveHintOptions } from "./moveHint.ts";
 import { LAYER_MOVES, type LayerMove } from "./types.ts";
 import "./cube.css";
+
+/** 回放 / 练习动画：层转 + 整步转体（复盘含 x/y/z）。 */
+const PLAYBACK_MOVE = /^(?:[UDLRFBudlrfbxyz]|[MES])(?:2'|'2|2|')?$/;
 
 export type CubeMotion = "forward" | "back";
 
@@ -72,6 +81,14 @@ export type CubeHandle = {
     direction: CubeMotion,
     quarterTurnMs: number,
   ): Promise<void>;
+  /**
+   * 手持朝向球面插值（复盘 x/y/z 转体）；时长按夹角相对 90° 缩放 quarterTurnMs。
+   */
+  animateOrientation(
+    from: CubeOrientationQuat,
+    to: CubeOrientationQuat,
+    quarterTurnMs: number,
+  ): Promise<void>;
   cancelAnimation(): void;
   /**
    * Twisty 贴纸：full 全色；或传入序列化 mask（黄上 F2L 简化时忽略黄层块）。
@@ -101,6 +118,46 @@ type MoveIndexer = {
   moveDuration(index: number): number;
   indexToMoveStartTimestamp(index: number): number;
 };
+
+function scrubOrientation(
+  apply: (quat: MoyuQuat) => void,
+  from: MoyuQuat,
+  to: MoyuQuat,
+  durationMs: number,
+  isCurrent: () => boolean,
+) {
+  if (!isCurrent() || durationMs <= 0) {
+    if (isCurrent()) {
+      apply(to);
+    }
+    return Promise.resolve();
+  }
+  if (quatAngle(from, to) < 1e-5) {
+    apply(to);
+    return Promise.resolve();
+  }
+  let last = performance.now();
+  let elapsed = 0;
+  return new Promise<void>((resolve) => {
+    const frame = (now: number) => {
+      if (!isCurrent()) {
+        resolve();
+        return;
+      }
+      elapsed += Math.min(32, now - last);
+      last = now;
+      const progress = Math.min(1, elapsed / durationMs);
+      apply(quatSlerp(from, to, progress));
+      if (progress < 1) {
+        requestAnimationFrame(frame);
+        return;
+      }
+      apply(to);
+      resolve();
+    };
+    requestAnimationFrame(frame);
+  });
+}
 
 function scrub(
   twisty: TwistyPlayer,
@@ -208,13 +265,20 @@ async function appendMovesInstant(
   twisty.timestamp = "end";
 }
 
-/** Allow empty alg (solved cube) for scramble playback from white-up start. */
+/** Allow empty alg (solved cube) for scramble / review playback from white-up start. */
 function algText(source: string): string {
   const trimmed = source.trim();
   if (!trimmed) {
     return "";
   }
-  return parseAlgorithm(trimmed).join(" ");
+  const moves = [...new Alg(trimmed).experimentalLeafMoves()].map((move) =>
+    move.toString(),
+  );
+  const invalid = moves.find((move) => !PLAYBACK_MOVE.test(move));
+  if (invalid) {
+    throw new Error(`无法播放转动：${invalid}`);
+  }
+  return moves.join(" ");
 }
 
 async function animatePracticeMove(
@@ -520,6 +584,42 @@ export function CubeView({
           () => generation.current === token,
         ),
       );
+      queue.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
+      return task;
+    },
+    animateOrientation(from, to, quarterTurnMs) {
+      const token = generation.current;
+      const task = queue.current.then(async () => {
+        const twisty = player.current;
+        if (!twisty || generation.current !== token) {
+          return;
+        }
+        const puzzle = await resolvePuzzle3D(twisty);
+        if (!puzzle || generation.current !== token) {
+          return;
+        }
+        const start = { x: from.x, y: from.y, z: from.z, w: from.w };
+        const end = { x: to.x, y: to.y, z: to.z, w: to.w };
+        const turns = quatAngle(start, end) / (Math.PI / 2);
+        const durationMs = Math.max(120, turns * quarterTurnMs);
+        await scrubOrientation(
+          (quat) => {
+            lastOrientation.current = quat;
+            applyOrientationToPuzzle(puzzle, quat);
+          },
+          start,
+          end,
+          durationMs,
+          () => generation.current === token,
+        );
+        if (generation.current === token) {
+          lastOrientation.current = end;
+          applyOrientationToPuzzle(puzzle, end);
+        }
+      });
       queue.current = task.then(
         () => undefined,
         () => undefined,

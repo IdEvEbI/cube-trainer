@@ -30,6 +30,9 @@ export type CfopPhaseStats = {
   rotations: number;
   tps: number;
   pauseRate: number;
+  /** timedMoves / trace.steps 左闭右开区间，供复盘分段回放。 */
+  startIndex: number;
+  endIndex: number;
 };
 
 export type BluetoothSolveStats = {
@@ -138,6 +141,8 @@ export async function buildBluetoothSolveStats(input: {
       rotations,
       tps: computeTps(moves, timeMs),
       pauseRate: computePauseRate(slice, timeMs),
+      startIndex: start,
+      endIndex: span,
     });
     prev = span;
   }

@@ -46,9 +46,82 @@
 .solve-review-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 8px 16px;
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.solve-review-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.solve-review-formulas {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 4px;
+}
+
+.solve-review-playback {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 2px;
+  padding: 8px 10px 10px;
+  border-radius: 14px;
+  background: rgb(12 32 56 / 22%);
+}
+
+.solve-review-playback .solve-review-section-title {
+  margin-bottom: 2px;
+  font-size: 0.8rem;
+}
+
+.solve-review-playback-progress {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: rgb(247 251 255 / 88%);
+}
+
+.solve-review-cube {
+  width: 100%;
+  min-width: 0;
+}
+
+.solve-review-cube .cube-view h2 {
+  display: none;
+}
+
+.solve-review-cube .cube-stage {
+  width: min(100%, 240px);
+  height: clamp(120px, 24vh, 190px);
+  margin-inline: auto;
+}
+
+.solve-review-cube .cube-view {
+  gap: 0;
+}
+
+.solve-review-playback .practice-controls {
+  margin-top: 0;
+  gap: 6px;
+}
+
+.solve-review-playback .practice-controls button {
+  width: 36px;
+  height: 36px;
 }
 
 .solve-review-eyebrow {
@@ -60,7 +133,8 @@
 }
 
 .solve-review-time {
-  margin: 4px 0 16px;
+  flex: 0 0 auto;
+  margin: 4px 0 10px;
   text-align: center;
   font-family: "DSEG7-Classic", ui-monospace, monospace;
   font-size: clamp(2rem, 9vw, 3rem);
@@ -107,6 +181,12 @@
   font-weight: 700;
 }
 
+.solve-review-segment-hint {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  color: rgb(247 251 255 / 72%);
+}
+
 .solve-review-phases {
   margin: 0;
   padding: 0;
@@ -122,6 +202,16 @@
   min-width: 0;
   border-left: 4px solid transparent;
   overflow: hidden;
+}
+
+.solve-review-phase-active {
+  outline: 1px solid rgb(247 251 255 / 55%);
+  outline-offset: -1px;
+}
+
+.solve-review-phase-scramble {
+  border-left-color: #c4b5fd;
+  background: rgb(196 181 253 / 14%);
 }
 
 .solve-review-phase-cross {
@@ -144,20 +234,26 @@
   background: rgb(249 168 212 / 14%);
 }
 
-.solve-review-phase-toggle {
+.solve-review-phase-play {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px 10px;
+  gap: 6px 10px;
   width: 100%;
   margin: 0;
-  padding: 12px 12px 12px 10px;
+  padding: 10px 12px 10px 10px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.solve-review-phase-narrow-play .solve-review-phase-alg,
+.solve-review-phase-scramble-play .solve-review-phase-alg {
+  grid-column: 1 / -1;
+  padding: 0;
 }
 
 .solve-review-phase-wide {
@@ -175,11 +271,6 @@
   white-space: nowrap;
 }
 
-.solve-review-phase-chevron {
-  font-size: 0.75rem;
-  color: rgb(247 251 255 / 70%);
-}
-
 .solve-review-phase-alg {
   margin: 0;
   padding: 0 12px 12px 10px;
@@ -192,26 +283,12 @@
   color: rgb(247 251 255 / 92%);
 }
 
-.solve-review-scramble {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgb(12 32 56 / 18%);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  white-space: normal;
-}
-
 @media (min-width: 640px) {
   .solve-review-overview {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .solve-review-phase-narrow,
-  .solve-review-phase-alg-narrow {
+  .solve-review-phase-narrow-play {
     display: none;
   }
 
@@ -226,5 +303,76 @@
   .solve-review-phase-wide .solve-review-phase-alg {
     padding: 0;
     min-width: 0;
+  }
+
+  .solve-review-phase-scramble .solve-review-phase-play {
+    grid-template-columns: 5.5rem auto minmax(0, 1fr);
+    align-items: baseline;
+  }
+
+  .solve-review-phase-scramble .solve-review-phase-alg {
+    padding: 0;
+    grid-column: 3;
+  }
+
+  .solve-review-playback {
+    gap: 6px;
+    padding: 12px;
+  }
+
+  .solve-review-playback .solve-review-section-title {
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+  }
+
+  .solve-review-playback-progress {
+    font-size: 0.85rem;
+  }
+
+  .solve-review-cube .cube-stage {
+    width: min(100%, 280px);
+    height: clamp(180px, 32vh, 260px);
+  }
+
+  .solve-review-playback .practice-controls button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (min-width: 900px) {
+  .solve-review-body {
+    overflow: hidden;
+    padding: 8px 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .solve-review-main {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 20px;
+    min-height: 0;
+  }
+
+  .solve-review-formulas {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 4px;
+  }
+
+  .solve-review-playback {
+    flex: 0 0 min(42%, 420px);
+    align-self: stretch;
+    justify-content: flex-start;
+    margin-bottom: 0;
+    border-radius: 14px;
+    padding: 12px;
+    background: rgb(12 32 56 / 18%);
+  }
+
+  .solve-review-cube .cube-stage {
+    width: min(100%, 360px);
+    height: clamp(220px, 42vh, 360px);
   }
 }

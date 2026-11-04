@@ -54,6 +54,54 @@ export function quatNormalize(q: MoyuQuat): MoyuQuat {
   };
 }
 
+/** 两姿态最短弧夹角（弧度，0…π）。 */
+export function quatAngle(a: MoyuQuat, b: MoyuQuat): number {
+  const qa = quatNormalize(a);
+  const qb = quatNormalize(b);
+  let dot = qa.x * qb.x + qa.y * qb.y + qa.z * qb.z + qa.w * qb.w;
+  if (dot < 0) {
+    dot = -dot;
+  }
+  return 2 * Math.acos(Math.min(1, Math.max(-1, dot)));
+}
+
+/** 球面线性插值；t∈[0,1]。自动取最短弧。 */
+export function quatSlerp(a: MoyuQuat, b: MoyuQuat, t: number): MoyuQuat {
+  const qa = quatNormalize(a);
+  let bx = b.x;
+  let by = b.y;
+  let bz = b.z;
+  let bw = b.w;
+  let dot = qa.x * bx + qa.y * by + qa.z * bz + qa.w * bw;
+  if (dot < 0) {
+    bx = -bx;
+    by = -by;
+    bz = -bz;
+    bw = -bw;
+    dot = -dot;
+  }
+  const clamped = Math.min(1, Math.max(0, t));
+  if (dot > 0.9995) {
+    return quatNormalize({
+      x: qa.x + clamped * (bx - qa.x),
+      y: qa.y + clamped * (by - qa.y),
+      z: qa.z + clamped * (bz - qa.z),
+      w: qa.w + clamped * (bw - qa.w),
+    });
+  }
+  const theta0 = Math.acos(Math.min(1, dot));
+  const theta = theta0 * clamped;
+  const sin0 = Math.sin(theta0);
+  const s0 = Math.sin(theta0 - theta) / sin0;
+  const s1 = Math.sin(theta) / sin0;
+  return {
+    x: s0 * qa.x + s1 * bx,
+    y: s0 * qa.y + s1 * by,
+    z: s0 * qa.z + s1 * bz,
+    w: s0 * qa.w + s1 * bw,
+  };
+}
+
 /**
  * 传感器四元数 → Twisty 显示空间。
  * Weilong 还原后已与 Twisty 轴一致，只做归一化。
