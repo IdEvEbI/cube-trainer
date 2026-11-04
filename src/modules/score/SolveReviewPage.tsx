@@ -83,9 +83,11 @@ function applyCursorToCube(
 export function SolveReviewPage({
   review,
   onBack,
+  onRetrySameScramble,
 }: {
   review: SolveReview;
   onBack: () => void;
+  onRetrySameScramble: () => void;
 }) {
   const { overview, phases, scramble } = review;
   const cube = useRef<CubeHandle | null>(null);
@@ -443,37 +445,69 @@ export function SolveReviewPage({
 
           <section className="solve-review-playback" aria-label="回放">
             <h2 className="solve-review-section-title">回放</h2>
-            <p className="solve-review-playback-progress" aria-live="polite">
-              {progressLabel(cursor, segmentRanges, focusSegmentId)}
-            </p>
-            <div className="solve-review-cube">
-              <CubeView
-                ref={cube}
-                showLayerControls={false}
-                viewOrientation="scramble"
-              />
+            <div className="solve-review-playback-body">
+              <p className="solve-review-playback-progress" aria-live="polite">
+                {progressLabel(cursor, segmentRanges, focusSegmentId)}
+              </p>
+              <div className="solve-review-cube">
+                <CubeView
+                  ref={cube}
+                  showLayerControls={false}
+                  viewOrientation="scramble"
+                />
+              </div>
+              <div className="solve-review-playback-bar">
+                <PracticeControls
+                  atStart={isSolveReviewAtStart(cursor)}
+                  atTarget={isSolveReviewAtEnd(cursor)}
+                  playing={playing}
+                  onStart={() => {
+                    stopPlay();
+                    focusSegmentIdRef.current = null;
+                    setFocusSegmentId(null);
+                    showCursor(
+                      createSolveReviewCursor(review.trace, phaseSpans),
+                    );
+                  }}
+                  onPrevious={() => moveCursor(solveReviewStepPrevious, "back")}
+                  onPlay={() => void onPlay()}
+                  onNext={() => moveCursor(solveReviewStepNext, "forward")}
+                  onTarget={() => {
+                    stopPlay();
+                    focusSegmentIdRef.current = null;
+                    setFocusSegmentId(null);
+                    const fresh = createSolveReviewCursor(
+                      review.trace,
+                      phaseSpans,
+                    );
+                    showCursor(solveReviewAtEnd(fresh));
+                  }}
+                />
+                <button
+                  type="button"
+                  className="solve-review-retry"
+                  aria-label="再练一次"
+                  title="再练一次"
+                  onClick={() => {
+                    stopPlay();
+                    onRetrySameScramble();
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 12a9 9 0 1 0 3-6.7" />
+                    <path d="M3 4v5h5" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <PracticeControls
-              atStart={isSolveReviewAtStart(cursor)}
-              atTarget={isSolveReviewAtEnd(cursor)}
-              playing={playing}
-              onStart={() => {
-                stopPlay();
-                focusSegmentIdRef.current = null;
-                setFocusSegmentId(null);
-                showCursor(createSolveReviewCursor(review.trace, phaseSpans));
-              }}
-              onPrevious={() => moveCursor(solveReviewStepPrevious, "back")}
-              onPlay={() => void onPlay()}
-              onNext={() => moveCursor(solveReviewStepNext, "forward")}
-              onTarget={() => {
-                stopPlay();
-                focusSegmentIdRef.current = null;
-                setFocusSegmentId(null);
-                const fresh = createSolveReviewCursor(review.trace, phaseSpans);
-                showCursor(solveReviewAtEnd(fresh));
-              }}
-            />
           </section>
         </div>
       </div>

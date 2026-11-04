@@ -166,6 +166,16 @@ export function createScoreLog(
       storage.write(JSON.stringify(scores));
       return score;
     },
+    /** 去掉最新一条（再练一次撤销进入复盘时写入的成绩）。空列表返回 null。 */
+    removeNewest(): Score | null {
+      const scores = readScores(storage.read());
+      if (scores.length === 0) {
+        return null;
+      }
+      const [removed, ...rest] = scores;
+      storage.write(JSON.stringify(rest));
+      return removed ?? null;
+    },
   };
 }
 
