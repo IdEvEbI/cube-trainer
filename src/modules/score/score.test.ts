@@ -173,4 +173,21 @@ describe("createScoreLog", () => {
     );
     assert.throws(() => log.record({ timeMs: -1, scramble: "R" }), /时间无效/);
   });
+
+  it("removeNewest 去掉最新一条；空列表为 null", () => {
+    const storage = memoryStorage();
+    let tick = 0;
+    const log = createScoreLog(storage, () => {
+      tick += 1;
+      return new Date(`2026-10-21T07:38:0${tick}.000Z`);
+    });
+    assert.equal(log.removeNewest(), null);
+    log.record({ timeMs: 1000, scramble: "R U" });
+    log.record({ timeMs: 2000, scramble: "F' D" });
+    const removed = log.removeNewest();
+    assert.equal(removed?.timeMs, 2000);
+    assert.equal(removed?.scramble, "F' D");
+    assert.equal(log.list().length, 1);
+    assert.equal(log.list()[0]?.scramble, "R U");
+  });
 });

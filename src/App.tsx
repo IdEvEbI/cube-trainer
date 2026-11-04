@@ -71,6 +71,7 @@ import {
   type SolveReview,
 } from "./modules/score/solveReview.ts";
 import { SolveReviewPage } from "./modules/score/SolveReviewPage.tsx";
+import { planSolveReviewRetry } from "./modules/score/solveReviewRetry.ts";
 import {
   createSolveTraceSession,
   type SolveTraceSession,
@@ -1223,6 +1224,41 @@ export default function App() {
     refreshScramble(!keepElapsedOnScrambleRefresh(timerPhaseRef.current));
   }
 
+  /**
+   * 再练一次：撤销进入复盘时写入的成绩，保留打乱，3D 复位白上绿前，
+   * 蓝牙引导用户按公式重打实体。
+   */
+  function retrySolveReviewSameScramble() {
+    const review = pendingSolveReviewRef.current;
+    if (!review) {
+      return;
+    }
+    let plan;
+    try {
+      plan = planSolveReviewRetry(review);
+    } catch {
+      return;
+    }
+    if (plan.discardPersistedScore) {
+      scoreLog.removeNewest();
+      setScoreRevision((current) => current + 1);
+      setLastSolveTimeMs(latestSolveTimeMs(scoreLog.list()));
+    }
+    // 抬高 epoch，避免关闭时 popstate / cleanup 再走「刷新打乱」。
+    solveReviewHistoryEpochRef.current += 1;
+    pendingSolveReviewRef.current = null;
+    setPendingSolveReview(null);
+    applyScramble(plan.scramble, true);
+    bluetoothSolveTraceRef.current = null;
+    bluetoothSolveStartSetupRef.current = "";
+    bluetoothSolveCheckGen.current += 1;
+    bluetoothSetupAlgRef.current = "";
+    bluetoothStateMovesRef.current = [];
+    cube.current?.cancelAnimation();
+    cube.current?.setAbsoluteAlg("");
+    cube.current?.setOrbit(MOYU_REST_ORBIT);
+  }
+
   /** 左上角返回：走 history.back，与手机滑动返回同一路径。 */
   function dismissSolveReview() {
     if (!pendingSolveReviewRef.current) {
@@ -1531,6 +1567,7 @@ export default function App() {
         <SolveReviewPage
           review={pendingSolveReview}
           onBack={dismissSolveReview}
+          onRetrySameScramble={retrySolveReviewSameScramble}
         />
       ) : null}
       <header
