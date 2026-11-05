@@ -355,6 +355,12 @@ export function CubeView({
   /** 队列中尚未播完的蓝牙动画步数（用于积压瞬切）。 */
   const bluetoothPending = useRef(0);
   const moveHintGroup = useRef<Group | null>(null);
+  /** 与 alg 队列串行，避免 setAbsoluteAlg 重建场景后箭头画在旧 puzzle 上。 */
+  const moveHintToken = useRef(0);
+  const pendingMoveHint = useRef<{
+    move: string | null;
+    options?: MoveHintOptions;
+  } | null>(null);
   const viewOrientationRef = useRef(viewOrientation);
   viewOrientationRef.current = viewOrientation;
 
@@ -409,6 +415,31 @@ export function CubeView({
     player.current = twisty;
     puzzle3D.current = null;
     puzzle3DWait.current = null;
+    // 再练一次从成绩页切回时，父组件可能先于 player 就绪调用 setMoveHint。
+    const pending = pendingMoveHint.current;
+    if (pending) {
+      const token = (moveHintToken.current += 1);
+      queue.current = queue.current.then(async () => {
+        if (token !== moveHintToken.current || player.current !== twisty) {
+          return;
+        }
+        const puzzle = await resolvePuzzle3D(twisty);
+        if (
+          !puzzle ||
+          token !== moveHintToken.current ||
+          player.current !== twisty
+        ) {
+          return;
+        }
+        const latest = pendingMoveHint.current;
+        moveHintGroup.current = applyMoveHint(
+          puzzle,
+          moveHintGroup.current,
+          latest?.move ?? null,
+          latest?.options,
+        );
+      });
+    }
     return () => {
       moveHintGroup.current = null;
       twisty.remove();
@@ -452,6 +483,13 @@ export function CubeView({
         if (!twisty) {
           return;
         }
+        // alg 变更后 Three 场景可能重建，丢掉旧 puzzle / 箭头缓存。
+        if (puzzle3D.current && moveHintGroup.current) {
+          applyMoveHint(puzzle3D.current, moveHintGroup.current, null);
+          moveHintGroup.current = null;
+        }
+        puzzle3D.current = null;
+        puzzle3DWait.current = null;
         twisty.alg = alg;
         twisty.timestamp = "end";
       });
@@ -646,19 +684,30 @@ export function CubeView({
       });
     },
     setMoveHint(move, options) {
+      pendingMoveHint.current = { move, options };
+      const token = (moveHintToken.current += 1);
       const twisty = player.current;
       if (!twisty) {
         return;
       }
-      void resolvePuzzle3D(twisty).then((puzzle) => {
-        if (!puzzle || player.current !== twisty) {
+      queue.current = queue.current.then(async () => {
+        if (token !== moveHintToken.current || player.current !== twisty) {
           return;
         }
+        const puzzle = await resolvePuzzle3D(twisty);
+        if (
+          !puzzle ||
+          token !== moveHintToken.current ||
+          player.current !== twisty
+        ) {
+          return;
+        }
+        const pending = pendingMoveHint.current;
         moveHintGroup.current = applyMoveHint(
           puzzle,
           moveHintGroup.current,
-          move,
-          options,
+          pending?.move ?? null,
+          pending?.options,
         );
       });
     },

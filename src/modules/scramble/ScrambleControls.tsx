@@ -17,6 +17,15 @@ function Glyph({ children }: { children: ReactNode }) {
   );
 }
 
+function StartIcon() {
+  return (
+    <Glyph>
+      <path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z" />
+      <path d="M3 20V4" />
+    </Glyph>
+  );
+}
+
 function PreviousIcon() {
   return (
     <Glyph>
@@ -52,20 +61,33 @@ function NextIcon() {
   );
 }
 
+function TargetIcon() {
+  return (
+    <Glyph>
+      <path d="M21 4v16" />
+      <path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z" />
+    </Glyph>
+  );
+}
+
 export function ScrambleControls({
   atStart,
   atEnd,
   playing,
+  onStart,
   onPrevious,
   onPlay,
   onNext,
+  onTarget,
 }: {
   atStart: boolean;
   atEnd: boolean;
   playing: boolean;
+  onStart: () => void;
   onPrevious: () => void;
   onPlay: () => void;
   onNext: () => void;
+  onTarget: () => void;
 }) {
   function press(action: () => void, event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
@@ -79,6 +101,15 @@ export function ScrambleControls({
       aria-label="打乱播放"
       onPointerDown={(event) => event.stopPropagation()}
     >
+      <button
+        type="button"
+        aria-label="初始状态"
+        title="初始状态"
+        disabled={atStart}
+        onClick={(event) => press(onStart, event)}
+      >
+        <StartIcon />
+      </button>
       <button
         type="button"
         aria-label="上一步"
@@ -105,6 +136,15 @@ export function ScrambleControls({
         onClick={(event) => press(onNext, event)}
       >
         <NextIcon />
+      </button>
+      <button
+        type="button"
+        aria-label="目标状态"
+        title="目标状态"
+        disabled={atEnd}
+        onClick={(event) => press(onTarget, event)}
+      >
+        <TargetIcon />
       </button>
     </section>
   );

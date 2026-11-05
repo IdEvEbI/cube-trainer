@@ -99,13 +99,13 @@ describe("createScoreLog", () => {
 
     const score = log.record({ timeMs: 12345.6, scramble: "R U R' U'" });
 
-    assert.deepEqual(score, {
-      timeMs: 12345,
-      scramble: "R U R' U'",
-      recordedAt: "2026-10-21T07:38:00.000Z",
-      mode: "非蓝牙",
-      split: false,
-    });
+    assert.equal(score.timeMs, 12345);
+    assert.equal(score.scramble, "R U R' U'");
+    assert.equal(score.recordedAt, "2026-10-21T07:38:00.000Z");
+    assert.equal(score.mode, "非蓝牙");
+    assert.equal(score.split, false);
+    assert.equal(score.trace, false);
+    assert.ok(score.id.length > 0);
     assert.deepEqual(log.list(), [score]);
   });
 
@@ -189,5 +189,115 @@ describe("createScoreLog", () => {
     assert.equal(removed?.scramble, "F' D");
     assert.equal(log.list().length, 1);
     assert.equal(log.list()[0]?.scramble, "R U");
+  });
+
+  it("removeById 删除指定成绩；旧记录无 id 也能合成主键", () => {
+    const storage = memoryStorage(
+      JSON.stringify([
+        {
+          timeMs: 1500,
+          scramble: "R U",
+          recordedAt: "2026-10-21T07:38:00.000Z",
+          mode: "非蓝牙",
+          split: false,
+        },
+        {
+          timeMs: 2500,
+          scramble: "F",
+          recordedAt: "2026-10-20T07:38:00.000Z",
+          mode: "非蓝牙",
+          split: false,
+        },
+      ]),
+    );
+    const log = createScoreLog(storage);
+    const [newest, older] = log.list();
+    assert.ok(newest && older);
+    assert.equal(log.removeById(older.id)?.timeMs, 2500);
+    assert.deepEqual(
+      log.list().map((score) => score.timeMs),
+      [1500],
+    );
+    assert.equal(log.removeById("missing"), null);
+  });
+
+  it("蓝牙成绩可保存 trace，供列表打开复盘", () => {
+    const log = createScoreLog(
+      memoryStorage(),
+      () => new Date("2026-10-21T07:38:00.000Z"),
+    );
+    const trace = {
+      version: 1 as const,
+      scramble: "R U",
+      startSetupAlg: "R U",
+      steps: [
+        {
+          move: "U'",
+          rawMove: "U'",
+          atMs: 10,
+          kind: "face" as const,
+          orientationAfter: "",
+        },
+      ],
+    };
+    const score = log.record({
+      timeMs: 3000,
+      scramble: "R U",
+      mode: "蓝牙",
+      split: {
+        overview: { moves: 1, rotations: 0, tps: 1, pauseRate: 0 },
+        phases: [
+          {
+            id: "cross",
+            label: "Cross",
+            alg: "R2",
+            timeMs: 3000,
+            timeShare: 1,
+            moves: 1,
+            rotations: 0,
+            tps: 1,
+            pauseRate: 0,
+          },
+        ],
+      },
+      trace,
+    });
+    assert.deepEqual(log.list()[0]?.trace, trace);
+    assert.equal(
+      log.list()[0]?.split && log.list()[0].split.phases[0]?.alg,
+      "R2",
+    );
+    assert.equal(score.mode, "蓝牙");
+  });
+
+  it("旧分段无 alg 读出时补空串", () => {
+    const storage = memoryStorage(
+      JSON.stringify([
+        {
+          timeMs: 2000,
+          scramble: "R U",
+          recordedAt: "2026-10-21T07:38:00.000Z",
+          mode: "蓝牙",
+          split: {
+            overview: { moves: 2, rotations: 0, tps: 1, pauseRate: 0 },
+            phases: [
+              {
+                id: "cross",
+                label: "Cross",
+                timeMs: 2000,
+                timeShare: 1,
+                moves: 2,
+                rotations: 0,
+                tps: 1,
+                pauseRate: 0,
+              },
+            ],
+          },
+        },
+      ]),
+    );
+    const score = createScoreLog(storage).list()[0];
+    assert.ok(score && score.split);
+    assert.equal(score.split.phases[0]?.alg, "");
   });
 });
