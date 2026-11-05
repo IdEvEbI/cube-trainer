@@ -1,9 +1,17 @@
+import {
+  SOLVE_TRACE_VERSION,
+  type SolveTrace,
+  type SolveTraceStep,
+} from "./solveTrace.ts";
+
 export type ScoreMode = "非蓝牙" | "蓝牙";
 
 /** 蓝牙分段快照（与弹层展示字段对齐，便于成绩详情复用）。 */
 export type ScorePhaseSplit = {
   id: string;
   label: string;
+  /** 该段握持公式；旧记录可能缺失，读出时补空串。 */
+  alg: string;
   timeMs: number;
   timeShare: number;
   moves: number;
@@ -23,11 +31,15 @@ export type ScoreSplit = {
 };
 
 export type Score = {
+  /** 稳定主键；旧记录读出时按 recordedAt+timeMs+scramble 合成。 */
+  id: string;
   timeMs: number;
   scramble: string;
   recordedAt: string;
   mode: ScoreMode;
   split: false | ScoreSplit;
+  /** 蓝牙复盘轨迹；旧记录或非蓝牙为 false。 */
+  trace: false | SolveTrace;
 };
 
 export type ScoreStorage = {
@@ -157,6 +169,8 @@ export function createScoreLog(
       scramble: string;
       mode?: ScoreMode;
       split?: false | ScoreSplit;
+      trace?: false | SolveTrace;
+      id?: string;
     }): Score {
       const score = createScore(input, now());
       const scores = [score, ...readScores(storage.read())].slice(
@@ -176,7 +190,39 @@ export function createScoreLog(
       storage.write(JSON.stringify(rest));
       return removed ?? null;
     },
+    /** 按 id 删除一条；未找到返回 null。 */
+    removeById(id: string): Score | null {
+      const key = id.trim();
+      if (key === "") {
+        return null;
+      }
+      const scores = readScores(storage.read());
+      const index = scores.findIndex((score) => score.id === key);
+      if (index < 0) {
+        return null;
+      }
+      const removed = scores[index]!;
+      const next = [...scores.slice(0, index), ...scores.slice(index + 1)];
+      storage.write(JSON.stringify(next));
+      return removed;
+    },
   };
+}
+
+function createScoreId(now: Date): string {
+  const rand =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 10);
+  return `${now.toISOString()}_${rand}`;
+}
+
+function legacyScoreId(
+  recordedAt: string,
+  timeMs: number,
+  scramble: string,
+): string {
+  return `${recordedAt}|${timeMs}|${scramble}`;
 }
 
 function createScore(
@@ -185,6 +231,8 @@ function createScore(
     scramble: string;
     mode?: ScoreMode;
     split?: false | ScoreSplit;
+    trace?: false | SolveTrace;
+    id?: string;
   },
   now: Date,
 ): Score {
@@ -197,15 +245,24 @@ function createScore(
   }
   const mode = input.mode ?? "非蓝牙";
   const split = input.split ?? false;
+  const trace = input.trace ?? false;
   if (mode === "非蓝牙" && split !== false) {
     throw new Error("非蓝牙成绩不支持分段");
   }
+  if (mode === "非蓝牙" && trace !== false) {
+    throw new Error("非蓝牙成绩不支持复盘轨迹");
+  }
+  const recordedAt = now.toISOString();
+  const timeMs = Math.trunc(input.timeMs);
+  const id = input.id?.trim() || createScoreId(now);
   return {
-    timeMs: Math.trunc(input.timeMs),
+    id,
+    timeMs,
     scramble,
-    recordedAt: now.toISOString(),
+    recordedAt,
     mode,
     split,
+    trace,
   };
 }
 
@@ -218,10 +275,102 @@ function readScores(raw: string | null): Score[] {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter(isScore);
+    const scores: Score[] = [];
+    for (const item of parsed) {
+      const score = normalizeScore(item);
+      if (score) {
+        scores.push(score);
+      }
+    }
+    return scores;
   } catch {
     return [];
   }
+}
+
+function normalizeScore(value: unknown): Score | null {
+  if (!isScoreRecord(value)) {
+    return null;
+  }
+  const item = value as Record<string, unknown>;
+  const timeMs = item.timeMs as number;
+  const scramble = (item.scramble as string).trim();
+  const recordedAt = item.recordedAt as string;
+  const mode = item.mode as ScoreMode;
+  const split = normalizeScoreSplit(item.split ?? false);
+  const trace = parseStoredTrace(item.trace);
+  const id =
+    typeof item.id === "string" && item.id.trim() !== ""
+      ? item.id.trim()
+      : legacyScoreId(recordedAt, timeMs, scramble);
+  return { id, timeMs, scramble, recordedAt, mode, split, trace };
+}
+
+function normalizeScoreSplit(value: unknown): false | ScoreSplit {
+  if (value === false || value === undefined || value === null) {
+    return false;
+  }
+  if (!isScoreSplit(value)) {
+    return false;
+  }
+  return {
+    overview: value.overview,
+    phases: value.phases.map((phase) => ({
+      ...phase,
+      alg: typeof phase.alg === "string" ? phase.alg : "",
+    })),
+  };
+}
+
+function parseStoredTrace(value: unknown): false | SolveTrace {
+  if (value === undefined || value === false || value === null) {
+    return false;
+  }
+  if (typeof value !== "object") {
+    return false;
+  }
+  const row = value as Record<string, unknown>;
+  if (row.version !== SOLVE_TRACE_VERSION) {
+    return false;
+  }
+  if (
+    typeof row.scramble !== "string" ||
+    typeof row.startSetupAlg !== "string"
+  ) {
+    return false;
+  }
+  if (!Array.isArray(row.steps)) {
+    return false;
+  }
+  const steps: SolveTraceStep[] = [];
+  for (const step of row.steps) {
+    if (typeof step !== "object" || step === null) {
+      return false;
+    }
+    const s = step as Record<string, unknown>;
+    if (
+      typeof s.move !== "string" ||
+      typeof s.rawMove !== "string" ||
+      typeof s.atMs !== "number" ||
+      (s.kind !== "face" && s.kind !== "rotation") ||
+      typeof s.orientationAfter !== "string"
+    ) {
+      return false;
+    }
+    steps.push({
+      move: s.move,
+      rawMove: s.rawMove,
+      atMs: s.atMs,
+      kind: s.kind,
+      orientationAfter: s.orientationAfter,
+    });
+  }
+  return {
+    version: SOLVE_TRACE_VERSION,
+    scramble: row.scramble,
+    startSetupAlg: row.startSetupAlg,
+    steps,
+  };
 }
 
 function isScoreSplit(value: unknown): value is ScoreSplit {
@@ -249,20 +398,24 @@ function isScoreSplit(value: unknown): value is ScoreSplit {
       return false;
     }
     const row = phase as Record<string, unknown>;
-    return (
-      typeof row.id === "string" &&
-      typeof row.label === "string" &&
-      typeof row.timeMs === "number" &&
-      typeof row.timeShare === "number" &&
-      typeof row.moves === "number" &&
-      typeof row.rotations === "number" &&
-      typeof row.tps === "number" &&
-      typeof row.pauseRate === "number"
-    );
+    if (
+      typeof row.id !== "string" ||
+      typeof row.label !== "string" ||
+      typeof row.timeMs !== "number" ||
+      typeof row.timeShare !== "number" ||
+      typeof row.moves !== "number" ||
+      typeof row.rotations !== "number" ||
+      typeof row.tps !== "number" ||
+      typeof row.pauseRate !== "number"
+    ) {
+      return false;
+    }
+    // 旧记录无 alg；新记录为 string。
+    return row.alg === undefined || typeof row.alg === "string";
   });
 }
 
-function isScore(value: unknown): value is Score {
+function isScoreRecord(value: unknown): boolean {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -279,10 +432,14 @@ function isScore(value: unknown): value is Score {
     return false;
   }
   if (item.mode === "非蓝牙") {
-    return item.split === false;
+    return item.split === false || item.split === undefined;
   }
   if (item.mode === "蓝牙") {
-    return item.split === false || isScoreSplit(item.split);
+    return (
+      item.split === false ||
+      item.split === undefined ||
+      isScoreSplit(item.split)
+    );
   }
   return false;
 }

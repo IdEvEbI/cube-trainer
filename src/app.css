@@ -23,9 +23,37 @@
   column-gap: 10px;
 }
 
+.topbar-timing .topbar-start,
 .topbar-timing .mode-switch {
   justify-self: start;
   grid-column: 1;
+}
+
+.topbar-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.scores-entry {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(247 251 255 / 42%);
+  border-radius: 999px;
+  background: transparent;
+  color: #f7fbff;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.scores-entry-svg {
+  display: block;
 }
 
 .topbar-timing .topbar-align {
@@ -552,22 +580,23 @@ body:has(
   font-size: clamp(2.6rem, 11vw, 4.4rem);
 }
 
-/* Practice: soft-blue home; cube upper-middle; picker overlays (does not push layout). */
-body:has(.focus[data-focus="练习"]),
-.app:has(.focus[data-focus="练习"]),
-.app:has(.focus[data-focus="练习"]) .topbar,
-.app:has(.focus[data-focus="练习"]) .focus[data-focus="练习"] {
+/* Practice / scores: soft-blue home; cube upper-middle; picker overlays (does not push layout). */
+body:has(.focus:is([data-focus="练习"], [data-focus="成绩"])),
+.app:has(.focus:is([data-focus="练习"], [data-focus="成绩"])),
+.app:has(.focus:is([data-focus="练习"], [data-focus="成绩"])) .topbar,
+.app:has(.focus:is([data-focus="练习"], [data-focus="成绩"]))
+  .focus:is([data-focus="练习"], [data-focus="成绩"]) {
   background: #4a7eb5;
 }
 
-.app:has(.focus[data-focus="练习"]) .nav-back {
+.app:has(.focus:is([data-focus="练习"], [data-focus="成绩"])) .nav-back {
   background: transparent;
   border: 1px solid rgb(247 251 255 / 42%);
   color: #f7fbff;
   box-shadow: none;
 }
 
-.app:has(.focus[data-focus="练习"]) .nav-back-icon {
+.app:has(.focus:is([data-focus="练习"], [data-focus="成绩"])) .nav-back-icon {
   width: 40px;
   min-width: 40px;
   padding: 0;
@@ -576,8 +605,26 @@ body:has(.focus[data-focus="练习"]),
   justify-content: center;
 }
 
-.app:has(.focus[data-focus="练习"]) .nav-back-svg {
+.app:has(.focus:is([data-focus="练习"], [data-focus="成绩"])) .nav-back-svg {
   display: block;
+}
+
+.focus[data-focus="成绩"] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.focus[data-focus="成绩"] .slot-scores {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.focus[data-focus="成绩"] .slot-scores[hidden] {
+  display: none;
 }
 
 .app:has(.focus[data-focus="练习"]) .practice-name,
@@ -781,6 +828,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .scores-entry,
   .app:has(.focus[data-focus="计时"]) .bt-align,
   .app:has(.focus[data-focus="计时"]) .bt-connect,
   .app:has(.focus[data-focus="计时"]) .scramble-icon,
@@ -799,6 +847,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch:hover,
+  .app:has(.focus[data-focus="计时"]) .scores-entry:hover,
   .app:has(.focus[data-focus="计时"]) .bt-align:hover,
   .app:has(.focus[data-focus="计时"]) .bt-connect:hover,
   .app:has(.focus[data-focus="计时"]) .scramble-icon:hover,
@@ -1069,6 +1118,7 @@ body:has(.focus[data-focus="练习"]),
   }
 
   .app:has(.focus[data-focus="计时"]) .mode-switch,
+  .app:has(.focus[data-focus="计时"]) .scores-entry,
   .app:has(.focus[data-focus="计时"]) .bt-align,
   .app:has(.focus[data-focus="计时"]) .bt-connect,
   .app:has(.focus[data-focus="计时"]) .scramble-icon,

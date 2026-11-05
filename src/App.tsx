@@ -38,6 +38,7 @@ import {
 import {
   back,
   showPractice,
+  showScores,
   showTiming,
   type Focus,
 } from "./modules/practice/focus.ts";
@@ -54,7 +55,13 @@ import {
   browserScoreStorage,
   createScoreLog,
   latestSolveTimeMs,
+  type Score,
 } from "./modules/score/score.ts";
+import { ScoreListPage } from "./modules/score/ScoreList.tsx";
+import {
+  buildSolveReviewFromScore,
+  canOpenScoreReview,
+} from "./modules/score/scoreList.ts";
 import {
   clearOrientationHoldPending,
   createOrientationHoldState,
@@ -98,6 +105,8 @@ import {
   createScrambleCursor,
   isScrambleAtEnd,
   isScrambleAtStart,
+  scrambleAtEnd,
+  scrambleAtStart,
   scrambleDisplayedMoves,
   scrambleStepNext,
   scrambleStepPrevious,
@@ -134,6 +143,10 @@ import { TimerStats } from "./modules/timer/TimerStats.tsx";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
 import { BluetoothDisconnectDialog } from "./modules/bluetooth/BluetoothDisconnectDialog.tsx";
 import {
+  bluetoothCubeAbsoluteAlg,
+  shouldSyncCubeAfterBluetoothAbandon,
+} from "./modules/bluetooth/cubeSync.ts";
+import {
   shouldAbandonTimingAfterForegroundSolvedResync,
   shouldRequestStatusOnForeground,
 } from "./modules/bluetooth/foregroundResync.ts";
@@ -155,7 +168,7 @@ const formulaLibrary = parseFormulaLibrary(formulas);
 const formulaCatalog = parseFormulaCatalog(formulas);
 
 function modeOf(focus: Focus) {
-  return focus.kind === "计时" ? "打乱计时" : "公式练习";
+  return focus.kind === "练习" ? "公式练习" : "打乱计时";
 }
 
 export default function App() {
@@ -189,6 +202,8 @@ export default function App() {
     useState<SolveReview | null>(null);
   const pendingSolveReviewRef = useRef<SolveReview | null>(null);
   pendingSolveReviewRef.current = pendingSolveReview;
+  /** 从成绩列表打开的复盘（不重复保存）。 */
+  const [browseReview, setBrowseReview] = useState<SolveReview | null>(null);
   const [focus, setFocus] = useState<Focus>({ kind: "计时" });
   const [practice, setPractice] = useState<PracticeCase | null>(null);
   const [practiceNote, setPracticeNote] = useState<string | null>(null);
@@ -310,6 +325,7 @@ export default function App() {
     () => scoreLog.summary(),
     [scoreLog, scoreRevision],
   );
+  const scores = useMemo(() => scoreLog.list(), [scoreLog, scoreRevision]);
 
   function stopPlay() {
     playRun.current += 1;
@@ -696,13 +712,16 @@ export default function App() {
   resyncBluetoothOnForegroundRef.current = resyncBluetoothCubeOnForeground;
 
   function bluetoothSetupBeforeMoves(): string {
-    const parts = [
+    return bluetoothCubeAbsoluteAlg(
       bluetoothSetupAlgRef.current,
-      ...bluetoothStateMovesRef.current,
-    ]
-      .map((part) => part.trim())
-      .filter(Boolean);
-    return parts.join(" ");
+      bluetoothStateMovesRef.current,
+    );
+  }
+
+  /** 蓝牙放弃 / 对表：按内存绝对状态重绘 3D，避免误显示复原态。 */
+  function syncBluetoothCubeFromTrackedState() {
+    cube.current?.cancelAnimation();
+    cube.current?.setAbsoluteAlg(bluetoothSetupBeforeMoves());
   }
 
   function hasPendingSolveUi(): boolean {
@@ -1095,18 +1114,98 @@ export default function App() {
     if (!shouldShowAbandonTimingControl(timerPhaseRef.current)) {
       return;
     }
+    const bluetoothConnected = Boolean(moyuSessionRef.current);
     bluetoothSolveTraceRef.current = null;
     bluetoothSolveStartSetupRef.current = "";
     bluetoothSolveCheckGen.current += 1;
     resetBluetoothInspect();
     refreshScramble(true);
-    resetNonBluetoothCubeToSolved();
+    if (shouldSyncCubeAfterBluetoothAbandon(bluetoothConnected)) {
+      // 蓝牙：3D 跟实体；先按本地跟踪重绘，再异步 requestStatus 对表。
+      syncBluetoothCubeFromTrackedState();
+      void resyncBluetoothCubeOnForeground();
+    } else {
+      resetNonBluetoothCubeToSolved();
+    }
   }
 
   /** 回前台对表发现已复原：轨迹缺步，作废本局且不进成绩页。 */
   function abandonTimingAfterForegroundResync() {
     abandonTiming();
     setToastMessage("息屏期间转动未完整记录，本局未计成绩");
+  }
+
+  function resetCubeToSolvedPreview() {
+    bluetoothSolveTraceRef.current = null;
+    bluetoothSolveStartSetupRef.current = "";
+    bluetoothSolveCheckGen.current += 1;
+    bluetoothSetupAlgRef.current = "";
+    bluetoothStateMovesRef.current = [];
+    cube.current?.cancelAnimation();
+    cube.current?.setAbsoluteAlg("");
+    cube.current?.setOrbit(MOYU_REST_ORBIT);
+  }
+
+  function openScoresPage() {
+    setBrowseReview(null);
+    setFocus(showScores());
+  }
+
+  function deleteScore(scoreId: string) {
+    if (!scoreLog.removeById(scoreId)) {
+      return;
+    }
+    setScoreRevision((current) => current + 1);
+    setLastSolveTimeMs(latestSolveTimeMs(scoreLog.list()));
+  }
+
+  function openScoreReview(score: Score) {
+    if (!canOpenScoreReview(score)) {
+      setToastMessage("该成绩无可复盘数据");
+      return;
+    }
+    void buildSolveReviewFromScore(score).then((review) => {
+      if (!review) {
+        setToastMessage("该成绩无可复盘数据");
+        return;
+      }
+      if (focusRef.current.kind !== "成绩") {
+        return;
+      }
+      setBrowseReview(review);
+    });
+  }
+
+  function closeBrowseReview() {
+    setBrowseReview(null);
+  }
+
+  /** 用已有打乱回到计时首页再练；保留成绩，不撤销。 */
+  function retryWithStoredScramble(scrambleRaw: string) {
+    const scramble = scrambleRaw.trim();
+    if (scramble === "") {
+      setToastMessage("该成绩没有打乱公式");
+      return;
+    }
+    setBrowseReview(null);
+    // 先切回计时并挂载 scramble 朝向的 3D，再复位 / 刷引导，避免箭头画在旧 player 上。
+    flushSync(() => {
+      setFocus(showTiming());
+    });
+    resetCubeToSolvedPreview();
+    applyScramble(scramble, true);
+  }
+
+  function retrySameScrambleFromList(score: Score) {
+    retryWithStoredScramble(score.scramble);
+  }
+
+  function retryFromBrowseReview() {
+    const review = browseReview;
+    if (!review) {
+      return;
+    }
+    retryWithStoredScramble(review.scramble);
   }
 
   function toScoreSplit(
@@ -1122,6 +1221,7 @@ export default function App() {
       phases: stats.phases.map((phase) => ({
         id: phase.id,
         label: phase.label,
+        alg: phase.alg,
         timeMs: phase.timeMs,
         timeShare: phase.timeShare,
         moves: phase.moves,
@@ -1139,6 +1239,7 @@ export default function App() {
       scramble: review.scramble,
       mode: "蓝牙",
       split: toScoreSplit(review),
+      trace: review.trace,
     });
     setScoreRevision((current) => current + 1);
   }
@@ -1248,15 +1349,9 @@ export default function App() {
     solveReviewHistoryEpochRef.current += 1;
     pendingSolveReviewRef.current = null;
     setPendingSolveReview(null);
+    // 先复位 3D，再刷引导；箭头与 setAbsoluteAlg 串行，避免第一拍无高亮。
+    resetCubeToSolvedPreview();
     applyScramble(plan.scramble, true);
-    bluetoothSolveTraceRef.current = null;
-    bluetoothSolveStartSetupRef.current = "";
-    bluetoothSolveCheckGen.current += 1;
-    bluetoothSetupAlgRef.current = "";
-    bluetoothStateMovesRef.current = [];
-    cube.current?.cancelAnimation();
-    cube.current?.setAbsoluteAlg("");
-    cube.current?.setOrbit(MOYU_REST_ORBIT);
   }
 
   /** 左上角返回：走 history.back，与手机滑动返回同一路径。 */
@@ -1570,6 +1665,13 @@ export default function App() {
           onRetrySameScramble={retrySolveReviewSameScramble}
         />
       ) : null}
+      {browseReview ? (
+        <SolveReviewPage
+          review={browseReview}
+          onBack={closeBrowseReview}
+          onRetrySameScramble={retryFromBrowseReview}
+        />
+      ) : null}
       <header
         className={focus.kind === "计时" ? "topbar topbar-timing" : "topbar"}
         hidden={
@@ -1578,7 +1680,7 @@ export default function App() {
             : false
         }
       >
-        {focus.kind === "练习" ? (
+        {focus.kind === "练习" || focus.kind === "成绩" ? (
           <button
             type="button"
             className="nav-back nav-back-icon"
@@ -1600,34 +1702,60 @@ export default function App() {
             </svg>
           </button>
         ) : (
-          <button
-            type="button"
-            className={
-              modeEntry.kind === "icon"
-                ? "mode-switch mode-switch-practice"
-                : "mode-switch"
-            }
-            aria-label={modeEntry.ariaLabel}
-            title={modeEntry.ariaLabel}
-            onClick={onMode}
-          >
-            {modeEntry.kind === "icon" ? (
+          <div className="topbar-start">
+            <button
+              type="button"
+              className={
+                modeEntry.kind === "icon"
+                  ? "mode-switch mode-switch-practice"
+                  : "mode-switch"
+              }
+              aria-label={modeEntry.ariaLabel}
+              title={modeEntry.ariaLabel}
+              onClick={onMode}
+            >
+              {modeEntry.kind === "icon" ? (
+                <svg
+                  className="mode-switch-icon"
+                  viewBox="0 0 24 24"
+                  width="20"
+                  height="20"
+                  aria-hidden="true"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm0 3a5 5 0 1 0 5 5 5 5 0 0 0-5-5zm0 2a3 3 0 1 1-3 3 3 3 0 0 1 3-3zm0 2a1 1 0 1 0 1 1 1 1 0 0 0-1-1z"
+                  />
+                </svg>
+              ) : (
+                <span className="mode-switch-label">{modeEntry.text}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className="scores-entry"
+              aria-label="成绩"
+              title="成绩"
+              onClick={openScoresPage}
+            >
               <svg
-                className="mode-switch-icon"
+                className="scores-entry-svg"
                 viewBox="0 0 24 24"
                 width="20"
                 height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 aria-hidden="true"
               >
-                <path
-                  fill="currentColor"
-                  d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 2a8 8 0 1 1-8 8 8 8 0 0 1 8-8zm0 3a5 5 0 1 0 5 5 5 5 0 0 0-5-5zm0 2a3 3 0 1 1-3 3 3 3 0 0 1 3-3zm0 2a1 1 0 1 0 1 1 1 1 0 0 0-1-1z"
-                />
+                <path d="M4 19V5" />
+                <path d="M4 19h16" />
+                <path d="M7 15l4-5 3 2.5 5-7" />
               </svg>
-            ) : (
-              <span className="mode-switch-label">{modeEntry.text}</span>
-            )}
-          </button>
+            </button>
+          </div>
         )}
         {focus.kind === "计时" && moyuSession ? (
           <button
@@ -1784,6 +1912,7 @@ export default function App() {
                     atStart={isScrambleAtStart(scrambleCursor)}
                     atEnd={isScrambleAtEnd(scrambleCursor)}
                     playing={scramblePlaying}
+                    onStart={() => moveScrambleCursor(scrambleAtStart, "snap")}
                     onPrevious={() =>
                       moveScrambleCursor(scrambleStepPrevious, "back")
                     }
@@ -1791,6 +1920,7 @@ export default function App() {
                     onNext={() =>
                       moveScrambleCursor(scrambleStepNext, "forward")
                     }
+                    onTarget={() => moveScrambleCursor(scrambleAtEnd, "snap")}
                   />
                 ) : null
               }
@@ -1835,6 +1965,14 @@ export default function App() {
         {focus.kind === "计时" && shouldShowAbandonTimingControl(timerPhase) ? (
           <TimingAbandonButton onAbandon={abandonTiming} />
         ) : null}
+        <div className="slot-scores" hidden={focus.kind !== "成绩"}>
+          <ScoreListPage
+            scores={scores}
+            onOpenReview={openScoreReview}
+            onRetrySameScramble={retrySameScrambleFromList}
+            onDelete={deleteScore}
+          />
+        </div>
         <div className="slot-session" hidden={focus.kind !== "练习"}>
           <div className="practice-rail">
             <PracticeFormulaPicker
