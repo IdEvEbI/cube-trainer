@@ -144,7 +144,7 @@ import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
 import { BluetoothDisconnectDialog } from "./modules/bluetooth/BluetoothDisconnectDialog.tsx";
 import {
   inferSmartCubeBrand,
-  smartCubeRequestDeviceOptions,
+  requestSmartCubeDevice,
   type SmartCubeBrand,
 } from "./modules/bluetooth/brand.ts";
 import {
@@ -1634,14 +1634,8 @@ export default function App() {
     resetMoyuOrientationFollow();
     let brand: SmartCubeBrand | null = null;
     try {
-      const bluetooth = navigator.bluetooth;
-      if (!bluetooth) {
-        throw new Error("当前浏览器不支持 Web Bluetooth（iPhone 请用 Bluefy）");
-      }
       // 用户手势内立刻弹出系统选择窗；按设备名自动匹配品牌。
-      const device = await bluetooth.requestDevice(
-        smartCubeRequestDeviceOptions(),
-      );
+      const device = await requestSmartCubeDevice();
       brand = inferSmartCubeBrand(device.name);
       if (!brand) {
         throw new Error(

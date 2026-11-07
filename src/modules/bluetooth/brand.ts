@@ -57,3 +57,34 @@ export function smartCubeRequestDeviceOptions(): SmartCubeRequestDeviceOptions {
     optionalManufacturerData: [...GAN_OPTIONAL_MANUFACTURER_IDS],
   };
 }
+
+/** 系统选择窗返回的设备（不依赖全局 Web Bluetooth DOM 类型）。 */
+export type SmartCubeBleDevice = {
+  id: string;
+  name?: string | null;
+};
+
+type SmartCubeBluetoothApi = {
+  requestDevice(
+    options: SmartCubeRequestDeviceOptions,
+  ): Promise<SmartCubeBleDevice>;
+};
+
+function browserSmartCubeBluetooth(): SmartCubeBluetoothApi | undefined {
+  if (typeof globalThis.navigator === "undefined") {
+    return undefined;
+  }
+  const nav = globalThis.navigator as Navigator & {
+    bluetooth?: SmartCubeBluetoothApi;
+  };
+  return nav.bluetooth;
+}
+
+/** 用户手势内弹出系统蓝牙选择窗。 */
+export async function requestSmartCubeDevice(): Promise<SmartCubeBleDevice> {
+  const bluetooth = browserSmartCubeBluetooth();
+  if (!bluetooth) {
+    throw new Error("当前浏览器不支持 Web Bluetooth（iPhone 请用 Bluefy）");
+  }
+  return bluetooth.requestDevice(smartCubeRequestDeviceOptions());
+}

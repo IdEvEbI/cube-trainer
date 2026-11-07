@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   inferSmartCubeBrand,
+  requestSmartCubeDevice,
   SMART_CUBE_BRANDS,
   smartCubeBrandHint,
   smartCubeBrandLabel,
@@ -32,5 +33,12 @@ describe("smartCubeBrand", () => {
     ]);
     assert.ok(options.optionalServices.includes(MOYU_GATT.service));
     assert.equal(options.optionalManufacturerData.length, 256);
+  });
+
+  it("无 Web Bluetooth 时 requestSmartCubeDevice 拒绝", async () => {
+    await assert.rejects(
+      () => requestSmartCubeDevice(),
+      /不支持 Web Bluetooth/,
+    );
   });
 });
