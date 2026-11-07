@@ -143,6 +143,11 @@ import { TimerStats } from "./modules/timer/TimerStats.tsx";
 import { TimerView, type TimerHandle } from "./modules/timer/TimerView.tsx";
 import { BluetoothDisconnectDialog } from "./modules/bluetooth/BluetoothDisconnectDialog.tsx";
 import {
+  inferSmartCubeBrand,
+  smartCubeRequestDeviceOptions,
+  type SmartCubeBrand,
+} from "./modules/bluetooth/brand.ts";
+import {
   bluetoothCubeAbsoluteAlg,
   shouldSyncCubeAfterBluetoothAbandon,
 } from "./modules/bluetooth/cubeSync.ts";
@@ -150,6 +155,13 @@ import {
   shouldAbandonTimingAfterForegroundSolvedResync,
   shouldRequestStatusOnForeground,
 } from "./modules/bluetooth/foregroundResync.ts";
+import {
+  connectGanCubeSession,
+  formatGanConnectError,
+  ganMacStorageKey,
+  normalizeGanMacAddress,
+} from "./modules/bluetooth/gan/index.ts";
+import { connectGanCubeWithDevice } from "./modules/bluetooth/gan/vendorConnect.ts";
 import {
   connectMoyuCube,
   formatMoyuConnectError,
@@ -217,6 +229,10 @@ export default function App() {
   const [moyuSession, setMoyuSession] = useState<MoyuBleConnection | null>(
     null,
   );
+  /** 当前连接品牌；断开后清空。Gan 本阶段仅状态同步。 */
+  const [btBrand, setBtBrand] = useState<SmartCubeBrand | null>(null);
+  const btBrandRef = useRef<SmartCubeBrand | null>(null);
+  btBrandRef.current = btBrand;
   const [moyuBusy, setMoyuBusy] = useState(false);
   const moyuBusyRef = useRef(false);
   moyuBusyRef.current = moyuBusy;
@@ -1141,8 +1157,14 @@ export default function App() {
     bluetoothSolveCheckGen.current += 1;
     bluetoothSetupAlgRef.current = "";
     bluetoothStateMovesRef.current = [];
+    restoreCubeToWhiteUpGreenFront();
+  }
+
+  /** 断开蓝牙 / 预览复位：复原态 + 白上绿前朝向与默认相机。 */
+  function restoreCubeToWhiteUpGreenFront() {
     cube.current?.cancelAnimation();
     cube.current?.setAbsoluteAlg("");
+    cube.current?.setOrientation(IDENTITY_QUAT);
     cube.current?.setOrbit(MOYU_REST_ORBIT);
   }
 
@@ -1553,11 +1575,14 @@ export default function App() {
     resetMoyuOrientationFollow();
     setMoyuSession(null);
     moyuSessionRef.current = null;
+    setBtBrand(null);
+    btBrandRef.current = null;
+    resetBluetoothCubeStateTracking();
     syncScrambleGuide(null, false);
     setMoyuNote(null);
     setBtDisconnectConfirmOpen(false);
-    // 断开后回到首页还原态预览，不写回打乱目标。
-    cube.current?.setAbsoluteAlg("");
+    // 断开后回到白上绿前复原预览，不写回打乱目标。
+    restoreCubeToWhiteUpGreenFront();
   }
 
   function onMoyuAlignOrientation() {
@@ -1575,7 +1600,7 @@ export default function App() {
     }
   }
 
-  async function onMoyuConnectClick() {
+  function onMoyuConnectClick() {
     if (moyuBusy) {
       return;
     }
@@ -1587,42 +1612,115 @@ export default function App() {
       setBtDisconnectConfirmOpen(true);
       return;
     }
-    setMoyuBusy(true);
-    setMoyuNote(null);
+    void connectSmartCube();
+  }
+
+  function onBluetoothDisconnected() {
     resetMoyuOrientationFollow();
+    setMoyuSession(null);
+    moyuSessionRef.current = null;
+    setBtBrand(null);
+    btBrandRef.current = null;
+    resetBluetoothCubeStateTracking();
+    syncScrambleGuide(null, false);
+    setBtDisconnectConfirmOpen(false);
+    setMoyuNote("魔方已断开");
+    restoreCubeToWhiteUpGreenFront();
+  }
+
+  async function connectSmartCube() {
+    setMoyuBusy(true);
+    setMoyuNote("正在选择魔方…");
+    resetMoyuOrientationFollow();
+    let brand: SmartCubeBrand | null = null;
     try {
-      const session = await connectMoyuCube({
-        onDisconnected: () => {
-          resetMoyuOrientationFollow();
-          setMoyuSession(null);
-          moyuSessionRef.current = null;
-          resetBluetoothCubeStateTracking();
-          syncScrambleGuide(null, false);
-          setBtDisconnectConfirmOpen(false);
-          setMoyuNote("魔方已断开");
-          cube.current?.setAbsoluteAlg("");
-        },
-        onMoves: (samples) => {
-          // 连续转动：按 interval 播动画；过快则瞬切
-          cube.current?.playBluetoothMoves(samples);
-          applyBluetoothGuideMovesRef.current(samples);
-        },
-        onOrientation: onMoyuOrientation,
-        askMacAddress: (deviceName) => {
-          const entered = window.prompt(
-            `请输入魔方 MAC（可在官方 App 查看）\n设备：${deviceName}`,
-            "CF:30:16:00:00:00",
-          );
-          return entered;
-        },
-      });
+      const bluetooth = navigator.bluetooth;
+      if (!bluetooth) {
+        throw new Error("当前浏览器不支持 Web Bluetooth（iPhone 请用 Bluefy）");
+      }
+      // 用户手势内立刻弹出系统选择窗；按设备名自动匹配品牌。
+      const device = await bluetooth.requestDevice(
+        smartCubeRequestDeviceOptions(),
+      );
+      brand = inferSmartCubeBrand(device.name);
+      if (!brand) {
+        throw new Error(
+          "无法识别魔方品牌（设备名需为 WCU_MY3 / GAN / MG / AiCube 开头）",
+        );
+      }
+      setMoyuNote(
+        brand === "gan" ? "正在连接 Gan（优先自动读取地址）…" : "正在连接魔域…",
+      );
+
+      const askMacAddress = (deviceName: string) => {
+        const entered = window.prompt(
+          brand === "gan"
+            ? `当前浏览器无法自动读地址（需 Chrome 实验特性，或手输一次）。\n可开 chrome://flags/#enable-experimental-web-platform-features 后重试；\n也可在官方 App 查看 MAC 后填入（之后会记住）。\n设备：${deviceName}`
+            : `请输入魔方 MAC（可在官方 App 查看）\n设备：${deviceName}`,
+          brand === "moyu" ? "CF:30:16:00:00:00" : "AA:BB:CC:DD:EE:FF",
+        );
+        return entered;
+      };
+
+      const onBluetoothMoves = (samples: readonly MoyuMoveSample[]) => {
+        cube.current?.playBluetoothMoves(samples);
+        applyBluetoothGuideMovesRef.current(samples);
+      };
+
+      const session =
+        brand === "moyu"
+          ? await connectMoyuCube({
+              device,
+              onDisconnected: onBluetoothDisconnected,
+              onMoves: onBluetoothMoves,
+              onOrientation: onMoyuOrientation,
+              askMacAddress,
+            })
+          : await connectGanCubeSession({
+              onDisconnected: onBluetoothDisconnected,
+              onMoves: onBluetoothMoves,
+              onOrientation: onMoyuOrientation,
+              askMacAddress,
+              getCachedMac: (selected) => {
+                if (!selected.id) {
+                  return null;
+                }
+                try {
+                  return localStorage.getItem(ganMacStorageKey(selected.id));
+                } catch {
+                  return null;
+                }
+              },
+              rememberMac: (selected, mac) => {
+                if (!selected.id) {
+                  return;
+                }
+                const normalized = normalizeGanMacAddress(mac);
+                if (!normalized) {
+                  return;
+                }
+                try {
+                  localStorage.setItem(
+                    ganMacStorageKey(selected.id),
+                    normalized,
+                  );
+                } catch {
+                  // 隐私模式等写失败时忽略。
+                }
+              },
+              connectImpl: (askMac) =>
+                connectGanCubeWithDevice(device, async (selected, isFallback) =>
+                  askMac(selected, isFallback),
+                ),
+            });
+
       // 在 await 间隙也视为已连接，避免 applyScramble 误清引导。
       moyuSessionRef.current = session;
       setMoyuSession(session);
-      // 首页不显示设备名；别名仅在设备弹层中编辑。
+      setBtBrand(brand);
+      btBrandRef.current = brand;
       setMoyuNote(null);
       const status = await session.requestStatus();
-      // 计时首屏白上：setupAlg 可直接展示物理魔方状态（不改打乱公式文案）
       resetBluetoothCubeStateTracking(status.setupAlg);
       cube.current?.setAbsoluteAlg(status.setupAlg);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
@@ -1632,9 +1730,15 @@ export default function App() {
       resetMoyuOrientationFollow();
       setMoyuSession(null);
       moyuSessionRef.current = null;
+      setBtBrand(null);
+      btBrandRef.current = null;
       resetBluetoothCubeStateTracking();
       syncScrambleGuide(null, false);
-      setMoyuNote(formatMoyuConnectError(error));
+      setMoyuNote(
+        brand === "gan"
+          ? formatGanConnectError(error)
+          : formatMoyuConnectError(error),
+      );
     } finally {
       setMoyuBusy(false);
     }
