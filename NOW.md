@@ -6,7 +6,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-**Gan 智能魔方**：待合入（[#111](https://github.com/IdEvEbI/cube-trainer/issues/111)）。含连接与联动、品牌自动匹配、断开后白上绿前复位。
+**Gan 智能魔方**：待合入（[#111](https://github.com/IdEvEbI/cube-trainer/issues/111) / [#112](https://github.com/IdEvEbI/cube-trainer/pull/112)）。含连接与联动、品牌自动匹配、断开后白上绿前复位。
 
 ## 下一步计划
 
