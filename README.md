@@ -4,16 +4,24 @@
 
 ## 目标
 
-- 公式库练习（2x2 / 3x3 / 4x4 / 5x5）
-- 打乱生成
-- 计时器（支持目标分段）
-- 可选：连接 GAN / 魔域蓝牙魔方
+- 公式库练习（当前聚焦三阶 CFOP）
+- 打乱生成与打乱计时
+- 计时器（蓝牙模式支持 CFOP 分段）
+- 蓝牙魔方：魔域与 Gan
+
+## 文档入口
+
+- [`docs/prd.md`](docs/prd.md)：产品说明与近期优先级
+- [`docs/design.md`](docs/design.md)：UI/UE 约束与交互约定
+- [`NOW.md`](NOW.md)：当前进度看板
+- [`docs/mobile-ble-https.md`](docs/mobile-ble-https.md)：手机蓝牙 HTTPS 调试
+- [`docs/formula-notation.md`](docs/formula-notation.md)：公式目录写法
 
 ## 技术栈
 
 - Vite + React + TypeScript
-- cubing.js（可视化、算法、打乱、GAN 蓝牙）
-- btcube-web（魔域补位，按需）
+- cubing.js（可视化、算法、打乱）
+- gan-web-bluetooth（Gan 智能魔方）
 - GitHub Pages 部署
 
 ## 目录结构
@@ -21,34 +29,22 @@
 ```txt
 src/
 ├── modules/
-│   ├── cube/          # cubing.js 可视化封装
-│   ├── formula/       # 公式库
-│   ├── scramble/      # 打乱
-│   ├── timer/         # 计时器
-│   └── bluetooth/     # 统一蓝牙适配层
-│       ├── index.ts
-│       ├── cubingAdapter.ts
-│       ├── btcubeAdapter.ts
-│       └── types.ts
-├── data/              # 公式 JSON
+│   ├── cube/          # 3D 可视化与转动动画
+│   ├── formula/       # 公式解析与目录
+│   ├── practice/      # 公式练习页
+│   ├── scramble/      # 打乱、引导、观察
+│   ├── timer/         # 计时器与会话状态
+│   ├── score/         # 成绩存储、列表、复盘与回放
+│   ├── ui/            # Toast 等通用 UI
+│   └── bluetooth/     # 蓝牙适配
+│       ├── brand.ts           # 魔域 / Gan 自动匹配
+│       ├── moyu/              # 魔域协议
+│       ├── gan/               # Gan（gan-web-bluetooth）
+│       └── *.ts / Dialogs     # 对表、断开确认等
+├── data/              # 公式 JSON / 目录
 ├── App.tsx
 └── main.tsx
-```
-
-## 统一蓝牙接口
-
-```ts
-export interface CubeMoveEvent {
-  move: string;
-  timestamp: number;
-}
-
-export interface BluetoothCube {
-  connect(): Promise<void>;
-  disconnect(): Promise<void>;
-  onMove(cb: (e: CubeMoveEvent) => void): () => void;
-  getName(): string | undefined;
-}
+docs/                  # prd、design、调试说明等
 ```
 
 ## 开发原则
@@ -57,7 +53,9 @@ export interface BluetoothCube {
 2. **测试先行**：逻辑代码必须配套单元测试。
 3. **界面人工确认**：UI 变更必须等待人工确认，不得自行认为完成。
 4. **禁止私自提交**：未经明确指示，不得执行 git commit / push。
-5. **可追溯**：重要决策记录在本文件或 `docs/` 中。
+5. **可追溯**：重要决策记录在 `docs/prd.md`、`docs/design.md` 或 `NOW.md`。
+
+节奏与分支约定见 [`AGENTS.md`](AGENTS.md)。
 
 ## 文档格式
 
@@ -73,11 +71,13 @@ Markdown 使用 Prettier 3.6.2、prettier-plugin-zh 0.7.0 与 markdownlint-cli 0
 
 ## 里程碑
 
-- [ ] M1：项目骨架 + 基础计时器
-- [ ] M2：公式库列表 + 静态数据
-- [ ] M3：cubing.js 可视化
-- [ ] M4：蓝牙适配层（先 GAN）
-- [ ] M5：魔域补位 + 整体联调
+- [x] M1：项目骨架 + 基础计时器
+- [x] M2：公式库列表 + 静态数据
+- [x] M3：cubing.js 可视化
+- [x] M4：蓝牙适配（魔域 + Gan）
+- [x] M5：打乱计时闭环 + 成绩复盘 / 列表
+
+下一步见 [`NOW.md`](NOW.md)（如公式练习蓝牙闭环）。
 
 ## 浏览器要求
 

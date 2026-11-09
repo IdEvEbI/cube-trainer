@@ -18,6 +18,10 @@ const https =
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    // gan-web-bluetooth 依赖 aes-js（CJS）；预构建避免浏览器命名导出失败。
+    include: ["gan-web-bluetooth", "aes-js", "rxjs"],
+  },
   server: {
     host: behindLanProxy ? "127.0.0.1" : true,
     https,
