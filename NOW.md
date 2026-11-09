@@ -6,7 +6,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-**prd 长期方向与后置规划**：待合入（[#115](https://github.com/IdEvEbI/cube-trainer/issues/115)）。补全目标人群、商业节奏、平台迁移，以及 AI 还原 / 社群后置项。
+**prd 长期方向与后置规划**：待合入（[#115](https://github.com/IdEvEbI/cube-trainer/issues/115) / [#116](https://github.com/IdEvEbI/cube-trainer/pull/116)）。补全目标人群、商业节奏、平台迁移，以及 AI 还原 / 社群后置项。
 
 并行待合入：
 
