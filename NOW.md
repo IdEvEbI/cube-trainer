@@ -6,7 +6,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-整理共用算法辅助与死代码（#119）：抽 `patternFromSetup` / `joinAlgParts`，删无用导出。待合入。
+整理共用算法辅助与死代码（#119 / [PR #120](https://github.com/IdEvEbI/cube-trainer/pull/120)）：抽 `patternFromSetup` / `joinAlgParts`，删无用导出。待合入。
 
 ## 下一步计划
 
