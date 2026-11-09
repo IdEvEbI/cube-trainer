@@ -6,7 +6,9 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-**成绩列表**：待合入（[#109](https://github.com/IdEvEbI/cube-trainer/issues/109) / [#110](https://github.com/IdEvEbI/cube-trainer/pull/110)）。含首页入口、汇总与趋势、蓝牙/非蓝牙列表项与操作。
+**文档对齐已完成能力**：待合入（[#113](https://github.com/IdEvEbI/cube-trainer/issues/113)）。同步 `prd.md` / `design.md` / `README.md`（复盘、成绩列表、Gan）。
+
+并行待合入：**Gan 智能魔方**（[#111](https://github.com/IdEvEbI/cube-trainer/issues/111) / [#112](https://github.com/IdEvEbI/cube-trainer/pull/112)）。
 
 ## 下一步计划
 
@@ -16,7 +18,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 2. ~~成绩页改为全屏，显示分段公式~~（已合入 #103 / #104）
 3. ~~回放~~（已合入 #105 / #106；含回前台蓝牙对表）
 4. ~~再练一次~~（已合入 #107 / #108）
-5. **成绩列表 + 图表**（待合入 #109 / #110）
+5. ~~成绩列表 + 图表~~（已合入 #109 / #110）
 
 其后与已完成：
 
@@ -36,7 +38,6 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 ## 已确认但暂不做
 
 - 转向适配（按键重映射，已放弃）
-- Gan 魔方连接（排在 Web 产品化之后）
 - 模拟 CFOP 打乱与还原
 - 后端用户系统
 - 游戏模块
