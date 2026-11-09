@@ -1,3 +1,4 @@
+import { joinAlgParts } from "../scramble/bluetoothSolve.ts";
 import { parseScramble } from "../scramble/scramble.ts";
 import type { CfopPhaseId } from "./cfopSplit.ts";
 import {
@@ -38,12 +39,7 @@ export function composeReviewCubeAlg(
   scrambleSetupAlg: string,
   executedTokens: readonly string[],
 ): string {
-  return [
-    scrambleSetupAlg.trim(),
-    ...executedTokens.map((token) => token.trim()),
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return joinAlgParts(scrambleSetupAlg, executedTokens);
 }
 
 function scrambleTokens(source: string): string[] {

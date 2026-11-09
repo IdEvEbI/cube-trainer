@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { isSolvedAfterScramble, isSolvedFromSetup } from "./bluetoothSolve.ts";
+import { cube3x3x3 } from "cubing/puzzles";
+import {
+  isSolvedAfterScramble,
+  isSolvedFromSetup,
+  joinAlgParts,
+  patternFromSetup,
+} from "./bluetoothSolve.ts";
 
 describe("isSolvedFromSetup", () => {
   it("连接时已复原、无转动 → 复原", async () => {
@@ -23,6 +29,22 @@ describe("isSolvedFromSetup", () => {
 
   it("起点非还原：只跟打乱不还原 → 停表条件不成立", async () => {
     assert.equal(await isSolvedFromSetup("R U R'", ["U", "R"]), false);
+  });
+});
+
+describe("joinAlgParts", () => {
+  it("拼接 setup 与转动，丢弃空白", () => {
+    assert.equal(joinAlgParts("R U", ["R'", "U'"]), "R U R' U'");
+    assert.equal(joinAlgParts("  ", ["R", ""]), "R");
+    assert.equal(joinAlgParts("", []), "");
+  });
+});
+
+describe("patternFromSetup", () => {
+  it("setup 叠逆转后与复原相同", async () => {
+    const puzzle = await cube3x3x3.kpuzzle();
+    const pattern = await patternFromSetup("R", ["R'"]);
+    assert.equal(pattern.isIdentical(puzzle.defaultPattern()), true);
   });
 });
 

@@ -156,10 +156,6 @@ export async function buildBluetoothSolveStats(input: {
   };
 }
 
-export function formatShare(share: number): string {
-  return `${Math.round(share * 1000) / 10}%`;
-}
-
 export function formatTps(tps: number): string {
   return tps.toFixed(2);
 }
