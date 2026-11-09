@@ -1,5 +1,8 @@
 import type { KPattern } from "cubing/kpuzzle";
 import { cube3x3x3 } from "cubing/puzzles";
+import { patternFromSetup } from "../scramble/bluetoothSolve.ts";
+
+export { patternFromSetup };
 
 /** CFOP 分段 id（基础版）。 */
 export type CfopPhaseId =
@@ -77,24 +80,6 @@ const U_CORNER_SLOTS = [0, 1, 2, 3] as const;
 async function identityPattern(): Promise<KPattern> {
   const puzzle = await cube3x3x3.kpuzzle();
   return puzzle.defaultPattern();
-}
-
-export async function patternFromSetup(
-  setupAlg: string,
-  moves: readonly string[],
-): Promise<KPattern> {
-  let pattern = await identityPattern();
-  const setup = setupAlg.trim();
-  if (setup !== "") {
-    pattern = pattern.applyAlg(setup);
-  }
-  for (const move of moves) {
-    const token = move.trim();
-    if (token !== "") {
-      pattern = pattern.applyAlg(token);
-    }
-  }
-  return pattern;
 }
 
 function centersEqual(a: KPattern, b: KPattern): boolean {

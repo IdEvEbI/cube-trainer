@@ -49,10 +49,3 @@ export function shouldShowBluetoothSolveStats(
 ): boolean {
   return bluetoothConnected;
 }
-
-/** @deprecated 使用 shouldShowBluetoothSolveStats */
-export function shouldAutoKeepBluetoothResult(
-  bluetoothConnected: boolean,
-): boolean {
-  return shouldShowBluetoothSolveStats(bluetoothConnected);
-}
