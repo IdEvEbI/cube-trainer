@@ -233,6 +233,7 @@ export function buildSolveReviewFromStoredSplit(
   const trace: SolveTrace = {
     version: SOLVE_TRACE_VERSION,
     scramble,
+    scrambleSetupAlg: "",
     startSetupAlg: "",
     steps: [],
   };

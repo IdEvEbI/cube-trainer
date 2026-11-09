@@ -33,6 +33,7 @@ export async function buildSolveReview(input: {
     trace: {
       version: input.trace.version,
       scramble: input.trace.scramble,
+      scrambleSetupAlg: input.trace.scrambleSetupAlg,
       startSetupAlg: input.trace.startSetupAlg,
       steps: input.trace.steps.map((step) => ({ ...step })),
     },

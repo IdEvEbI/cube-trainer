@@ -229,6 +229,7 @@ describe("createScoreLog", () => {
     const trace = {
       version: 1 as const,
       scramble: "R U",
+      scrambleSetupAlg: "",
       startSetupAlg: "R U",
       steps: [
         {

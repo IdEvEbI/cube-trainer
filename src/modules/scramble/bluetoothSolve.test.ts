@@ -20,6 +20,10 @@ describe("isSolvedFromSetup", () => {
     // 起点 R；公式 U；再 U' R' 回到复原
     assert.equal(await isSolvedFromSetup("R", ["U", "U'", "R'"]), true);
   });
+
+  it("起点非还原：只跟打乱不还原 → 停表条件不成立", async () => {
+    assert.equal(await isSolvedFromSetup("R U R'", ["U", "R"]), false);
+  });
 });
 
 describe("isSolvedAfterScramble", () => {
