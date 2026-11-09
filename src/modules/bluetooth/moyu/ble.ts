@@ -155,6 +155,8 @@ export type MoyuBleConnection = {
 
 export type ConnectMoyuOptions = {
   bluetooth?: MoyuBluetoothRequestApi;
+  /** 已由统一选择窗选出的设备；传入则跳过再次 requestDevice。 */
+  device?: MoyuBleDeviceLike;
   onDisconnected?: () => void;
   /** 状态同步完成后，每次新转动按时间正序回调（含 intervalMs，可连续多步）。 */
   onMoves?: (samples: readonly MoyuMoveSample[]) => void;
@@ -218,11 +220,15 @@ export async function connectMoyuCube(
   options: ConnectMoyuOptions = {},
 ): Promise<MoyuBleConnection> {
   const bluetooth = options.bluetooth ?? browserBluetoothApi();
-  if (!isWebBluetoothAvailable(bluetooth) || !bluetooth) {
+  if (!options.device && (!isWebBluetoothAvailable(bluetooth) || !bluetooth)) {
     throw new Error("当前浏览器不支持 Web Bluetooth（iPhone 请用 Bluefy）");
   }
 
-  const device = await bluetooth.requestDevice(moyuRequestDeviceOptions());
+  const device =
+    options.device ??
+    (await (bluetooth as MoyuBluetoothRequestApi).requestDevice(
+      moyuRequestDeviceOptions(),
+    ));
   const gatt = device.gatt;
   if (!gatt) {
     throw new Error("设备不支持 GATT");
