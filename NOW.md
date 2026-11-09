@@ -6,7 +6,7 @@ Web 产品化：先统一 UI/UE，再补蓝牙统计与练习闭环。
 
 ## 正在做的任务
 
-**AI CFOP 自动还原（调研中，#121）**：随机打乱蓝牙态能否求 CFOP 分步解。笔记见 `docs/research-cfop-auto-solve.md`。待合入。
+**AI CFOP 自动还原（调研中，#121 / [PR #122](https://github.com/IdEvEbI/cube-trainer/pull/122)）**：随机打乱蓝牙态能否求 CFOP 分步解。笔记见 `docs/research-cfop-auto-solve.md`。待合入。
 
 ## 下一步计划
 
