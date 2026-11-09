@@ -244,6 +244,7 @@ describe("canOpenScoreReview", () => {
         trace: {
           version: 1,
           scramble: "R U",
+          scrambleSetupAlg: "",
           startSetupAlg: "R U",
           steps: [],
         },
@@ -288,6 +289,7 @@ describe("buildSolveReviewFromScore", () => {
       trace: {
         version: 1,
         scramble: "R U",
+        scrambleSetupAlg: "",
         startSetupAlg: "R U",
         steps: [
           {

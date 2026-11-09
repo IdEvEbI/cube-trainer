@@ -32,13 +32,20 @@ export type SolveTrace = {
   version: typeof SOLVE_TRACE_VERSION;
   /** 本次打乱公式。 */
   scramble: string;
-  /** 开表时相对复原的 setup（连接 setup + 开表前转动）。 */
+  /**
+   * 开始跟打乱时相对复原的 setup（通常为连接时 facelets）。
+   * 复盘回放从该状态起步，再播打乱公式；空串表示从还原态开始。
+   */
+  scrambleSetupAlg: string;
+  /** 开表时相对复原的 setup（打乱起点 + 打乱过程转动等；供 CFOP 切分）。 */
   startSetupAlg: string;
   steps: SolveTraceStep[];
 };
 
 export type SolveTraceSessionOptions = {
   scramble: string;
+  /** 跟打乱起点；缺省空串（还原态）。 */
+  scrambleSetupAlg?: string;
   startSetupAlg?: string;
   /** 返回相对开表的毫秒；默认用 session 内时钟。 */
   nowMs?: () => number;
@@ -161,6 +168,7 @@ export function createSolveTraceSession(
   options: SolveTraceSessionOptions,
 ): SolveTraceSession {
   const scramble = options.scramble.trim();
+  const scrambleSetupAlg = (options.scrambleSetupAlg ?? "").trim();
   const startSetupAlg = (options.startSetupAlg ?? "").trim();
   const startedAt = performance.now();
   const nowMs =
@@ -227,6 +235,7 @@ export function createSolveTraceSession(
     return {
       version: SOLVE_TRACE_VERSION,
       scramble,
+      scrambleSetupAlg,
       startSetupAlg,
       steps: steps.map((step) => ({ ...step })),
     };

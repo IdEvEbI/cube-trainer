@@ -368,6 +368,9 @@ function parseStoredTrace(value: unknown): false | SolveTrace {
   return {
     version: SOLVE_TRACE_VERSION,
     scramble: row.scramble,
+    // 旧成绩无此字段：按还原态起点回放。
+    scrambleSetupAlg:
+      typeof row.scrambleSetupAlg === "string" ? row.scrambleSetupAlg : "",
     startSetupAlg: row.startSetupAlg,
     steps,
   };

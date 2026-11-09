@@ -34,6 +34,7 @@ describe("createSolveTraceSession", () => {
     const trace = session.snapshot();
     assert.equal(trace.version, SOLVE_TRACE_VERSION);
     assert.equal(trace.scramble, "R U R' U'");
+    assert.equal(trace.scrambleSetupAlg, "");
     assert.equal(trace.startSetupAlg, "R U R' U'");
     assert.equal(trace.steps.length, 2);
     assert.deepEqual(trace.steps[0], {

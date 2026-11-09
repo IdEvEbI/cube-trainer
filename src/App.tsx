@@ -257,6 +257,11 @@ export default function App() {
   const bluetoothSetupAlgRef = useRef("");
   /** 连接后全部实体转动，用于白上绿前复原判定。 */
   const bluetoothStateMovesRef = useRef<string[]>([]);
+  /**
+   * 本轮跟打乱起点（连接 setup，或刷新打乱时的当前绝对状态）。
+   * 复盘回放从此起步再播打乱公式；不要求用户先手动还原。
+   */
+  const bluetoothScrambleSetupAlgRef = useRef("");
   /** 开表瞬间相对复原的 setup（不含开表当次转动）。 */
   const bluetoothSolveStartSetupRef = useRef("");
   /** 计时中转动轨迹（复盘 / 分段）。 */
@@ -658,6 +663,7 @@ export default function App() {
   function resetBluetoothCubeStateTracking(setupAlg = "") {
     bluetoothSetupAlgRef.current = setupAlg;
     bluetoothStateMovesRef.current = [];
+    bluetoothScrambleSetupAlgRef.current = setupAlg.trim();
     bluetoothSolveStartSetupRef.current = "";
     bluetoothSolveTraceRef.current = null;
     bluetoothSolveCheckGen.current += 1;
@@ -756,6 +762,7 @@ export default function App() {
     bluetoothSolveStartSetupRef.current = startSetupAlg;
     const session = createSolveTraceSession({
       scramble: scrambleMovesRef.current ?? "",
+      scrambleSetupAlg: bluetoothScrambleSetupAlgRef.current,
       startSetupAlg,
     });
     // 观察阶段常先 z2（黄上）再 y 选十字；开表前未记轨迹，这里补相对白上绿前的准备转体。
@@ -873,6 +880,8 @@ export default function App() {
       return;
     }
     try {
+      // 新一轮引导：以当前实体绝对状态为打乱起点（可不从还原态开始）。
+      bluetoothScrambleSetupAlgRef.current = bluetoothSetupBeforeMoves();
       const guide = createGuidedScramble(moves);
       scrambleGuideRef.current = guide;
       setScrambleGuide(guidedScrambleView(guide));
@@ -970,6 +979,7 @@ export default function App() {
         return;
       }
       try {
+        bluetoothScrambleSetupAlgRef.current = bluetoothSetupBeforeMoves();
         guide = createGuidedScramble(moves);
         scrambleGuideRef.current = guide;
       } catch {
@@ -1154,6 +1164,7 @@ export default function App() {
   function resetCubeToSolvedPreview() {
     bluetoothSolveTraceRef.current = null;
     bluetoothSolveStartSetupRef.current = "";
+    bluetoothScrambleSetupAlgRef.current = "";
     bluetoothSolveCheckGen.current += 1;
     bluetoothSetupAlgRef.current = "";
     bluetoothStateMovesRef.current = [];
@@ -1307,6 +1318,7 @@ export default function App() {
         session?.snapshot() ??
         createSolveTraceSession({
           scramble: pending.scramble,
+          scrambleSetupAlg: bluetoothScrambleSetupAlgRef.current,
           startSetupAlg: bluetoothSolveStartSetupRef.current,
         }).snapshot();
       void buildSolveReview({

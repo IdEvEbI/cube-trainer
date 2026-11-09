@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import {
   buildSolveReviewSegmentRanges,
   coalesceRawSolvePrefixLength,
+  composeReviewCubeAlg,
   createSolveReviewCursor,
   isSolveReviewAtEnd,
   isSolveReviewAtStart,
@@ -29,10 +30,19 @@ async function isSolvedWhiteUp(alg: string): Promise<boolean> {
   return pattern.isIdentical(puzzle.defaultPattern());
 }
 
+describe("composeReviewCubeAlg", () => {
+  it("拼接打乱起点与已执行步", () => {
+    assert.equal(composeReviewCubeAlg("R", ["U", "U'"]), "R U U'");
+    assert.equal(composeReviewCubeAlg("", ["R", "U"]), "R U");
+    assert.equal(composeReviewCubeAlg("R U", []), "R U");
+  });
+});
+
 describe("solveReviewPlayback", () => {
   it("转体不进 Twisty alg：绝对面转播完回到复原", async () => {
     const session = createSolveTraceSession({
       scramble: "R U",
+      scrambleSetupAlg: "",
       startSetupAlg: "R U",
     });
     // 蓝牙：转体只改朝向；面转仍是色心绝对。还原 R U 只需绝对 U' R'。
@@ -83,6 +93,25 @@ describe("solveReviewPlayback", () => {
     assert.deepEqual(solveReviewStepNext(end), end);
   });
 
+  it("连接时已乱：回放从 scrambleSetupAlg 起步，播完回到复原", async () => {
+    // 实体起点 R；打乱公式 U；还原 U' R'
+    const session = createSolveTraceSession({
+      scramble: "U",
+      scrambleSetupAlg: "R",
+      startSetupAlg: "R U",
+    });
+    session.appendAt("U'", 10, { remapFace: false });
+    session.appendAt("R'", 20, { remapFace: false });
+    const cursor = createSolveReviewCursor(session.snapshot());
+    assert.equal(cursor.scrambleSetupAlg, "R");
+    assert.equal(solveReviewCubeAlg(cursor), "R");
+    const afterScramble = solveReviewStepNext(cursor);
+    assert.equal(solveReviewCubeAlg(afterScramble), "R U");
+    const end = solveReviewAtEnd(cursor);
+    assert.equal(solveReviewCubeAlg(end), "R U U' R'");
+    assert.equal(await isSolvedWhiteUp(solveReviewCubeAlg(end)), true);
+  });
+
   it("仅还原 steps、无打乱时整段属 solve", () => {
     const session = createSolveTraceSession({
       scramble: "",
@@ -115,6 +144,7 @@ describe("solveReviewPlayback", () => {
         createSolveReviewCursor({
           version: 1,
           scramble: "",
+          scrambleSetupAlg: "",
           startSetupAlg: "",
           steps: [],
         }),

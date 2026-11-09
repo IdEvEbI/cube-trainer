@@ -23,13 +23,28 @@ export type SolveReviewPlaybackStep = {
 
 /**
  * 复盘回放游标。
- * index 0 = 复原；index === steps.length = 播完。
+ * index 0 = 打乱起点（connect setup，未必复原）；index === steps.length = 播完。
  */
 export type SolveReviewCursor = {
   steps: SolveReviewPlaybackStep[];
   scrambleLen: number;
   index: number;
+  /** 跟打乱前的绝对 setup；空串 = 从还原态起步。 */
+  scrambleSetupAlg: string;
 };
+
+/** 拼接绝对 setup 与已执行的打乱 / 面转记号。 */
+export function composeReviewCubeAlg(
+  scrambleSetupAlg: string,
+  executedTokens: readonly string[],
+): string {
+  return [
+    scrambleSetupAlg.trim(),
+    ...executedTokens.map((token) => token.trim()),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 function scrambleTokens(source: string): string[] {
   const trimmed = source.trim();
@@ -168,6 +183,7 @@ export function createSolveReviewCursor(
     steps,
     scrambleLen: scrambleSteps.length,
     index: 0,
+    scrambleSetupAlg: (trace.scrambleSetupAlg ?? "").trim(),
   };
 }
 
@@ -205,14 +221,15 @@ export function solveReviewStepPrevious(
 }
 
 /**
- * Twisty alg：仅打乱 + 绝对面转（跳过转体），与直播蓝牙记账一致。
+ * Twisty alg：打乱起点 setup + 已播打乱 / 绝对面转（跳过转体）。
+ * 起点可以不是还原态（连接时实体已乱）。
  */
 export function solveReviewCubeAlg(cursor: SolveReviewCursor): string {
-  return cursor.steps
+  const executed = cursor.steps
     .slice(0, cursor.index)
     .filter((step) => step.kind === "scramble" || step.kind === "face")
-    .map((step) => step.token)
-    .join(" ");
+    .map((step) => step.token);
+  return composeReviewCubeAlg(cursor.scrambleSetupAlg, executed);
 }
 
 /** 已执行转体累积（供手持朝向展示）。 */
