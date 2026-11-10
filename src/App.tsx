@@ -37,6 +37,7 @@ import {
 } from "./modules/practice/playback.ts";
 import {
   back,
+  showGame,
   showPractice,
   showScores,
   showTiming,
@@ -69,6 +70,8 @@ import {
   nearestCubeOrientationAlg,
   orientationRotationPath,
   ORIENTATION_FACE_QUIET_MS,
+  quatFromOrientationAlg,
+  scrambleGuideRotationSatisfied,
   scrambleToHeldPrepRotations,
   tickOrientationHold,
   type OrientationHoldState,
@@ -94,12 +97,31 @@ import {
 import { BluetoothInspectPanel } from "./modules/scramble/BluetoothInspectPanel.tsx";
 import { isSolvedFromSetup } from "./modules/scramble/bluetoothSolve.ts";
 import {
+  completedOrientationMoves,
+  relativeOrientationQuat,
+} from "./modules/game/guideOrientation.ts";
+import {
   applyGuidedMove,
+  confirmGuidedFaceletsStep,
+  confirmGuidedManualStep,
   createGuidedScramble,
   guidedScrambleView,
+  isHintableManualToken,
+  isRotationGuideToken,
   type GuidedScramble,
   type GuidedScrambleView,
 } from "./modules/scramble/guided.ts";
+import {
+  resolveLayerFollowKind,
+  tickScrambleGuideLayerFollow,
+} from "./modules/scramble/scrambleGuideLayerFollow.ts";
+import {
+  guidePaintAlgPrefix,
+  guideTokenToCubingAlg,
+  nonRotationAlgPrefix,
+} from "./modules/game/algStateMatch.ts";
+import { absoluteAlgToFixedCenterPattern } from "./modules/scramble/fixedCenterLayer.ts";
+import { nextHomeScrambleMoves } from "./modules/scramble/scramble.ts";
 import {
   SCRAMBLE_PLAYBACK_STEP_MS,
   createScrambleCursor,
@@ -114,7 +136,8 @@ import {
 } from "./modules/scramble/playback.ts";
 import { ScrambleControls } from "./modules/scramble/ScrambleControls.tsx";
 import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
-import { randomScramble3x3 } from "./modules/scramble/scramble.ts";
+import { GamePage, type GamePageBluetooth } from "./modules/game/GamePage.tsx";
+import { shouldClearGameOnLeaveGame } from "./modules/game/gameNav.ts";
 import {
   createPendingSolve,
   resolveResultConfirm,
@@ -251,6 +274,15 @@ export default function App() {
   const moyuSessionRef = useRef<MoyuBleConnection | null>(null);
   moyuSessionRef.current = moyuSession;
   const scrambleGuideRef = useRef<GuidedScramble | null>(null);
+  /** 宽层步收到面转包时立刻拉 facelets（由引导轮询 effect 挂载）。 */
+  const scrambleGuideLayerKickRef = useRef<(() => void) | null>(null);
+  /** 游戏页跟转：由 GamePage 注册，仅 focus=游戏 时转发。 */
+  const gameBluetoothMovesRef = useRef<
+    ((samples: readonly MoyuMoveSample[]) => void) | null
+  >(null);
+  const gameBluetoothOrientationRef = useRef<((quat: MoyuQuat) => void) | null>(
+    null,
+  );
   const btInspectPhaseRef = useRef<BluetoothInspectPhase>("off");
   btInspectPhaseRef.current = btInspectPhase;
   /** 连接时 facelets 对应的 setupAlg（从复原到当时状态）。 */
@@ -270,6 +302,14 @@ export default function App() {
   const bluetoothSolveOrientHoldRef = useRef<OrientationHoldState>(
     createOrientationHoldState(),
   );
+  /** 打乱引导转体步：手持朝向稳定防抖。 */
+  const scrambleGuideOrientHoldRef = useRef<OrientationHoldState>(
+    createOrientationHoldState(),
+  );
+  /** 进入当前转体步时的手持朝向（相对判定，避免前面拧转握持偏移）。 */
+  const scrambleGuideRotationFromRef = useRef("");
+  /** 当前转体步键：`${progress}:${token}`，变了才重采 from。 */
+  const scrambleGuideRotationStepRef = useRef<string | null>(null);
   /** 面转后此时间戳前忽略陀螺仪转体推断。 */
   const bluetoothSolveOrientQuietUntilRef = useRef(0);
   /** 复盘页 history 标记，供滑动返回保存。 */
@@ -669,12 +709,27 @@ export default function App() {
     bluetoothSolveCheckGen.current += 1;
   }
 
-  /** 用设备绝对状态对表 3D；保留解题轨迹，不清空计时中的复盘序列。 */
-  function applyBluetoothStatusToCube(setupAlg: string) {
+  /**
+   * 用设备绝对状态对表本地跟踪；保留解题轨迹，不清空计时中的复盘序列。
+   * 优先用 facelets 贴 3D（固定色心）；无 facelets 时回退 setupAlg。
+   * 打乱引导中层 / 宽层请用 {@link trackBluetoothSetupOnly}，避免 setAbsoluteAlg("M")。
+   */
+  function applyBluetoothStatusToCube(setupAlg: string, facelets?: string) {
     bluetoothSetupAlgRef.current = setupAlg;
     bluetoothStateMovesRef.current = [];
     bluetoothSolveCheckGen.current += 1;
-    cube.current?.setAbsoluteAlg(setupAlg);
+    if (facelets) {
+      cube.current?.setAbsoluteFromFacelets(facelets);
+    } else {
+      cube.current?.setAbsoluteAlg(setupAlg);
+    }
+  }
+
+  /** 只更新蓝牙跟踪串，不改 3D（引导层跟随已贴公式 pattern / facelets）。 */
+  function trackBluetoothSetupOnly(setupAlg: string) {
+    bluetoothSetupAlgRef.current = setupAlg;
+    bluetoothStateMovesRef.current = [];
+    bluetoothSolveCheckGen.current += 1;
   }
 
   async function resyncBluetoothCubeOnForeground() {
@@ -801,6 +856,116 @@ export default function App() {
     }
   }
 
+  /**
+   * 打乱引导转体（x/y/z）：固定中心魔方面转包不上报整机转，靠陀螺仪朝向到位后自动确认。
+   * 以「进入该步时」的手持为起点做相对判定——前面宽层/面转时常已偏离复原朝向，
+   * 若按公式绝对累积对表，会出现 x / y' 要拧三次才推进。
+   */
+  function syncScrambleGuideRotationsFromGyro(): void {
+    if (
+      focusRef.current.kind !== "计时" ||
+      btInspectPhaseRef.current !== "off"
+    ) {
+      return;
+    }
+    const guide = scrambleGuideRef.current;
+    if (!guide || guide.phase === "done" || guide.wrongStack.length > 0) {
+      return;
+    }
+    const view = guidedScrambleView(guide);
+    const manual = view.manualMove;
+    const candidate = nearestCubeOrientationAlg(currentBluetoothRelativeQuat());
+    if (!manual || !isRotationGuideToken(manual) || view.correction) {
+      scrambleGuideOrientHoldRef.current =
+        createOrientationHoldState(candidate);
+      scrambleGuideRotationStepRef.current = null;
+      return;
+    }
+    const stepKey = `${guide.progress}:${manual}`;
+    if (scrambleGuideRotationStepRef.current !== stepKey) {
+      scrambleGuideRotationStepRef.current = stepKey;
+      scrambleGuideRotationFromRef.current = candidate;
+      scrambleGuideOrientHoldRef.current =
+        createOrientationHoldState(candidate);
+    }
+    const now = performance.now();
+    const tick = tickOrientationHold(
+      scrambleGuideOrientHoldRef.current,
+      candidate,
+      now,
+    );
+    scrambleGuideOrientHoldRef.current = tick.state;
+    if (
+      !scrambleGuideRotationSatisfied(
+        scrambleGuideRotationFromRef.current,
+        tick.state.committed,
+        manual,
+      )
+    ) {
+      return;
+    }
+    const result = confirmGuidedManualStep(guide);
+    if (result.kind === "need_manual") {
+      return;
+    }
+    scrambleGuideRotationStepRef.current = null;
+    scrambleGuideRef.current = result.guide;
+    flushSync(() => {
+      setScrambleGuide(guidedScrambleView(result.guide));
+    });
+    // 转体写入贴纸（含 z'/y），mesh 锁单位，与非蓝牙播完同貌。
+    paintScrambleGuideCube(result.guide);
+    if (result.guide.phase === "done") {
+      beginBluetoothInspect();
+    }
+  }
+
+  /**
+   * 打乱引导 3D：公式前缀含已完成转体，朝向单位。
+   * 勿再用 mesh 四元数叠 z'/y（与贴纸叠乘会顶绿/色面错）。
+   */
+  function paintScrambleGuideCube(guide: GuidedScramble): void {
+    const paintAlg = guidePaintAlgPrefix(guide.displayMoves, guide.progress);
+    cube.current?.setOrientation(IDENTITY_QUAT);
+    void absoluteAlgToFixedCenterPattern(paintAlg).then((pattern) => {
+      cube.current?.setAbsoluteFromPattern(pattern, IDENTITY_QUAT);
+    });
+  }
+
+  /** 宽层 / 中层 / 转体自动对表失败时的逃生：手动确认已到位并推进。 */
+  function confirmScrambleGuideLayerStep(): void {
+    const guide = scrambleGuideRef.current;
+    if (!guide || guide.phase === "done") {
+      return;
+    }
+    const token = guide.displayMoves[guide.progress] ?? null;
+    const kind = resolveLayerFollowKind(token);
+    const isRotation = Boolean(token && isRotationGuideToken(token));
+    if (kind !== "wide" && kind !== "slice" && !isRotation) {
+      return;
+    }
+    const result = isRotation
+      ? confirmGuidedManualStep(guide)
+      : confirmGuidedFaceletsStep(guide);
+    if (result.kind === "need_manual") {
+      return;
+    }
+    const logical = nonRotationAlgPrefix(
+      result.guide.displayMoves,
+      result.guide.progress,
+    );
+    trackBluetoothSetupOnly(logical);
+    scrambleGuideRotationStepRef.current = null;
+    scrambleGuideRef.current = result.guide;
+    flushSync(() => {
+      setScrambleGuide(guidedScrambleView(result.guide));
+    });
+    paintScrambleGuideCube(result.guide);
+    if (result.guide.phase === "done") {
+      beginBluetoothInspect();
+    }
+  }
+
   function appendBluetoothSolveTraceMoves(
     samples: readonly MoyuMoveSample[],
   ): void {
@@ -876,6 +1041,9 @@ export default function App() {
     if (!connected || !moves) {
       scrambleGuideRef.current = null;
       setScrambleGuide(null);
+      scrambleGuideOrientHoldRef.current = createOrientationHoldState();
+      scrambleGuideRotationStepRef.current = null;
+      scrambleGuideRotationFromRef.current = "";
       resetBluetoothInspect();
       return;
     }
@@ -884,11 +1052,19 @@ export default function App() {
       bluetoothScrambleSetupAlgRef.current = bluetoothSetupBeforeMoves();
       const guide = createGuidedScramble(moves);
       scrambleGuideRef.current = guide;
+      scrambleGuideOrientHoldRef.current = createOrientationHoldState(
+        nearestCubeOrientationAlg(currentBluetoothRelativeQuat()),
+      );
+      scrambleGuideRotationStepRef.current = null;
+      scrambleGuideRotationFromRef.current = "";
       setScrambleGuide(guidedScrambleView(guide));
       resetBluetoothInspect();
     } catch {
       scrambleGuideRef.current = null;
       setScrambleGuide(null);
+      scrambleGuideOrientHoldRef.current = createOrientationHoldState();
+      scrambleGuideRotationStepRef.current = null;
+      scrambleGuideRotationFromRef.current = "";
       resetBluetoothInspect();
     }
   }
@@ -1047,7 +1223,7 @@ export default function App() {
   }
 
   function refreshScramble(resetTimer = true) {
-    applyScramble(randomScramble3x3().moves, resetTimer);
+    applyScramble(nextHomeScrambleMoves(), resetTimer);
   }
 
   function onTimerPhase(phase: SessionPhase) {
@@ -1080,19 +1256,207 @@ export default function App() {
       return;
     }
     if (scrambleGuide.correction) {
-      cube.current?.setMoveHint(scrambleGuide.correction, { tone: "error" });
+      cube.current?.setMoveHint(
+        guideTokenToCubingAlg(scrambleGuide.correction),
+        { tone: "error" },
+      );
       return;
     }
-    if (scrambleGuide.done || !scrambleGuide.expectedMove) {
+    if (scrambleGuide.done) {
       cube.current?.setMoveHint(null);
       return;
     }
-    cube.current?.setMoveHint(scrambleGuide.expectedMove, {
-      tone: "guide",
-      double: scrambleGuide.currentIsDouble,
-      half: scrambleGuide.partial,
-    });
+    if (scrambleGuide.expectedMove) {
+      cube.current?.setMoveHint(
+        guideTokenToCubingAlg(scrambleGuide.expectedMove),
+        {
+          tone: "guide",
+          double: scrambleGuide.currentIsDouble,
+          half: scrambleGuide.partial,
+        },
+      );
+      return;
+    }
+    // 宽层 / 中层 / 转体：界面仍显示原记号；高亮与 cubing 同向（M 前面白条）。
+    if (
+      scrambleGuide.manualMove &&
+      isHintableManualToken(scrambleGuide.manualMove)
+    ) {
+      const double = /2/.test(scrambleGuide.manualMove);
+      cube.current?.setMoveHint(
+        guideTokenToCubingAlg(scrambleGuide.manualMove),
+        {
+          tone: "guide",
+          double,
+        },
+      );
+      return;
+    }
+    cube.current?.setMoveHint(null);
   }, [focus.kind, moyuSession, scrambleGuide, btInspectPhase]);
+
+  // 打乱引导：面转/宽层/中层 → scrambleGuideLayerFollow（单一对表与贴图策略）。
+  useEffect(() => {
+    if (focus.kind !== "计时" || !moyuSession || !scrambleGuide) {
+      return;
+    }
+    if (btInspectPhase !== "off" || scrambleGuide.done) {
+      return;
+    }
+    const idx = scrambleGuide.currentIndex;
+    if (idx == null) {
+      return;
+    }
+    const stepToken = scrambleGuide.displayMoves[idx] ?? null;
+    // 进入 z'/y 等转体步：layer-follow 停轮询，但仍须锁住上一面转终态（如 B'）。
+    // GuidedScrambleView 用 completedCount；贴纸含已完成转体，朝向单位。
+    if (stepToken && isRotationGuideToken(stepToken)) {
+      const paintAlg = guidePaintAlgPrefix(
+        scrambleGuide.displayMoves,
+        scrambleGuide.completedCount,
+      );
+      void absoluteAlgToFixedCenterPattern(paintAlg).then((pattern) => {
+        cube.current?.setAbsoluteFromPattern(pattern, IDENTITY_QUAT);
+      });
+      return;
+    }
+    if (!resolveLayerFollowKind(stepToken)) {
+      return;
+    }
+    const session = moyuSession;
+    let cancelled = false;
+    let lastFacelets: string | null = null;
+    let settledSameCount = 0;
+    /** 进入当前 progress 时的设备 facelets；漏报中层时用于避免误标 wrong。 */
+    let entryFacelets: string | null = null;
+    let entryProgress = -1;
+    // 内容未变时 CubeView 会跳过重贴；间隔不必太密，减轻 GATT 与主线程压力。
+    const pollMs = 280;
+    /**
+     * 按公式已完成前缀贴 3D（含转体）。推进到 z'/y 时 layer-follow effect 会卸载，
+     * 故不可依赖 `cancelled`——否则 B' 终态异步贴图会被丢掉。
+     */
+    const paintGuidePrefix = (guide: GuidedScramble) => {
+      paintScrambleGuideCube(guide);
+    };
+    const applyLayerDisplay = (
+      _guide: GuidedScramble,
+      display: Awaited<
+        ReturnType<typeof tickScrambleGuideLayerFollow>
+      >["display"],
+    ) => {
+      // 中层/宽层段尚无整机转体；单位朝向 + raw 色心贴图。
+      if (display.mode === "pattern") {
+        cube.current?.setAbsoluteFromPattern(display.pattern, IDENTITY_QUAT);
+      }
+    };
+    const poll = async () => {
+      if (cancelled || moyuBusyRef.current) {
+        return;
+      }
+      const guide = scrambleGuideRef.current;
+      if (!guide) {
+        return;
+      }
+      const token = guide.displayMoves[guide.progress] ?? null;
+      const kind = resolveLayerFollowKind(token);
+      if (!token || !kind) {
+        return;
+      }
+      try {
+        const status = await session.requestStatus();
+        if (cancelled || moyuSessionRef.current !== session) {
+          return;
+        }
+        if (entryProgress !== guide.progress || entryFacelets === null) {
+          entryFacelets = status.facelets;
+          entryProgress = guide.progress;
+        }
+        const tick = await tickScrambleGuideLayerFollow({
+          facelets: status.facelets,
+          setupAlg: status.setupAlg,
+          displayMoves: guide.displayMoves,
+          progress: guide.progress,
+          token,
+          kind,
+          lastFacelets,
+          settledSameCount,
+          hasWrongMark: guide.wrongStack.length > 0,
+          entryFacelets,
+        });
+        lastFacelets = tick.lastFacelets;
+        settledSameCount = tick.settledSameCount;
+
+        applyLayerDisplay(guide, tick.display);
+
+        if (tick.shouldAdvance) {
+          const result = confirmGuidedFaceletsStep(guide);
+          if (result.kind === "need_manual") {
+            return;
+          }
+          // 3D 已贴到达 facelets；只跟踪 setup，勿再 setAbsoluteAlg 抢画面。
+          trackBluetoothSetupOnly(tick.trackSetupAlg);
+          scrambleGuideRef.current = result.guide;
+          flushSync(() => {
+            setScrambleGuide(guidedScrambleView(result.guide));
+          });
+          // 推进后按新进度公式前缀重算贴图（勿复用上一步 tick.display，E' 后须出现前面红带）。
+          paintGuidePrefix(result.guide);
+          scrambleGuideRotationStepRef.current = null;
+          if (result.guide.phase === "done") {
+            beginBluetoothInspect();
+          }
+          lastFacelets = null;
+          settledSameCount = 0;
+          // 下一步入口快照留给下一轮 poll（用推进后的设备串）。
+          entryFacelets = null;
+          entryProgress = result.guide.progress;
+          return;
+        }
+        if (tick.shouldMarkWrong) {
+          const next: GuidedScramble = {
+            ...guide,
+            wrongStack: [tick.wrongToken],
+          };
+          scrambleGuideRef.current = next;
+          flushSync(() => {
+            setScrambleGuide(guidedScrambleView(next));
+          });
+          return;
+        }
+        if (tick.shouldClearWrong) {
+          const next: GuidedScramble = { ...guide, wrongStack: [] };
+          scrambleGuideRef.current = next;
+          flushSync(() => {
+            setScrambleGuide(guidedScrambleView(next));
+          });
+        }
+      } catch {
+        // GATT 偶发失败时下一轮再试
+      }
+    };
+    // 宽层步若协议冒出面转包：不播动画，立刻拉 facelets 跟随（中层常无转动包）。
+    scrambleGuideLayerKickRef.current = () => {
+      void poll();
+    };
+    void poll();
+    const timer = window.setInterval(() => {
+      void poll();
+    }, pollMs);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      scrambleGuideLayerKickRef.current = null;
+    };
+  }, [
+    focus.kind,
+    moyuSession,
+    scrambleGuide?.manualMove,
+    scrambleGuide?.expectedMove,
+    scrambleGuide?.done,
+    scrambleGuide?.currentIndex,
+    btInspectPhase,
+  ]);
 
   // 蓝牙观察倒计时：到期直接进入计时并开表
   useEffect(() => {
@@ -1116,7 +1480,13 @@ export default function App() {
   }
 
   function onBack(event: MouseEvent<HTMLButtonElement>) {
-    setFocus((current) => back(current));
+    const from = focus.kind;
+    const nextFocus = back(focus);
+    setFocus(nextFocus);
+    if (shouldClearGameOnLeaveGame(from, nextFocus.kind)) {
+      // 游戏页卸载即清空；计时打乱保持原样。
+      stopScramblePlay();
+    }
     event.currentTarget.blur();
   }
 
@@ -1183,6 +1553,61 @@ export default function App() {
     setBrowseReview(null);
     setFocus(showScores());
   }
+
+  function openGamePage() {
+    stopScramblePlay();
+    setFocus(showGame());
+  }
+
+  function closeGamePage() {
+    gameBluetoothMovesRef.current = null;
+    gameBluetoothOrientationRef.current = null;
+    setFocus(showTiming());
+    stopScramblePlay();
+    if (moyuSessionRef.current) {
+      // 回首页后 3D 跟实体对表，避免游戏页跟转造成视觉脱节。
+      syncBluetoothCubeFromTrackedState();
+      void resyncBluetoothCubeOnForeground();
+    }
+  }
+
+  const gamePageBluetooth = useMemo<GamePageBluetooth | null>(() => {
+    if (!moyuSession) {
+      return null;
+    }
+    return {
+      registerMoves: (handler) => {
+        gameBluetoothMovesRef.current = handler;
+        return () => {
+          if (gameBluetoothMovesRef.current === handler) {
+            gameBluetoothMovesRef.current = null;
+          }
+        };
+      },
+      registerOrientation: (handler) => {
+        gameBluetoothOrientationRef.current = handler;
+        return () => {
+          if (gameBluetoothOrientationRef.current === handler) {
+            gameBluetoothOrientationRef.current = null;
+          }
+        };
+      },
+      requestSetupAlg: async () => {
+        const session = moyuSessionRef.current;
+        if (!session) {
+          return null;
+        }
+        try {
+          const status = await session.requestStatus();
+          // 只读实体态给游戏页；不要清空首页 bluetoothStateMoves。
+          // 否则 Cross 逐步对表会刷 requestStatus，丢步且回家后打乱 R' 对不上。
+          return status.setupAlg;
+        } catch {
+          return null;
+        }
+      },
+    };
+  }, [moyuSession]);
 
   function deleteScore(scoreId: string) {
     if (!scoreLog.removeById(scoreId)) {
@@ -1550,13 +1975,59 @@ export default function App() {
   const timingShellOpts = { bluetoothConnected: Boolean(moyuSession) };
   const modeEntry = modeSwitchPresentation(mode);
 
+  /**
+   * 打乱引导 3D 朝向：贴纸已含已完成转体；mesh 默认单位。
+   * 转体步跟手：相对「公式已烘焙朝向」的活姿态（尚未有转体时=绝对 live），
+   * 勿相对步起点手持——起点若已偏斜，增量轴向会拧成冲前（像 x 而非 z'）。
+   */
+  function syncScrambleGuideDisplayOrientation(
+    guide: GuidedScramble | null = scrambleGuideRef.current,
+    liveQuat: MoyuQuat | null = null,
+  ): void {
+    if (!guide || guide.phase === "done") {
+      return;
+    }
+    const token = guide.displayMoves[guide.progress] ?? "";
+    if (liveQuat && isRotationGuideToken(token)) {
+      const formulaOrients = completedOrientationMoves(
+        guide.displayMoves,
+        guide.progress,
+      );
+      if (formulaOrients.length === 0) {
+        // 与改烘焙前一致：首段转体用绝对活姿态跟手。
+        cube.current?.setOrientation(liveQuat);
+      } else {
+        const formulaQ = quatFromOrientationAlg(formulaOrients.join(" "));
+        cube.current?.setOrientation(
+          relativeOrientationQuat(formulaQ, liveQuat),
+        );
+      }
+      return;
+    }
+    cube.current?.setOrientation(IDENTITY_QUAT);
+  }
+
   function flushMoyuOrientation() {
     moyuOrbitRaf.current = 0;
     const quat = moyuPendingQuat.current;
     if (!quat) {
       return;
     }
-    cube.current?.setOrientation(moyuOrientation.current.toOrientation(quat));
+    const orientation = moyuOrientation.current.toOrientation(quat);
+    const guide = scrambleGuideRef.current;
+    if (
+      focusRef.current.kind === "计时" &&
+      guide &&
+      guide.phase !== "done" &&
+      btInspectPhaseRef.current === "off"
+    ) {
+      syncScrambleGuideDisplayOrientation(guide, orientation);
+    } else {
+      cube.current?.setOrientation(orientation);
+    }
+    // 游戏页自有 CubeView：同步陀螺仪朝向，使 z2 等整机转体跟上实体。
+    gameBluetoothOrientationRef.current?.(orientation);
+    syncScrambleGuideRotationsFromGyro();
     syncBluetoothSolveRotationsFromGyro();
   }
 
@@ -1669,6 +2140,28 @@ export default function App() {
       };
 
       const onBluetoothMoves = (samples: readonly MoyuMoveSample[]) => {
+        if (focusRef.current.kind === "游戏") {
+          // 游戏页自有 CubeView + 跟转；仍记账，便于回首页对表。
+          recordBluetoothStateMoves(samples);
+          gameBluetoothMovesRef.current?.(samples);
+          return;
+        }
+        const guide = scrambleGuideRef.current;
+        if (
+          guide &&
+          guide.phase !== "done" &&
+          btInspectPhaseRef.current === "off"
+        ) {
+          const kind = resolveLayerFollowKind(
+            guide.displayMoves[guide.progress] ?? null,
+          );
+          if (kind) {
+            // 引导全程不播设备面转包（中层后固件坐标系会偏，D 会上报成 F）。
+            // 只踢 facelets 对表，画面由钉中心 pattern 驱动。
+            scrambleGuideLayerKickRef.current?.();
+          }
+          return;
+        }
         cube.current?.playBluetoothMoves(samples);
         applyBluetoothGuideMovesRef.current(samples);
       };
@@ -1782,12 +2275,21 @@ export default function App() {
           onRetrySameScramble={retryFromBrowseReview}
         />
       ) : null}
+      {focus.kind === "游戏" ? (
+        <GamePage
+          onBack={closeGamePage}
+          initialScramble={scrambleMoves}
+          bluetooth={gamePageBluetooth}
+        />
+      ) : null}
       <header
         className={focus.kind === "计时" ? "topbar topbar-timing" : "topbar"}
         hidden={
-          focus.kind === "计时"
-            ? !timingShellVisible(timerPhase, "topbar", timingShellOpts)
-            : false
+          focus.kind === "游戏"
+            ? true
+            : focus.kind === "计时"
+              ? !timingShellVisible(timerPhase, "topbar", timingShellOpts)
+              : false
         }
       >
         {focus.kind === "练习" || focus.kind === "成绩" ? (
@@ -1840,6 +2342,31 @@ export default function App() {
               ) : (
                 <span className="mode-switch-label">{modeEntry.text}</span>
               )}
+            </button>
+            <button
+              type="button"
+              className="scores-entry game-entry"
+              aria-label="游戏"
+              title="游戏"
+              onClick={openGamePage}
+            >
+              <svg
+                className="scores-entry-svg"
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="3.5" y="7.5" width="17" height="11" rx="3" />
+                <path d="M8 11v5M5.5 13.5h5" />
+                <circle cx="15.25" cy="12" r="1.1" />
+                <circle cx="17.75" cy="14.5" r="1.1" />
+              </svg>
             </button>
             <button
               type="button"
@@ -1953,6 +2480,7 @@ export default function App() {
         data-focus={focus.kind}
         data-timer-phase={focus.kind === "计时" ? timerPhase : undefined}
         data-bt={focus.kind === "计时" && moyuSession ? "1" : undefined}
+        hidden={focus.kind === "游戏"}
         onPointerDown={focus.kind === "计时" ? onTimingPointerDown : undefined}
         onPointerMove={focus.kind === "计时" ? onTimingPointerMove : undefined}
         onPointerUp={focus.kind === "计时" ? onTimingPointerUp : undefined}
@@ -2012,6 +2540,9 @@ export default function App() {
               onRescramble={refreshScramble}
               guide={scrambleGuide}
               waitingForStart={btInspectPhase === "ready"}
+              onConfirmLayerStep={
+                moyuSession ? confirmScrambleGuideLayerStep : undefined
+              }
               playbackSteps={
                 !moyuSession && scrambleCursor ? scrambleCursor.moves : null
               }
@@ -2068,7 +2599,9 @@ export default function App() {
               scrambleComplete={Boolean(
                 scrambleCursor && isScrambleAtEnd(scrambleCursor),
               )}
-              onPlayScramble={() => void onScramblePlay()}
+              onPlayScramble={() => {
+                void onScramblePlay();
+              }}
             />
           ) : null}
         </div>

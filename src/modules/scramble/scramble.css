@@ -23,6 +23,21 @@
   justify-items: center;
 }
 
+/* 游戏解法态：左侧开关 + 右侧重新打乱，避免空公式条占高 */
+.scramble-bar-icon-only {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 40px;
+}
+
+.scramble-bar-icon-only .scramble-icon {
+  position: static;
+  transform: none;
+  flex: 0 0 auto;
+}
+
 .scramble-icon {
   position: absolute;
   right: 0;
@@ -136,6 +151,22 @@
 .scramble-guide-progress {
   opacity: 0.8;
   font-variant-numeric: tabular-nums;
+}
+
+.scramble-guide-confirm {
+  appearance: none;
+  border: 1px solid rgb(247 251 255 / 35%);
+  border-radius: 8px;
+  background: rgb(247 251 255 / 12%);
+  color: #f7fbff;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.scramble-guide-confirm:hover {
+  background: rgb(247 251 255 / 20%);
 }
 
 .scramble-guide-done {

@@ -1,5 +1,10 @@
 import { type MouseEvent, type ReactNode } from "react";
-import type { GuidedScrambleView } from "./guided.ts";
+import {
+  isRotationGuideToken,
+  isSliceGuideToken,
+  isWideGuideToken,
+  type GuidedScrambleView,
+} from "./guided.ts";
 import "./scramble.css";
 
 export function ScramblePanel({
@@ -9,7 +14,10 @@ export function ScramblePanel({
   waitingForStart = false,
   playbackSteps = null,
   playbackIndex = 0,
+  showFormula = true,
+  leading = null,
   footer = null,
+  onConfirmLayerStep,
 }: {
   moves: string | null;
   onRescramble: () => void;
@@ -24,8 +32,14 @@ export function ScramblePanel({
    * 与游标一致：动画播完前不要先 +1，否则高亮会快一拍。
    */
   playbackIndex?: number;
+  /** 为 false 时只保留重新打乱钮（游戏解法态收起打乱公式）。 */
+  showFormula?: boolean;
+  /** 收起公式时条左侧内容（如游戏开关）。 */
+  leading?: ReactNode;
   /** 公式条下方内容（如非蓝牙播放控制条）。 */
   footer?: ReactNode;
+  /** 宽层 / 中层自动对表失败时手动推进。 */
+  onConfirmLayerStep?: () => void;
 }) {
   function scramble(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
@@ -33,9 +47,9 @@ export function ScramblePanel({
     event.currentTarget.blur();
   }
 
-  const guided = Boolean(guide && moves);
+  const guided = Boolean(showFormula && guide && moves);
   const playback = Boolean(
-    !guided && playbackSteps && playbackSteps.length > 0,
+    showFormula && !guided && playbackSteps && playbackSteps.length > 0,
   );
   const title =
     guide?.displayMoves.join(" ") ??
@@ -45,8 +59,13 @@ export function ScramblePanel({
 
   return (
     <section className="scramble">
-      <div className="scramble-bar">
-        {guided && guide ? (
+      <div
+        className={
+          showFormula ? "scramble-bar" : "scramble-bar scramble-bar-icon-only"
+        }
+      >
+        {!showFormula ? leading : null}
+        {showFormula && guided && guide ? (
           <p className="scramble-moves scramble-moves-guided" title={title}>
             {guide.displayMoves.map((move, index) => {
               let stepClass = "scramble-step";
@@ -70,7 +89,8 @@ export function ScramblePanel({
               );
             })}
           </p>
-        ) : playback && playbackSteps ? (
+        ) : null}
+        {showFormula && playback && playbackSteps ? (
           <p className="scramble-moves scramble-moves-guided" title={title}>
             {playbackSteps.map((move, index) => {
               let stepClass = "scramble-step";
@@ -90,14 +110,15 @@ export function ScramblePanel({
               );
             })}
           </p>
-        ) : (
+        ) : null}
+        {showFormula && !guided && !playback ? (
           <p
             className={moves ? "scramble-moves" : "scramble-hint"}
             title={moves ?? undefined}
           >
             {moves ?? "点击右侧图标重新打乱"}
           </p>
-        )}
+        ) : null}
         <button
           type="button"
           className="scramble-icon"
@@ -130,14 +151,41 @@ export function ScramblePanel({
       guide &&
       !guide.done &&
       !guide.correction &&
-      guide.expectedMove ? (
+      (guide.expectedMove || guide.manualMove) ? (
         <p className="scramble-guide-note scramble-guide-next" role="status">
           下一步 {guide.displayMoves[guide.currentIndex ?? 0]}
           {guide.partial ? "（再转半步）" : ""}
+          {guide.manualMove
+            ? isRotationGuideToken(guide.manualMove)
+              ? "（整机转体，到位自动继续）"
+              : "（宽层/中层，到位自动继续）"
+            : ""}
           <span className="scramble-guide-progress">
             {" "}
             · {guide.completedCount}/{guide.displayMoves.length}
           </span>
+        </p>
+      ) : null}
+      {guided &&
+      guide &&
+      !guide.done &&
+      guide.manualMove &&
+      (isWideGuideToken(guide.manualMove) ||
+        isSliceGuideToken(guide.manualMove) ||
+        isRotationGuideToken(guide.manualMove)) &&
+      onConfirmLayerStep ? (
+        <p className="scramble-guide-note">
+          <button
+            type="button"
+            className="scramble-guide-confirm"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onConfirmLayerStep();
+            }}
+          >
+            已到位，下一步
+          </button>
         </p>
       ) : null}
       {guided && guide?.done && waitingForStart ? (

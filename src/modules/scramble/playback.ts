@@ -1,4 +1,4 @@
-import { parseScramble } from "./scramble.ts";
+import { parseGuidedAlg } from "./scramble.ts";
 
 /**
  * 非蓝牙打乱自动播放：单步墙钟毫秒（含转动动画）。
@@ -14,7 +14,7 @@ export type ScrambleCursor = {
 
 export function createScrambleCursor(source: string): ScrambleCursor {
   return {
-    moves: parseScramble(source),
+    moves: parseGuidedAlg(source),
     index: 0,
   };
 }

@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import { readCube } from "../cube/cube.ts";
 import { cube3x3x3 } from "cubing/puzzles";
 import {
+  nextHomeScrambleMoves,
+  parseGuidedAlg,
   parseScramble,
   randomScramble3x3,
   scrambleDisplayAlgorithm,
@@ -39,6 +41,24 @@ describe("parseScramble", () => {
     assert.throws(() => parseScramble("   "), /打乱是空的/);
     assert.throws(() => parseScramble("R U M"), /无法打乱：M/);
     assert.throws(() => parseScramble("R U x"), /无法打乱：x/);
+  });
+});
+
+describe("parseGuidedAlg", () => {
+  it("允许宽层与中层，界面可保留 u", () => {
+    assert.deepEqual(parseGuidedAlg("R u M' d2"), ["R", "u", "M'", "d2"]);
+  });
+
+  it("仍拒绝非法记号", () => {
+    assert.throws(() => parseGuidedAlg("R Q"), /无法引导/);
+  });
+});
+
+describe("nextHomeScrambleMoves", () => {
+  it("返回随机外层打乱", () => {
+    const moves = nextHomeScrambleMoves(() => 0.1);
+    assert.match(moves, /^[UDLRFB](?:2'|2|')?(?: [UDLRFB](?:2'|2|')?)*$/);
+    assert.equal(moves.split(/\s+/).length, 20);
   });
 });
 

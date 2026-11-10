@@ -18,6 +18,8 @@ const AXIS: Record<Face, Axis> = {
 const SUFFIXES = ["", "'", "2"] as const;
 const SCRAMBLE_LENGTH = 20;
 const FACE_TURN = /^[UDLRFB](?:2'|2|')?$/;
+/** 引导公式：面转 + 宽层 + 中层 + 整机转体（界面可保留 u，底层 facelets 判定）。 */
+const GUIDED_TURN = /^(?:[UDLRFBudlrfbxyz]|[MES])(?:2'|2|')?$/;
 
 function pick<T>(items: readonly T[], random: () => number): T {
   const index = Math.floor(random() * items.length);
@@ -55,6 +57,24 @@ export function parseScramble(source: string): string[] {
   return moves;
 }
 
+/**
+ * 蓝牙跟转公式：允许宽层 / 中层 / 转体；展示仍用原记号，到位靠 facelets。
+ * 随机打乱仍走 {@link parseScramble}（仅外层）。
+ */
+export function parseGuidedAlg(source: string): string[] {
+  const moves = [...new Alg(source).experimentalLeafMoves()].map((move) =>
+    move.toString(),
+  );
+  if (moves.length === 0) {
+    throw new Error("打乱是空的");
+  }
+  const invalid = moves.find((move) => !GUIDED_TURN.test(move));
+  if (invalid) {
+    throw new Error(`无法引导：${invalid}`);
+  }
+  return moves;
+}
+
 export function randomScramble3x3(
   random: () => number = Math.random,
 ): Scramble {
@@ -82,4 +102,11 @@ export function randomScramble3x3(
     puzzle: "3x3",
     moves: parseScramble(tokens.join(" ")).join(" "),
   };
+}
+
+/** 计时首页「下一打乱」：随机外层打乱。 */
+export function nextHomeScrambleMoves(
+  random: () => number = Math.random,
+): string {
+  return randomScramble3x3(random).moves;
 }

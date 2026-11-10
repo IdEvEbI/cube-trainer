@@ -8,8 +8,13 @@ import {
   midSolveOrientationCandidate,
   nearestCubeOrientationAlg,
   nearestYellowTopOrientationAlg,
+  heldMatchesRotationProgress,
+  invertRotationGuideToken,
+  orientationAlgThroughProgress,
   orientationRotationPath,
+  orientationSatisfiesRotation,
   quatFromOrientationAlg,
+  scrambleGuideRotationSatisfied,
   scrambleToHeldPrepRotations,
   snapCubeOrientationAlg,
   tickOrientationHold,
@@ -49,6 +54,62 @@ describe("cubeOrientation", () => {
       ),
       "x y",
     );
+  });
+
+  it("orientationSatisfiesRotation 识别 z2 及随后微调 y", () => {
+    assert.equal(orientationSatisfiesRotation("", "z2", "z2"), true);
+    assert.equal(orientationSatisfiesRotation("", "z2 y", "z2"), true);
+    assert.equal(orientationSatisfiesRotation("", "y", "z2"), false);
+    assert.equal(orientationSatisfiesRotation("z2", "z2 y", "y"), true);
+    assert.equal(orientationSatisfiesRotation("", "", "z2"), false);
+  });
+
+  it("heldMatchesRotationProgress 按公式累积转体", () => {
+    const moves = ["R", "U", "z2", "B"];
+    assert.equal(orientationAlgThroughProgress(moves, 2), "z2");
+    assert.equal(heldMatchesRotationProgress("z2", moves, 2), true);
+    assert.equal(heldMatchesRotationProgress("z2 y", moves, 2), true);
+    assert.equal(heldMatchesRotationProgress("", moves, 2), false);
+  });
+
+  it("打乱引导转体按进入步时的相对起点，避免握持偏移要拧三次", () => {
+    // 进入 x 前手持已是 x2：再转一个 x → x'，相对到位；绝对对表会误要三次
+    assert.equal(orientationSatisfiesRotation("x2", "x'", "x"), true);
+    assert.equal(heldMatchesRotationProgress("x'", ["M", "u", "x"], 2), false);
+    assert.equal(orientationSatisfiesRotation("x", "x y'", "y'"), true);
+  });
+
+  it("打乱引导转体：x/y 镜像、z 同轴四分之一双向可到位", () => {
+    assert.equal(invertRotationGuideToken("x"), "x'");
+    assert.equal(invertRotationGuideToken("y'"), "y");
+    assert.equal(invertRotationGuideToken("z2"), "z2");
+    // x/y：陀螺仪记成逆步，镜像一次到位
+    assert.equal(scrambleGuideRotationSatisfied("", "x'", "x"), true);
+    assert.equal(orientationSatisfiesRotation("", "x'", "x"), false);
+    assert.equal(scrambleGuideRotationSatisfied("x", "x y", "y'"), true);
+    // z：正向或反向四分之一都算走过（箭头/吸附偶发反向）
+    assert.equal(scrambleGuideRotationSatisfied("x y'", "x y' z", "z"), true);
+    assert.equal(scrambleGuideRotationSatisfied("x y'", "x y' z'", "z"), true);
+    assert.equal(scrambleGuideRotationSatisfied("", "z", "z'"), true);
+    assert.equal(scrambleGuideRotationSatisfied("", "z'", "z'"), true);
+  });
+
+  it("转体到位后允许微调 y，避免 z' 后卡死无法进到下一步", () => {
+    assert.equal(orientationSatisfiesRotation("", "z'", "z'"), true);
+    assert.equal(orientationSatisfiesRotation("", "z' y", "z'"), true);
+    assert.equal(orientationSatisfiesRotation("", "z' y'", "z'"), true);
+    assert.equal(orientationSatisfiesRotation("", "z' y2", "z'"), true);
+    // 反方向整步仍不算到位
+    assert.equal(orientationSatisfiesRotation("", "z", "z'"), false);
+    assert.equal(scrambleGuideRotationSatisfied("", "z' y", "z'"), true);
+  });
+
+  it("同轴过冲到 z2 仍算 z' 到位（连续拧不暂停时）", () => {
+    assert.equal(orientationSatisfiesRotation("", "z2", "z'"), true);
+    assert.equal(orientationSatisfiesRotation("", "z2", "z"), true);
+    assert.equal(scrambleGuideRotationSatisfied("", "z2", "z'"), true);
+    // 仍要求同轴：x2 不算 z' 到位
+    assert.equal(orientationSatisfiesRotation("", "x2", "z'"), false);
   });
 
   it("snapCubeOrientationAlg 明确贴合才切换，否则保持", () => {
