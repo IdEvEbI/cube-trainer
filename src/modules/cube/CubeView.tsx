@@ -436,15 +436,20 @@ export function CubeView({
     if (!pending?.move || pendingMoveHint.current !== pending) {
       return;
     }
+    // 必须传入现有组：传 null 会在场景里再挂一盒，旧盒无人摘（M'→r 叠两个盒）。
     moveHintGroup.current = applyMoveHint(
       puzzle,
-      null,
+      moveHintGroup.current,
       pending.move,
       pending.options,
     );
   }
 
   function applyOrientationOnly(orient: CubeOrientationQuat) {
+    // 层转 scrub 时陀螺每帧 sync IDENTITY：相同则跳过，避免 quaternion 重写造成抖动。
+    if (sameOrientation(lastOrientation.current, orient)) {
+      return;
+    }
     lastOrientation.current = orient;
     const twisty = player.current;
     if (!twisty) {
@@ -526,13 +531,13 @@ export function CubeView({
 
   /** alg 变更后重取 3D 宿主，并把 pending 高亮挂回去。 */
   async function rebindPendingMoveHint(twisty: TwistyPlayer) {
-    if (moveHintGroup.current) {
-      applyMoveHint({ add() {}, remove() {} }, moveHintGroup.current, null);
-      moveHintGroup.current = null;
-    }
     invalidatePuzzle3DCache();
     const pending = pendingMoveHint.current;
     if (!pending?.move) {
+      if (moveHintGroup.current) {
+        applyMoveHint({ add() {}, remove() {} }, moveHintGroup.current, null);
+        moveHintGroup.current = null;
+      }
       return;
     }
     const puzzle = await resolvePuzzle3D(twisty);
@@ -546,9 +551,10 @@ export function CubeView({
     if (orient) {
       applyOrientationToPuzzle(puzzle, orient);
     }
+    // 传入现有组，避免 null 导致旧盒残留。
     moveHintGroup.current = applyMoveHint(
       puzzle,
-      null,
+      moveHintGroup.current,
       pending.move,
       pending.options,
     );
@@ -1018,6 +1024,10 @@ export function CubeView({
           if (!span) {
             twisty.alg = after;
             twisty.timestamp = "end";
+            // 无时间轴时仍重挂高亮，避免宽层双步半程盒消失。
+            if (generation.current === token && !session.aborted) {
+              await rebindPendingMoveHint(twisty);
+            }
             return;
           }
           const desire = Math.min(1, Math.max(0, guideStepGyroDesire.current));
@@ -1034,6 +1044,10 @@ export function CubeView({
           const puzzle = await resolvePuzzle3D(twisty);
           if (puzzle && generation.current === token && !session.aborted) {
             applyOrientationToPuzzle(puzzle, orient);
+          }
+          // 开轨道时摘了视觉盒；f'2 等双步半程未 matched 前不会 finish，必须立刻重挂。
+          if (generation.current === token && !session.aborted) {
+            await rebindPendingMoveHint(twisty);
           }
         } catch {
           // 保持画面；pending 在 finish/cancel 释放

@@ -60,13 +60,14 @@
 
 **贴纸写入白名单**：连接（facelets）/ 断开 / 前台对表；引导里仅「步到位」钉公式前缀（alg 未变则跳过）。过程中 facelets 只对表，3D 只靠转动包与陀螺 scrub——禁止 poll 重刷整盘。
 
-**层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀。mesh 锁单位。
+**层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀；开轨道摘盒后须立刻 `rebindPendingMoveHint`（`f'2` 半程未 matched 前不会 finish，否则高亮盒消失）。`rebindAfterAbsoluteChange` / 重挂须把现有 hint 组传给 `applyMoveHint`（传 `null` 会残留旧盒，出现双高亮）。mesh 锁单位。
 
-L9：`M` 后先摆正再拧外面转；字母偶发不符时 facelets 兜底。
+L9（**通过 2026-11-13**）：层转一步 scrub 后保持该 alg；mesh 锁单位。BLE 面转：`resolveGuideBleFaceMove`——色心已对上期望则不映（避 live `y` 噪声 L→F）；否则按引导起点→live 朝向映回（未摆正 F'→U'）。字母偶发不符时 facelets 兜底。
 
 ## 后续候选（等人确认）
 
-1. 真机回归：引导宽层/中层自动推进（L5…）。
-2. ~~中层/宽层整步动画~~：不播外层拆包；3D 进度 = max(已收包/期望包数, 陀螺夹角比例)，避免 `M2` 途中夹角平台导致卡在半步。
+1. ~~真机回归：引导宽层/中层自动推进（L5…）~~（L0–L9 已通过）。
+2. ~~中层/宽层整步动画~~。
 3. `d2`/`d'2` 吸附近邻（`x y2`）是否写入显式别名表。
-4. 层转后外面转（L9）：锁 mesh；字母不符时 facelets 兜底——到位推进、未动/拧动中丢包，仅 settle 后才标错（避免 M 后拧 F 途中冒 U 误报）。
+4. ~~层转后外面转（L9）~~。
+5. **计时阶段 3D 未跟还原**（暂不修）：开表后实体拧回复原，屏幕魔方有时停在打乱态。修复时**只跟色心外层转动包**记账/播动画，**禁止**套用引导期的中层/宽层对偶或朝向映字；复原判定可用 facelets。

@@ -123,6 +123,7 @@ import {
   tickScrambleGuideLayerFollow,
 } from "./modules/scramble/scrambleGuideLayerFollow.ts";
 import { layerGuideVisualProgress } from "./modules/scramble/layerGuideGyroFollow.ts";
+import { resolveGuideBleFaceMove } from "./modules/scramble/layerGuideDualPaint.ts";
 import { reconcileFaceMoveWithFacelets } from "./modules/scramble/scrambleGuideStep.ts";
 import {
   appendGuideLayerGestureMoves,
@@ -334,6 +335,11 @@ export default function App() {
   );
   /** 进入当前转体步时的手持四元数（相对增量判定，避免两端吸附后轴漂）。 */
   const scrambleGuideRotationFromQuatRef = useRef<MoyuQuat>(IDENTITY_QUAT);
+  /**
+   * 引导面转 BLE→公式帧的朝向基准（开局 / 对齐时采）。
+   * 用 live 相对此基准吸附，避免长序列「表内期望 Δ」与真机漂移后 R/L 对调。
+   */
+  const scrambleGuideFaceRemapHomeQuatRef = useRef<MoyuQuat>(IDENTITY_QUAT);
   /** 当前转体步键：`${progress}:${token}`，变了才重采 from。 */
   const scrambleGuideRotationStepRef = useRef<string | null>(null);
   /** 引导步转动动画进行中：暂停 facelets 轮询贴图，避免冲掉中间帧。 */
@@ -848,6 +854,29 @@ export default function App() {
     return moyuOrientation.current.toOrientation(last);
   }
 
+  /** 引导中 BLE 面转映到公式帧所用朝向（相对开局 / 对齐基准）。 */
+  function scrambleGuideLiveFaceOrientAlg(): string {
+    return relativeOrientationAlg(
+      scrambleGuideFaceRemapHomeQuatRef.current,
+      currentBluetoothRelativeQuat(),
+    );
+  }
+
+  function remapGuideBleFaceMove(
+    bleMove: string,
+    expectedToken?: string | null,
+  ): string {
+    return resolveGuideBleFaceMove(
+      bleMove,
+      expectedToken ??
+        scrambleGuideRef.current?.displayMoves[
+          scrambleGuideRef.current.progress
+        ] ??
+        null,
+      scrambleGuideLiveFaceOrientAlg(),
+    );
+  }
+
   function beginBluetoothSolveTrace(startSetupAlg: string) {
     bluetoothSolveStartSetupRef.current = startSetupAlg;
     const session = createSolveTraceSession({
@@ -955,7 +984,10 @@ export default function App() {
     }
   }
 
-  /** 引导已完成前缀（含连接 setup），供贴图与陀螺轨道基座共用。 */
+  /**
+   * 引导已完成前缀（含连接 setup），供贴图与陀螺轨道基座共用。
+   * 层转保持宽层/中层记号（与 scrub 终态一致）；alg 未变则 setAbsoluteAlg 跳过，避免到位闪切。
+   */
   function scrambleGuidePaintAlg(guide: GuidedScramble): string {
     return joinAlgParts(
       bluetoothScrambleSetupAlgRef.current,
@@ -968,6 +1000,8 @@ export default function App() {
   /**
    * 引导贴纸写入（白名单）：仅步到位后钉公式前缀，或连接态已由
    * {@link applyBluetoothStatusToCube} 处理。过程中禁止用 facelets 重刷整盘。
+   * 层转勿把 Δ 打进 mesh（否则 U' 高亮跑到背面像 B'）；对表用
+   * {@link remapBleFaceMoveAfterLayerGyro}。
    * `setAbsoluteAlg` 在 alg 未变时会跳过，避免陀螺已到位再闪切。
    */
   function paintScrambleGuideCube(
@@ -1155,6 +1189,7 @@ export default function App() {
       scrambleGuideOrientHoldRef.current = createOrientationHoldState();
       scrambleGuideRotationStepRef.current = null;
       scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
+      scrambleGuideFaceRemapHomeQuatRef.current = IDENTITY_QUAT;
       resetBluetoothInspect();
       return;
     }
@@ -1165,7 +1200,9 @@ export default function App() {
       scrambleGuideRef.current = guide;
       scrambleGuideOrientHoldRef.current = createOrientationHoldState("");
       scrambleGuideRotationStepRef.current = null;
-      scrambleGuideRotationFromQuatRef.current = currentBluetoothRelativeQuat();
+      const live = currentBluetoothRelativeQuat();
+      scrambleGuideRotationFromQuatRef.current = live;
+      scrambleGuideFaceRemapHomeQuatRef.current = live;
       setScrambleGuide(guidedScrambleView(guide));
       resetBluetoothInspect();
       // 贴纸已在连接时 facelets 写入；引导开始勿重贴（避免闪切 / 色序被 alg 覆盖）。
@@ -1175,6 +1212,7 @@ export default function App() {
       scrambleGuideOrientHoldRef.current = createOrientationHoldState();
       scrambleGuideRotationStepRef.current = null;
       scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
+      scrambleGuideFaceRemapHomeQuatRef.current = IDENTITY_QUAT;
       resetBluetoothInspect();
     }
   }
@@ -1295,8 +1333,12 @@ export default function App() {
       let needStickerNail = false;
       for (; sampleIndex < samples.length; sampleIndex += 1) {
         const sample = samples[sampleIndex]!;
-        // 魔域转动包是魔方坐标系；勿按手持姿态重映射（x2 会把真 U' 错成 D'）。
-        const result = applyGuidedMove(next, sample.move);
+        // 色心已对上期望则不映；否则按 live 朝向映回（防噪声把 L→F，又保留未摆正 F'→U'）。
+        const guideMove = remapGuideBleFaceMove(
+          sample.move,
+          next.displayMoves[next.progress] ?? null,
+        );
+        const result = applyGuidedMove(next, guideMove);
         if (result.kind === "wrong") {
           // 层转后偶发错面字母：以 facelets 为准，避免「期望 U 却提示转 F'」。
           const session = moyuSessionRef.current;
@@ -2170,7 +2212,7 @@ export default function App() {
 
   /**
    * 打乱引导 3D 朝向：
-   * - 面转 / 宽层 / 中层：mesh 锁单位（钉中心贴图；与 L7 一致）。
+   * - 面转 / 宽层 / 中层：mesh 锁单位（贴纸含层转记号；非 live 跟手）。
    * - 转体步：相对步起点增量跟手；确认后烘焙贴纸。
    */
   function syncScrambleGuideDisplayOrientation(
@@ -2294,6 +2336,8 @@ export default function App() {
     try {
       const orientation = moyuOrientation.current.alignToCurrent();
       scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
+      // 对齐后 tracker 相对当前为身份，面转 remap 基准同步归零。
+      scrambleGuideFaceRemapHomeQuatRef.current = IDENTITY_QUAT;
       cube.current?.setOrientation(orientation);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
       // 首页不展示设备名；对齐成功用短 Toast。
@@ -2451,7 +2495,12 @@ export default function App() {
           }
           if (isFaceGuideToken(stepToken)) {
             // 外层面转（含 R2）：转动包推进 + 动画；半步走 applyGuidedMove，勿走 facelets wrong。
-            cube.current?.playBluetoothMoves(samples);
+            // 3D 播公式帧字母（live 朝向映射后），与高亮一致；记账仍用原始色心包。
+            const playSamples = samples.map((sample) => ({
+              ...sample,
+              move: remapGuideBleFaceMove(sample.move, stepToken),
+            }));
+            cube.current?.playBluetoothMoves(playSamples);
             applyBluetoothGuideMovesRef.current(samples);
             return;
           }

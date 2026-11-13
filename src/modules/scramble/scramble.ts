@@ -129,8 +129,8 @@ export function randomScramble3x3(
 export const USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE = true;
 
 /**
- * 联调焦点：决定首页随机公式族，对准当前 NOW 指针。
- * L7 / 中层观感回归 → slice-quarter；L8 → slice-double；L9 错面 → layer-then-face。
+ * 联调焦点：决定首页随机公式族。
+ * L9 后默认 `full-mix`：单边 + 中层 + 宽层（含双步），步数加长。
  */
 export type GuidedHomeTestFocus =
   | "wide-quarter"
@@ -138,10 +138,11 @@ export type GuidedHomeTestFocus =
   | "slice-quarter"
   | "slice-double"
   | "wide-slice"
-  | "layer-then-face";
+  | "layer-then-face"
+  | "full-mix";
 
-/** 先稳住 M/E/S 四分之一观感；L9 错面再改回 layer-then-face。 */
-export const GUIDED_HOME_TEST_FOCUS: GuidedHomeTestFocus = "slice-quarter";
+/** L9 通过后：完整混测（单边 / 中层 / 宽层，含双步）。 */
+export const GUIDED_HOME_TEST_FOCUS: GuidedHomeTestFocus = "full-mix";
 
 const SLICE_BASES = ["M", "E", "S"] as const;
 const WIDE_BASES = ["u", "d", "l", "r", "f", "b"] as const;
@@ -275,6 +276,58 @@ export function randomGuidedTestScramble(
         QUARTER_SUFFIXES,
         random,
       );
+      break;
+    }
+    case "full-mix": {
+      // 完整回归：单边 + 中层 + 宽层（四分之一为主，穿插双步），约 12–16 步。
+      type MixKind = "face" | "slice-q" | "wide-q" | "slice-d" | "wide-d";
+      const kindPool: MixKind[] = [
+        "face",
+        "face",
+        "face",
+        "slice-q",
+        "slice-q",
+        "wide-q",
+        "wide-q",
+        "slice-d",
+        "wide-d",
+      ];
+      const kindBases: Record<
+        MixKind,
+        { bases: readonly string[]; suffixes: readonly string[] }
+      > = {
+        face: { bases: FACE_BASES, suffixes: QUARTER_SUFFIXES },
+        "slice-q": { bases: SLICE_BASES, suffixes: QUARTER_SUFFIXES },
+        "wide-q": { bases: WIDE_BASES, suffixes: QUARTER_SUFFIXES },
+        "slice-d": { bases: SLICE_BASES, suffixes: DOUBLE_SUFFIXES },
+        "wide-d": { bases: WIDE_BASES, suffixes: DOUBLE_SUFFIXES },
+      };
+      // 先各塞一类，保证公式里三类都有、且含至少一个双步。
+      const seedKinds: MixKind[] = [
+        "face",
+        "slice-q",
+        "wide-q",
+        "slice-d",
+        "wide-d",
+      ];
+      for (let i = seedKinds.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(random() * (i + 1));
+        const tmp = seedKinds[i]!;
+        seedKinds[i] = seedKinds[j]!;
+        seedKinds[j] = tmp;
+      }
+      const plan: MixKind[] = [...seedKinds];
+      const extra = 7 + Math.floor(random() * 5); // 总计约 12–16
+      for (let i = 0; i < extra; i += 1) {
+        plan.push(pick(kindPool, random));
+      }
+      let previousBase: string | null = null;
+      for (const kind of plan) {
+        const { bases, suffixes } = kindBases[kind];
+        const move = pickMove(bases, suffixes, random, previousBase);
+        tokens.push(move);
+        previousBase = move[0]!;
+      }
       break;
     }
     default: {

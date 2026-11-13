@@ -68,12 +68,33 @@ describe("parseGuidedAlg", () => {
 });
 
 describe("randomGuidedTestScramble", () => {
-  it("当前焦点 slice-quarter：默认只出中层四分之一", () => {
-    assert.equal(GUIDED_HOME_TEST_FOCUS, "slice-quarter");
+  it("当前焦点 full-mix：单边 + 中层 + 宽层，含双步，步数加长", () => {
+    assert.equal(GUIDED_HOME_TEST_FOCUS, "full-mix");
     const moves = parseGuidedAlg(randomGuidedTestScramble(() => 0.2));
-    assert.ok(moves.every((move) => SLICE_QUARTER.test(move)));
-    assert.ok(moves.length >= 5);
-    assert.ok(moves.length <= 6);
+    assert.ok(moves.length >= 12, `应至少 12 步，实际 ${moves.length}`);
+    assert.ok(moves.length <= 16, `应至多 16 步，实际 ${moves.length}`);
+    assert.ok(
+      moves.some((move) => FACE_TURN.test(move)),
+      "应含单边",
+    );
+    assert.ok(
+      moves.some((move) => SLICE_TURN.test(move)),
+      "应含中层",
+    );
+    assert.ok(
+      moves.some((move) => WIDE_TURN.test(move)),
+      "应含宽层",
+    );
+    assert.ok(
+      moves.some((move) => WIDE_DOUBLE.test(move) || SLICE_DOUBLE.test(move)),
+      "应含双步",
+    );
+    assert.ok(
+      moves.every(
+        (move) =>
+          FACE_TURN.test(move) || SLICE_TURN.test(move) || WIDE_TURN.test(move),
+      ),
+    );
   });
 
   it("layer-then-face 焦点：层转与外面转交错", () => {
@@ -87,10 +108,6 @@ describe("randomGuidedTestScramble", () => {
       `首步应是层转，实际 ${moves[0]}`,
     );
     assert.ok(FACE_TURN.test(moves[1]!), `第二步应是外面转，实际 ${moves[1]}`);
-    assert.ok(moves.some((move) => FACE_TURN.test(move)));
-    assert.ok(
-      moves.some((move) => SLICE_TURN.test(move) || WIDE_TURN.test(move)),
-    );
   });
 
   it("slice-double 焦点：前两步 M2/M'2，其余中层双步", () => {
