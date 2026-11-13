@@ -80,8 +80,13 @@ describe("resolveGuideBleFaceMove", () => {
     assert.equal(resolveGuideBleFaceMove("F", "L", ""), "F");
   });
 
-  it("z2 漂移：色心 R 已是期望则不映成 L", () => {
-    assert.equal(resolveGuideBleFaceMove("R", "R", "z2"), "R");
+  it("白上：色心 R 已是期望则不映（避噪声）", () => {
+    assert.equal(resolveGuideBleFaceMove("R", "R", "y"), "R");
+  });
+
+  it("黄上 z2：色心 R' 字面等于期望 R' 时仍映成 L'（勿原样误收）", () => {
+    assert.equal(resolveGuideBleFaceMove("R'", "R'", "z2"), "L'");
+    assert.equal(resolveGuideBleFaceMove("L'", "R'", "z2"), "R'");
   });
 });
 

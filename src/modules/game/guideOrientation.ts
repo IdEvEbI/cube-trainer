@@ -7,11 +7,54 @@ import {
 } from "../bluetooth/moyu/orientation.ts";
 import { isRotationGuideToken } from "../scramble/guided.ts";
 import {
+  isYellowTopOrientation,
   nearestCubeOrientationAlg,
   quatFromOrientationAlg,
+  scrambleToHeldPrepRotations,
 } from "../score/cubeOrientation.ts";
+import { guideLayerGyroOrientationAlg } from "../scramble/layerGuideDualPaint.ts";
 import { absoluteFaceMoveToGrip } from "../score/solveAlgDisplay.ts";
 import { remapFaceMoveThroughOrientation } from "../score/solveTrace.ts";
+
+function formulaHasYellowUp(formulaOrients: readonly string[]): boolean {
+  return formulaOrients.some((move) => {
+    const token = move.trim();
+    return token === "z2" || token === "z2'" || token.startsWith("z2 ");
+  });
+}
+
+/**
+ * Cross 跟拧映面朝向：可跟手持黄上（含 y 换槽），但公式已 z2 后
+ * 禁止回落白上吸附——否则握持 D 被当成绝对 D，黄上视图高亮跑到顶面，
+ * 跟拧误报「请转 U'」。
+ */
+export function crossBleRemapOrientations(
+  formulaOrients: readonly string[],
+  liveHeldAlg: string | null | undefined,
+): string[] {
+  const formula = [...formulaOrients];
+  if (liveHeldAlg == null || liveHeldAlg === "") {
+    return formula;
+  }
+  if (formulaHasYellowUp(formula) && !isYellowTopOrientation(liveHeldAlg)) {
+    return formula;
+  }
+  return scrambleToHeldPrepRotations(liveHeldAlg);
+}
+
+/**
+ * 游戏页 BLE 映面朝向 = 公式转体 + 已完成宽层/中层**期望** Δ。
+ * 仅作对照 / 旧测；真机跟拧用 `scramble/guideBleFaceRemap.ts`。
+ */
+export function gameBleRemapOrientations(
+  displayMoves: readonly string[],
+  progress: number,
+  formulaOrients: readonly string[],
+): string[] {
+  const layerAlg = guideLayerGyroOrientationAlg(displayMoves, progress);
+  const layerParts = layerAlg.split(/\s+/).filter(Boolean);
+  return [...formulaOrients, ...layerParts];
+}
 
 /**
  * 转体步跟手：相对进入该步时的手持增量（世界系 / 左乘，与 MoyuOrientationTracker 一致）。

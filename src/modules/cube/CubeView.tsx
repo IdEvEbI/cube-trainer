@@ -109,14 +109,13 @@ export type CubeHandle = {
     quarterTurnMs: number,
   ): Promise<void>;
   /**
-   * 蓝牙打乱引导：在当前 setupTransformation（步起点）上播一步转动动画。
-   * 结束后仍留在 Twisty 原生态；调用方再 `setAbsoluteFromPattern` 钉中心终态。
+   * 蓝牙打乱引导：在当前 alg 上播一步转动动画。
    */
   animateGuideStep(move: string, quarterTurnMs: number): Promise<void>;
   /**
-   * 陀螺跟手：在 `baseAlg`（已完成前缀）上追加一步并停在起点，再用
-   * {@link setGuideStepGyroProgress} 按 0…1 scrub。
-   * `baseAlg` 必填：若仍停在 setupTransformation（alg 空），会从复原态闪切。
+   * 陀螺跟手：在 `baseAlg`（已完成前缀）上追加一步公式进 Twisty.alg，再用
+   * {@link setGuideStepGyroProgress} 按 0…1 scrub（与 L9 外层面转同一路径）。
+   * `baseAlg` 必填：空串会从复原态闪切。
    */
   startGuideStepGyroTrack(move: string, baseAlg?: string): Promise<void>;
   /** 陀螺跟手：按进度 scrub；单调不回退。 */
@@ -986,8 +985,11 @@ export function CubeView({
             .toString()
             .trim();
           const before = fromProp ? playbackAlgText(fromProp) : current;
-          const after = `${before} ${playbackMoveToken(trimmed)}`.trim();
+          const moveTok = playbackMoveToken(trimmed);
+          const after = `${before} ${moveTok}`.trim();
           twisty.pause();
+          // 与首页 L9 / 外层面转同一路径：整段公式走 Twisty.alg 旋转，
+          // 勿用 setupTransformation 钉色心贴图（宽层 l 后顶心应为公式语义蓝上等）。
           twisty.experimentalModel.setupTransformation.set(null);
           twisty.alg = before;
           twisty.timestamp = "end";
@@ -1009,7 +1011,6 @@ export function CubeView({
           if (!span) {
             twisty.alg = after;
             twisty.timestamp = "end";
-            // 无时间轴时仍重挂高亮，避免宽层双步半程盒消失。
             if (generation.current === token && !session.aborted) {
               await rebindPendingMoveHint(twisty);
             }

@@ -6,17 +6,45 @@ import {
   type ApplyGuidedMoveResult,
   type GuidedScramble,
 } from "../scramble/guided.ts";
+import { resolveGuideBleFaceMoveWithCandidates } from "../scramble/guideBleFaceRemap.ts";
 import { remapGripTokenToPuzzleHint } from "./guideOrientation.ts";
-import { absoluteMoveToGripGuide } from "./guideOrientation.ts";
 
 /**
- * 用蓝牙绝对面转推进引导：与公式握持记号在「公式转体」下的绝对面比较，
- * 避免实体略微 yaw 后 abs→grip 把 L' 读成 F'。
+ * 按朝向候选串依次映面（match → hint → …），命中期望即停。
  */
-export function applyGuidedBleAbsoluteMove(
+export function resolveWithOrientFallback(
+  absoluteMove: string,
+  expected: string | null | undefined,
+  matchOrients: readonly string[],
+  hintOrients: readonly string[],
+  extraOrientAlgs: readonly string[] = [],
+): string {
+  return resolveGuideBleFaceMoveWithCandidates(absoluteMove, expected, [
+    matchOrients.join(" "),
+    hintOrients.join(" "),
+    ...extraOrientAlgs,
+  ]);
+}
+
+function resolveWithOrientAlgs(
+  absoluteMove: string,
+  expected: string | null | undefined,
+  orientAlgs: readonly string[],
+): string {
+  return resolveGuideBleFaceMoveWithCandidates(
+    absoluteMove,
+    expected,
+    orientAlgs,
+  );
+}
+
+/**
+ * 用蓝牙绝对面转推进引导（朝向候选串，与 {@link resolveGuideBleFaceMoveWithCandidates} 一致）。
+ */
+export function applyGuidedBleAbsoluteMoveWithOrientAlgs(
   guide: GuidedScramble,
   absoluteMove: string,
-  formulaOrients: readonly string[],
+  orientAlgs: readonly string[],
 ): ApplyGuidedMoveResult {
   const token =
     guide.phase === "done" || guide.progress >= guide.displayMoves.length
@@ -28,36 +56,60 @@ export function applyGuidedBleAbsoluteMove(
   }
 
   const view = guidedScrambleView(guide);
+  const algs = orientAlgs.length > 0 ? orientAlgs : [""];
+
   if (view.correction) {
-    // 纠错栈里是握持记号；绝对步先映回握持再交给原逻辑。
     return applyGuidedMove(
       guide,
-      absoluteMoveToGripGuide(absoluteMove, formulaOrients),
+      resolveWithOrientAlgs(absoluteMove, view.correction, algs),
     );
   }
 
   if (view.currentIsDouble && !view.partial) {
     const { face } = parseFaceTurn(token);
-    const absCw = remapGripTokenToPuzzleHint(face, formulaOrients);
-    const absCcw = remapGripTokenToPuzzleHint(`${face}'`, formulaOrients);
-    if (absoluteMove === absCw) {
-      return applyGuidedMove(guide, face);
+    for (const alg of algs) {
+      const orients = alg.split(/\s+/).filter(Boolean);
+      const absCw = remapGripTokenToPuzzleHint(face, orients);
+      const absCcw = remapGripTokenToPuzzleHint(`${face}'`, orients);
+      if (absoluteMove === absCw) {
+        return applyGuidedMove(guide, face);
+      }
+      if (absoluteMove === absCcw) {
+        return applyGuidedMove(guide, `${face}'`);
+      }
     }
-    if (absoluteMove === absCcw) {
-      return applyGuidedMove(guide, `${face}'`);
-    }
-  } else if (view.expectedMove) {
-    const expectedAbs = remapGripTokenToPuzzleHint(
-      view.expectedMove,
-      formulaOrients,
+    return applyGuidedMove(
+      guide,
+      resolveWithOrientAlgs(absoluteMove, face, algs),
     );
-    if (absoluteMove === expectedAbs) {
-      return applyGuidedMove(guide, view.expectedMove);
-    }
+  }
+
+  if (view.expectedMove) {
+    return applyGuidedMove(
+      guide,
+      resolveWithOrientAlgs(absoluteMove, view.expectedMove, algs),
+    );
   }
 
   return applyGuidedMove(
     guide,
-    absoluteMoveToGripGuide(absoluteMove, formulaOrients),
+    resolveWithOrientAlgs(absoluteMove, null, algs),
   );
+}
+
+/**
+ * 用蓝牙绝对面转推进引导：match + hint（及可选额外朝向串）。
+ */
+export function applyGuidedBleAbsoluteMove(
+  guide: GuidedScramble,
+  absoluteMove: string,
+  matchOrients: readonly string[],
+  hintOrients: readonly string[] = matchOrients,
+  extraOrientAlgs: readonly string[] = [],
+): ApplyGuidedMoveResult {
+  return applyGuidedBleAbsoluteMoveWithOrientAlgs(guide, absoluteMove, [
+    matchOrients.join(" "),
+    hintOrients.join(" "),
+    ...extraOrientAlgs,
+  ]);
 }
