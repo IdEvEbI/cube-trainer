@@ -63,6 +63,48 @@ function colorIndex(ch: string): number {
   return i;
 }
 
+/**
+ * KPattern → URFDLB facelets（中心按槽位色心字母，与蓝牙固定色心同构）。
+ * 用于公式钉中心态与设备 facelets 做字符串对表。
+ */
+export function kpatternToFacelets(pattern: KPattern): string {
+  const stickers = Array<string>(54).fill("");
+  for (let f = 0; f < 6; f += 1) {
+    stickers[f * 9 + 4] = FACE_ORDER[f]!;
+  }
+  const corners = pattern.patternData.CORNERS;
+  for (let slot = 0; slot < 8; slot += 1) {
+    const name = REID_CORNERS[corners.pieces[slot]!]!;
+    const ori = corners.orientation[slot]!;
+    const rotated = name.slice(ori) + name.slice(0, ori);
+    for (let i = 0; i < 3; i += 1) {
+      stickers[CORNER_FACELETS[slot]![i]!] = rotated[i]!;
+    }
+  }
+  const edges = pattern.patternData.EDGES;
+  for (let slot = 0; slot < 12; slot += 1) {
+    const name = REID_EDGES[edges.pieces[slot]!]!;
+    const ori = edges.orientation[slot]!;
+    const rotated = name.slice(ori) + name.slice(0, ori);
+    for (let i = 0; i < 2; i += 1) {
+      stickers[EDGE_FACELETS[slot]![i]!] = rotated[i]!;
+    }
+  }
+  return stickers.join("");
+}
+
+/** 面中列三色（上中下），便于对照调试。 */
+export function faceletsMidColumn(
+  facelets: string,
+  face: "U" | "R" | "F" | "D" | "L" | "B",
+): string {
+  if (facelets.length !== 54) {
+    return "???";
+  }
+  const base = FACE_ORDER.indexOf(face) * 9;
+  return `${facelets[base + 1]}${facelets[base + 4]}${facelets[base + 7]}`;
+}
+
 /** URFDLB facelet 串 → cubing KPattern（白上绿前）。 */
 export async function faceletsToKPattern(facelets: string): Promise<KPattern> {
   if (facelets.length !== 54) {
@@ -106,6 +148,8 @@ export async function faceletsToKPattern(facelets: string): Promise<KPattern> {
 /**
  * 把 facelets 转成「从复原到该状态」的算法，供 TwistyPlayer 直接展示。
  * 计时首屏为白上，与协议 facelets 朝向一致。
+ *
+ * 纯中层等固定色心态上 min2phase 偶发解析失败；请优先用 {@link tryFaceletsToSetupAlg}。
  */
 export async function faceletsToSetupAlg(facelets: string): Promise<string> {
   if (facelets === SOLVED_FACELETS_URFDLB) {
@@ -114,4 +158,17 @@ export async function faceletsToSetupAlg(facelets: string): Promise<string> {
   const pattern = await faceletsToKPattern(facelets);
   const solve = await experimentalSolve3x3x3IgnoringCenters(pattern);
   return solve.invert().toString().trim();
+}
+
+/**
+ * 与 {@link faceletsToSetupAlg} 相同，失败时返回 null（不抛），避免打断 facelets 轮询。
+ */
+export async function tryFaceletsToSetupAlg(
+  facelets: string,
+): Promise<string | null> {
+  try {
+    return await faceletsToSetupAlg(facelets);
+  } catch {
+    return null;
+  }
 }

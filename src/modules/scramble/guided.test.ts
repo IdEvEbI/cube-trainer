@@ -2,12 +2,43 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   applyGuidedMove,
+  confirmGuidedFaceletsStep,
+  confirmGuidedManualStep,
+  createGuidedMoves,
   createGuidedScramble,
   expandFaceMoveToQuarters,
   guidedScrambleView,
   invertFaceMove,
+  invertGuideToken,
   isDoubleMove,
+  isFaceGuideToken,
+  isRotationGuideToken,
+  seekGuidedProgress,
 } from "./guided.ts";
+import { syntheticWrongMoveForExpected } from "./scrambleGuideStep.ts";
+
+describe("confirmGuidedFaceletsStep", () => {
+  it("可推进面转与宽层/中层，不推进转体", () => {
+    let guide = createGuidedScramble("M E' S r l f' D B'");
+    for (let i = 0; i < 6; i += 1) {
+      const result = confirmGuidedFaceletsStep(guide);
+      assert.equal(result.kind, "progress");
+      guide = result.guide;
+    }
+    assert.equal(guidedScrambleView(guide).expectedMove, "D");
+    const afterD = confirmGuidedFaceletsStep(guide);
+    assert.equal(afterD.kind, "progress");
+    assert.equal(afterD.guide.progress, 7);
+
+    const atRot = createGuidedScramble("D z'");
+    const afterFace = confirmGuidedFaceletsStep(atRot);
+    assert.equal(afterFace.guide.progress, 1);
+    assert.equal(
+      confirmGuidedFaceletsStep(afterFace.guide).kind,
+      "need_manual",
+    );
+  });
+});
 
 describe("expandFaceMoveToQuarters", () => {
   it("正转与逆转保持一步", () => {
@@ -18,6 +49,22 @@ describe("expandFaceMoveToQuarters", () => {
   it("两层转默认拆成两次正转", () => {
     assert.deepEqual(expandFaceMoveToQuarters("U2"), ["U", "U"]);
     assert.deepEqual(expandFaceMoveToQuarters("R2'"), ["R", "R"]);
+  });
+});
+
+describe("invertGuideToken", () => {
+  it("面转与中层 / 宽层均可取逆，且 correction 不抛错", () => {
+    assert.equal(invertGuideToken("R"), "R'");
+    assert.equal(invertGuideToken("M"), "M'");
+    assert.equal(invertGuideToken("M'"), "M");
+    assert.equal(invertGuideToken("r"), "r'");
+    assert.equal(invertGuideToken("E'"), "E");
+    const guide = createGuidedScramble("M E'");
+    const marked = {
+      ...guide,
+      wrongStack: [syntheticWrongMoveForExpected("M")],
+    };
+    assert.equal(guidedScrambleView(marked).correction, "M");
   });
 });
 
@@ -40,6 +87,19 @@ describe("createGuidedScramble", () => {
     assert.equal(guide.progress, 0);
     assert.equal(guide.halfDone, false);
     assert.equal(guide.phase, "guiding");
+  });
+
+  it("宽层保留 u，走手动 facelets 步", () => {
+    const guide = createGuidedScramble("R u R'");
+    assert.deepEqual(guide.displayMoves, ["R", "u", "R'"]);
+    const afterR = applyGuidedMove(guide, "R");
+    assert.equal(afterR.kind, "progress");
+    const view = guidedScrambleView(afterR.guide);
+    assert.equal(view.manualMove, "u");
+    assert.equal(view.expectedMove, null);
+    const confirmed = confirmGuidedManualStep(afterR.guide);
+    assert.equal(confirmed.kind, "progress");
+    assert.equal(confirmed.guide.progress, 2);
   });
 });
 
@@ -137,5 +197,46 @@ describe("applyGuidedMove", () => {
     assert.equal(guidedScrambleView(guide).correction, null);
     const done = applyGuidedMove(guide, "R");
     assert.equal(done.kind, "done");
+  });
+});
+
+describe("game guide mixed tokens", () => {
+  it("识别面转、转体与非面转", () => {
+    assert.equal(isFaceGuideToken("R2"), true);
+    assert.equal(isFaceGuideToken("z2"), false);
+    assert.equal(isFaceGuideToken("r"), false);
+    assert.equal(isRotationGuideToken("z2"), true);
+    assert.equal(isRotationGuideToken("y'"), true);
+    assert.equal(isRotationGuideToken("M"), false);
+  });
+
+  it("转体需手动确认；确认后继续面转", () => {
+    let guide = createGuidedMoves(["z2", "R", "U"]);
+    let view = guidedScrambleView(guide);
+    assert.equal(view.manualMove, "z2");
+    assert.equal(view.expectedMove, null);
+
+    assert.equal(applyGuidedMove(guide, "R").kind, "need_manual");
+
+    const confirmed = confirmGuidedManualStep(guide);
+    assert.equal(confirmed.kind, "progress");
+    guide = confirmed.guide;
+    view = guidedScrambleView(guide);
+    assert.equal(view.manualMove, null);
+    assert.equal(view.expectedMove, "R");
+
+    guide = applyGuidedMove(guide, "R").guide;
+    assert.equal(guidedScrambleView(guide).expectedMove, "U");
+  });
+
+  it("seekGuidedProgress 清空误转并更新当前步", () => {
+    let guide = createGuidedMoves(["R", "U", "F"]);
+    guide = applyGuidedMove(guide, "D").guide;
+    assert.ok(guidedScrambleView(guide).correction);
+    guide = seekGuidedProgress(guide, 2);
+    const view = guidedScrambleView(guide);
+    assert.equal(view.correction, null);
+    assert.equal(view.currentIndex, 2);
+    assert.equal(view.expectedMove, "F");
   });
 });

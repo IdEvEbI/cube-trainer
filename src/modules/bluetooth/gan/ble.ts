@@ -5,7 +5,7 @@
  */
 
 import type { GanCubeConnection, GanCubeEvent } from "gan-web-bluetooth";
-import { faceletsToSetupAlg } from "../moyu/pattern.ts";
+import { tryFaceletsToSetupAlg } from "../moyu/pattern.ts";
 import type { MoyuQuat } from "../moyu/orientation.ts";
 import type { MoyuMove } from "../moyu/constants.ts";
 import type { MoyuMoveSample } from "../moyu/packets.ts";
@@ -156,12 +156,39 @@ export async function connectGanCubeSession(
   const deviceId = `gan:${raw.deviceMAC || deviceName}`;
   let lastLocalTs: number | null = null;
   let closed = false;
+  /** 持续缓存 FACELETS；requestStatus 等「下一包」而非可能过期的瞬时订阅。 */
+  let lastFacelets: string | null = null;
+  let lastFaceletsSerial = -1;
+  let faceletsEpoch = 0;
+  let faceletsWaiters: Array<{
+    minEpoch: number;
+    resolve: (value: { facelets: string; serial: number }) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }> = [];
+
+  const publishFacelets = (facelets: string, serial: number) => {
+    lastFacelets = facelets;
+    lastFaceletsSerial = serial;
+    faceletsEpoch += 1;
+    const epoch = faceletsEpoch;
+    const ready = faceletsWaiters.filter((w) => epoch >= w.minEpoch);
+    faceletsWaiters = faceletsWaiters.filter((w) => epoch < w.minEpoch);
+    for (const waiter of ready) {
+      clearTimeout(waiter.timer);
+      waiter.resolve({ facelets, serial });
+    }
+  };
 
   const subscription = raw.events$.subscribe((event: GanCubeEvent) => {
     if (event.type === "DISCONNECT") {
       if (!closed) {
         options.onDisconnected?.();
       }
+      return;
+    }
+    if (event.type === "FACELETS") {
+      publishFacelets(event.facelets, event.serial);
       return;
     }
     if (event.type === "MOVE" && options.onMoves) {
@@ -191,39 +218,53 @@ export async function connectGanCubeSession(
     name: deviceName,
     disconnect() {
       closed = true;
+      for (const waiter of faceletsWaiters) {
+        clearTimeout(waiter.timer);
+        waiter.reject(new Error("魔方已断开"));
+      }
+      faceletsWaiters = [];
       subscription.unsubscribe();
       void raw.disconnect().catch(() => undefined);
     },
     async requestStatus(): Promise<MoyuCubeStatus> {
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
-          sub.unsubscribe();
-          reject(new Error("等待魔方状态超时"));
-        }, timeoutMs);
-        const sub = raw.events$.subscribe((event: GanCubeEvent) => {
-          if (event.type !== "FACELETS") {
-            return;
+      const minEpoch = faceletsEpoch + 1;
+      const waited = new Promise<{ facelets: string; serial: number }>(
+        (resolve, reject) => {
+          const timer = setTimeout(() => {
+            faceletsWaiters = faceletsWaiters.filter((w) => w.timer !== timer);
+            // 超时则退回缓存，总比抛错中断引导好。
+            if (lastFacelets) {
+              resolve({ facelets: lastFacelets, serial: lastFaceletsSerial });
+              return;
+            }
+            reject(new Error("等待魔方状态超时"));
+          }, timeoutMs);
+          faceletsWaiters.push({ minEpoch, resolve, reject, timer });
+        },
+      );
+      try {
+        await raw.sendCubeCommand({ type: "REQUEST_FACELETS" });
+      } catch (error) {
+        for (const waiter of [...faceletsWaiters]) {
+          if (waiter.minEpoch === minEpoch) {
+            clearTimeout(waiter.timer);
+            waiter.reject(
+              error instanceof Error ? error : new Error("请求状态失败"),
+            );
           }
-          clearTimeout(timer);
-          sub.unsubscribe();
-          void faceletsToSetupAlg(event.facelets)
-            .then((setupAlg) => {
-              resolve({
-                facelets: event.facelets,
-                setupAlg,
-                moveCounter: event.serial,
-              });
-            })
-            .catch(reject);
-        });
-        void raw
-          .sendCubeCommand({ type: "REQUEST_FACELETS" })
-          .catch((error: unknown) => {
-            clearTimeout(timer);
-            sub.unsubscribe();
-            reject(error instanceof Error ? error : new Error("请求状态失败"));
-          });
-      });
+        }
+        faceletsWaiters = faceletsWaiters.filter(
+          (w) => w.minEpoch !== minEpoch,
+        );
+        throw error instanceof Error ? error : new Error("请求状态失败");
+      }
+      const { facelets, serial } = await waited;
+      const setupAlg = (await tryFaceletsToSetupAlg(facelets)) ?? "";
+      return {
+        facelets,
+        setupAlg,
+        moveCounter: serial,
+      };
     },
     async enableGyro() {
       // Gen2+ 多数型号连接后自行上报 GYRO；无单独开关。

@@ -17,7 +17,7 @@ import {
   requestGyroControl,
   type MoyuMoveSample,
 } from "./packets.ts";
-import { faceletsToSetupAlg } from "./pattern.ts";
+import { tryFaceletsToSetupAlg } from "./pattern.ts";
 
 export const MOYU_GATT = {
   service: "0783b03e-7735-b5a0-1760-a305d2795cb0",
@@ -372,12 +372,14 @@ export async function connectMoyuCube(
       }
     },
     async requestStatus() {
-      // 上电后先 A1 再 A3（Weilong / csTimer）
-      await sendOpcode(MOYU_MSG.info);
-      try {
-        await waitPlain(200);
-      } catch {
-        // A1 可能无回复或已过期，继续要状态
+      // 仅首轮同步走 A1；轮询只拉 A3，避免反复 A1 拖慢 / 读到旧态。
+      if (prevMoveCnt < 0) {
+        await sendOpcode(MOYU_MSG.info);
+        try {
+          await waitPlain(200);
+        } catch {
+          // A1 可能无回复或已过期，继续要状态
+        }
       }
       await sendOpcode(MOYU_MSG.status);
       const deadline = Date.now() + timeoutMs;
@@ -385,7 +387,8 @@ export async function connectMoyuCube(
         const plain = await waitPlain(Math.max(100, deadline - Date.now()));
         const parsed = parseMoyuPacket(plain);
         if (parsed.type === "status") {
-          const setupAlg = await faceletsToSetupAlg(parsed.facelets);
+          // 中层等态可能解不出 setupAlg；仍返回 facelets，供引导对表。
+          const setupAlg = (await tryFaceletsToSetupAlg(parsed.facelets)) ?? "";
           prevMoveCnt = parsed.moveCounter;
           return {
             facelets: parsed.facelets,

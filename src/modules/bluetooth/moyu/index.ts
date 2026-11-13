@@ -85,4 +85,8 @@ export {
   type MoyuQuat,
   type OrbitDegrees,
 } from "./orientation.ts";
-export { faceletsToKPattern, faceletsToSetupAlg } from "./pattern.ts";
+export {
+  faceletsToKPattern,
+  faceletsToSetupAlg,
+  tryFaceletsToSetupAlg,
+} from "./pattern.ts";

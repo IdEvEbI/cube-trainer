@@ -1,0 +1,155 @@
+/* 游戏页：在成绩复盘布局之上补总览、间距与窄屏可读性 */
+
+.game-page .solve-review-body {
+  gap: 0;
+}
+
+.game-page-scramble {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  margin: 4px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgb(12 32 56 / 22%);
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: clamp(0.92rem, 2.6vw, 1.15rem);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: #f7fbff;
+}
+
+.game-page-scramble.is-empty {
+  color: rgb(247 251 255 / 55%);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.game-page-status {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgb(247 251 255 / 72%);
+}
+
+.game-page-status.is-error {
+  color: #ffb4b4;
+}
+
+/* 窄屏：阶段列表与回放拉开间距，避免挤在一起 */
+.game-page .solve-review-main {
+  gap: 18px;
+}
+
+.game-page .solve-review-formulas {
+  padding-bottom: 8px;
+}
+
+.game-page .solve-review-overview {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* 公式强制换行，避免长串被裁切 */
+.game-page .solve-review-phase {
+  overflow: hidden;
+}
+
+.game-page .solve-review-phase-alg {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.15rem 0.3rem;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.game-page .solve-review-phase-alg .game-step:not(.is-done):not(.is-current) {
+  color: rgb(247 251 255 / 55%);
+}
+
+.game-page .solve-review-phase-play {
+  min-width: 0;
+}
+
+.game-page .solve-review-phase-wide {
+  min-width: 0;
+}
+
+/* 播放条居中，与复盘一致并含重新打乱 */
+.game-page .solve-review-playback-bar {
+  justify-content: center;
+  width: 100%;
+}
+
+.game-page .solve-review-playback-bar .practice-controls {
+  justify-content: center;
+  margin-inline: 0;
+}
+
+.game-page-rescramble svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.game-page-guide-note {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: rgb(247 251 255 / 88%);
+}
+
+.game-page-guide-note.is-error {
+  color: #ffb4b4;
+}
+
+.game-page-guide-note.is-done {
+  color: #9aefb8;
+}
+
+.game-page-manual-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-page-manual-confirm {
+  box-sizing: border-box;
+  min-height: 28px;
+  padding: 0.2rem 0.55rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(247 251 255 / 62%);
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.game-page-manual-confirm:active {
+  opacity: 0.85;
+}
+
+@media (min-width: 640px) {
+  .game-page .solve-review-main {
+    gap: 22px;
+  }
+}
+
+/* 宽屏：左公式 / 右 3D，间距加大 */
+@media (min-width: 900px) {
+  .game-page .solve-review-main {
+    gap: 28px;
+  }
+
+  .game-page .solve-review-playback {
+    flex: 0 0 min(42%, 420px);
+  }
+}

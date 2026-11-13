@@ -50,7 +50,10 @@ describe("scramble playback", () => {
 
   it("拒绝非法打乱", () => {
     assert.throws(() => createScrambleCursor(""), /打乱是空的/);
-    assert.throws(() => createScrambleCursor("R x"), /无法打乱：x/);
+    assert.throws(() => createScrambleCursor("R Q"), /无法引导/);
+    // 宽层 / 中层可进引导游标（到位靠 facelets）；x 等转体也可
+    assert.deepEqual(createScrambleCursor("R u M'").moves, ["R", "u", "M'"]);
+    assert.deepEqual(createScrambleCursor("R x").moves, ["R", "x"]);
   });
 
   it("当前步高亮对着即将执行的步，播完一步再前进", () => {

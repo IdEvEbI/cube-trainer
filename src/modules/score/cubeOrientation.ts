@@ -362,6 +362,143 @@ export function tickOrientationHold(
   };
 }
 
+/** 整机转体取逆：x↔x'，y↔y'，z↔z'；180° 不变。 */
+export function invertRotationGuideToken(token: string): string {
+  const match = /^([xyz])(2'|2|')?$/.exec(token.trim());
+  if (!match) {
+    return token.trim();
+  }
+  const axis = match[1]!;
+  const suffix = match[2] ?? "";
+  if (suffix === "2" || suffix === "2'") {
+    return `${axis}2`;
+  }
+  if (suffix === "'") {
+    return axis;
+  }
+  return `${axis}'`;
+}
+
+/**
+ * 打乱引导转体是否到位（相对进入该步时的手持）。
+ * x/y：真机跟箭头转一次常被记成逆步，用镜像判定。
+ * z：面表四元数已取反；仍接受同轴另一四分之一（箭头 travelSign 与吸附偶发反向），
+ * 避免跟箭头转一次却卡在 z' 无法进到 y。
+ */
+export function scrambleGuideRotationSatisfied(
+  fromAlg: string,
+  heldAlg: string,
+  expectedMove: string,
+): boolean {
+  const expected = expectedMove.trim();
+  const axis = expected[0];
+  const matched = axis === "z" ? expected : invertRotationGuideToken(expected);
+  if (orientationSatisfiesRotation(fromAlg, heldAlg, matched)) {
+    return true;
+  }
+  if (axis === "z" && !/2/.test(expected)) {
+    return orientationSatisfiesRotation(
+      fromAlg,
+      heldAlg,
+      invertRotationGuideToken(matched),
+    );
+  }
+  return false;
+}
+
+/**
+ * 手持朝向是否已满足「从 from 起再做一个 expected 转体」。
+ * - 允许到位后微调 y（z' 后偏航不应卡住）
+ * - 允许同轴过冲到 *2（连续拧过 z' 停在 z2 仍算走过目标，否则公式卡死、
+ *   画面跟陀螺仪顶绿，箭头随魔方转看起来像已经在提示 y）
+ */
+export function orientationSatisfiesRotation(
+  fromAlg: string,
+  toAlg: string,
+  expectedMove: string,
+): boolean {
+  const expected = expectedMove.trim();
+  if (!/^([xyz])(2'|2|')?$/.test(expected)) {
+    return false;
+  }
+  const from = canonicalizeOrientationAlg(fromAlg);
+  const held = canonicalizeOrientationAlg(toAlg);
+  const target = canonicalizeOrientationAlg(
+    [from, expected].filter((part) => part !== "").join(" "),
+  );
+  if (held === target) {
+    return true;
+  }
+  // 到位后仅差 y / y' / y2：视为已完成该转体（打乱引导 z' 后偏航常见）。
+  // 期望本身是偏航时禁用：未拧时 held=from、target=from+y，差值也是 y，会误判已到位并跳过 y。
+  const expectedIsYaw =
+    expected === "y" || expected === "y'" || expected === "y2";
+  if (!expectedIsYaw) {
+    const yawAfter = orientationRotationPath(target, held);
+    if (
+      yawAfter.length > 0 &&
+      yawAfter.every((move) => move === "y" || move === "y'" || move === "y2")
+    ) {
+      return true;
+    }
+  }
+  // z2 / x2 等：朝上色心到位即可（含提前翻转到位、或随后微调 y）。
+  if (expected.endsWith("2") || expected.endsWith("2'")) {
+    return facingAfterAlg(target).up === facingAfterAlg(held).up;
+  }
+  const path = orientationRotationPath(from, held);
+  if (path.length > 0 && path[0] === expected) {
+    return true;
+  }
+  // 同轴过冲：要 z' 却稳定在 z2（最短路写成一条 *2）
+  const axis = expected[0]!;
+  if (path.length === 1 && path[0] === `${axis}2`) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 公式里截至 `progress`（含）的转体串，归一成 24 朝向之一。
+ * 用于游戏页：当前步是转体时，看手持是否已到该目标朝向。
+ */
+export function orientationAlgThroughProgress(
+  moves: readonly string[],
+  progress: number,
+): string {
+  const end = Math.max(0, Math.min(moves.length, Math.trunc(progress) + 1));
+  const rotations: string[] = [];
+  for (let i = 0; i < end; i += 1) {
+    const token = moves[i]?.trim() ?? "";
+    if (/^([xyz])(2'|2|')?$/.test(token)) {
+      rotations.push(token);
+    }
+  }
+  return canonicalizeOrientationAlg(rotations.join(" "));
+}
+
+/** 手持是否已到达公式截至当前转体步的目标朝向。 */
+export function heldMatchesRotationProgress(
+  heldAlg: string,
+  moves: readonly string[],
+  progress: number,
+): boolean {
+  const token = moves[progress]?.trim() ?? "";
+  if (!/^([xyz])(2'|2|')?$/.test(token)) {
+    return false;
+  }
+  const target = orientationAlgThroughProgress(moves, progress);
+  const held = canonicalizeOrientationAlg(heldAlg);
+  if (held === target) {
+    return true;
+  }
+  if (token.endsWith("2") || token.endsWith("2'")) {
+    return facingAfterAlg(target).up === facingAfterAlg(held).up;
+  }
+  const prev = orientationAlgThroughProgress(moves, progress - 1);
+  return orientationSatisfiesRotation(prev, held, token);
+}
+
 /**
  * 从 from 到 to 的最短整步转体序列（单次 x/y/z 及 2/'）。
  */
