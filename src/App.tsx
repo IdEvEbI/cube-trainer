@@ -39,6 +39,7 @@ import {
 import {
   back,
   showGame,
+  SHOW_LAYER_CAPTURE_ENTRY,
   showLayerCapture,
   showPractice,
   showScores,
@@ -2557,20 +2558,22 @@ export default function App() {
                 ),
             });
 
-      // 在 await 间隙也视为已连接，避免 applyScramble 误清引导。
+      // 逻辑上先记 session，避免 await 间隙 applyScramble 误清引导；
+      // UI（顶栏对齐钮 / 去掉播放条）等贴图与引导就绪后再 setState，避免魔方区先缩后胀跳一下。
       moyuSessionRef.current = session;
-      setMoyuSession(session);
-      setBtBrand(brand);
       btBrandRef.current = brand;
-      setMoyuNote(null);
       const status = await session.requestStatus();
       resetBluetoothCubeStateTracking(status.setupAlg);
       // 必须用 facelets 贴实体；勿先用公式复原态盖住已打乱的魔方。
       // 未还原：以当前态为打乱起点，立刻开引导。
       applyBluetoothStatusToCube(status.setupAlg, status.facelets);
+      cube.current?.setOrientation(IDENTITY_QUAT);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
       syncScrambleGuide(scrambleMovesRef.current, true);
       await session.enableGyro();
+      setBtBrand(brand);
+      setMoyuSession(session);
+      setMoyuNote(null);
     } catch (error) {
       resetMoyuOrientationFollow();
       setMoyuSession(null);
@@ -2748,11 +2751,17 @@ export default function App() {
             </button>
           </div>
         )}
-        {focus.kind === "计时" && moyuSession ? (
+        {SHOW_LAYER_CAPTURE_ENTRY && focus.kind === "计时" ? (
           <button
             type="button"
-            className="bt-align bt-align-icon topbar-align"
-            disabled={moyuBusy}
+            className={
+              moyuSession
+                ? "bt-align bt-align-icon topbar-align"
+                : "bt-align bt-align-icon topbar-align is-placeholder"
+            }
+            disabled={!moyuSession || moyuBusy}
+            aria-hidden={!moyuSession}
+            tabIndex={moyuSession ? undefined : -1}
             aria-label="层转采集"
             title="层转采集（临时）"
             onClick={openLayerCapturePage}
@@ -2760,11 +2769,17 @@ export default function App() {
             <span style={{ fontSize: "0.72rem", fontWeight: 700 }}>采</span>
           </button>
         ) : null}
-        {focus.kind === "计时" && moyuSession ? (
+        {focus.kind === "计时" ? (
           <button
             type="button"
-            className="bt-align bt-align-icon topbar-align"
-            disabled={moyuBusy}
+            className={
+              moyuSession
+                ? "bt-align bt-align-icon topbar-align"
+                : "bt-align bt-align-icon topbar-align is-placeholder"
+            }
+            disabled={!moyuSession || moyuBusy}
+            aria-hidden={!moyuSession}
+            tabIndex={moyuSession ? undefined : -1}
             aria-label="对齐朝向"
             title="对齐朝向"
             onClick={onMoyuAlignOrientation}

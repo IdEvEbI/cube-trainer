@@ -2,9 +2,12 @@
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  /* 预留下方控制条 / 引导旁注高度，减少蓝牙连上后公式区高度变化牵动魔方。 */
+  min-height: 7.5rem;
   padding: 0;
   display: grid;
   justify-items: center;
+  align-content: start;
   /* 公式 → 控制条 / 旁注：常规 12px；控制条再加半钮高，见下 */
   gap: 12px;
 }

@@ -161,11 +161,11 @@ describe("randomGuidedTestScramble", () => {
 });
 
 describe("nextHomeScrambleMoves", () => {
-  it("联调开关打开时走随机引导式（下一打乱会变）", () => {
-    assert.equal(USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE, true);
+  it("联调开关关闭时走外层随机打乱", () => {
+    assert.equal(USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE, false);
     assert.equal(
       nextHomeScrambleMoves(() => 0.2),
-      randomGuidedTestScramble(() => 0.2),
+      randomScramble3x3(() => 0.2).moves,
     );
     assert.notEqual(
       nextHomeScrambleMoves(() => 0.1),
