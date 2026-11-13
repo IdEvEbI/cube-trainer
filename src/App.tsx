@@ -119,12 +119,15 @@ import {
   type GuidedScrambleView,
 } from "./modules/scramble/guided.ts";
 import {
+  guideBleFaceOrientCandidates,
+  resolveGuideBleFaceMoveWithCandidates,
+} from "./modules/scramble/guideBleFaceRemap.ts";
+import {
   resolveLayerFollowKind,
   shouldPlayBluetoothMoveAnim,
   tickScrambleGuideLayerFollow,
 } from "./modules/scramble/scrambleGuideLayerFollow.ts";
 import { layerGuideVisualProgress } from "./modules/scramble/layerGuideGyroFollow.ts";
-import { resolveGuideBleFaceMove } from "./modules/scramble/layerGuideDualPaint.ts";
 import { reconcileFaceMoveWithFacelets } from "./modules/scramble/scrambleGuideStep.ts";
 import {
   appendGuideLayerGestureMoves,
@@ -855,26 +858,30 @@ export default function App() {
     return moyuOrientation.current.toOrientation(last);
   }
 
-  /** 引导中 BLE 面转映到公式帧所用朝向（相对开局 / 对齐基准）。 */
-  function scrambleGuideLiveFaceOrientAlg(): string {
-    return relativeOrientationAlg(
-      scrambleGuideFaceRemapHomeQuatRef.current,
-      currentBluetoothRelativeQuat(),
-    );
+  /**
+   * 引导中 BLE 面转：与游戏页共用 {@link guideBleFaceOrientCandidates}
+   *（打乱公式白上，formula 为空；含相对取反回退）。
+   */
+  function scrambleGuideFaceOrientCandidates(): string[] {
+    return guideBleFaceOrientCandidates({
+      formulaOrients: [],
+      homeQuat: scrambleGuideFaceRemapHomeQuatRef.current,
+      liveQuat: currentBluetoothRelativeQuat(),
+    });
   }
 
   function remapGuideBleFaceMove(
     bleMove: string,
     expectedToken?: string | null,
   ): string {
-    return resolveGuideBleFaceMove(
+    return resolveGuideBleFaceMoveWithCandidates(
       bleMove,
       expectedToken ??
         scrambleGuideRef.current?.displayMoves[
           scrambleGuideRef.current.progress
         ] ??
         null,
-      scrambleGuideLiveFaceOrientAlg(),
+      scrambleGuideFaceOrientCandidates(),
     );
   }
 
@@ -999,11 +1006,10 @@ export default function App() {
   }
 
   /**
-   * 引导贴纸写入（白名单）：仅步到位后钉公式前缀，或连接态已由
-   * {@link applyBluetoothStatusToCube} 处理。过程中禁止用 facelets 重刷整盘。
-   * 层转勿把 Δ 打进 mesh（否则 U' 高亮跑到背面像 B'）；对表用
-   * {@link remapBleFaceMoveAfterLayerGyro}。
-   * `setAbsoluteAlg` 在 alg 未变时会跳过，避免陀螺已到位再闪切。
+   * 引导写入（与 L9 外层面转同一路径）：步到位后 `setAbsoluteAlg` 公式前缀。
+   * 宽层/中层也走公式旋转，勿改 pattern 贴图。连接态仍由
+   * {@link applyBluetoothStatusToCube} 处理；过程中禁止 facelets 重刷整盘。
+   * 层转勿把 Δ 打进 mesh；对表用 {@link remapBleFaceMoveAfterLayerGyro}。
    */
   function paintScrambleGuideCube(
     guide: GuidedScramble,

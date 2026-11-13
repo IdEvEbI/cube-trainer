@@ -96,9 +96,12 @@ export function resolveGuideBleFaceMove(
   if (!expected || !/^[URFDLB](?:2|')?$/i.test(expected)) {
     return remapped;
   }
-  // 四分之一：整步相等优先原样。
+  // 四分之一：色心字母已对上期望时优先原样（避 live y 噪声 L→F）。
+  // 但朝向含 z2（黄上公式）时禁止：色心 R' 字面等于握持 R' 实为对面，
+  // 原样采纳会把绝对 R' 当成握持 R'，纠错链也会被后续脏候选收成「请转 L」。
   if (!/[2]/.test(expected)) {
-    if (raw === expected) {
+    const yellowUp = /\bz2'?\b/.test(orientationAlg);
+    if (raw === expected && !yellowUp) {
       return raw;
     }
     if (remapped === expected) {

@@ -19,6 +19,13 @@ describe("expectedSetupAfterManualStep", () => {
     );
   });
 
+  it("公式前缀已含 z2/f 时拼握持 u，勿再映成 d", () => {
+    assert.equal(
+      expectedSetupAfterManualStep("z2 F' U' f R2", "u", ["z2"]),
+      "z2 F' U' f R2 u",
+    );
+  });
+
   it("skip E 后只对 l' 增量仍能与实物对上", async () => {
     const sync = "R U F'";
     const expected = expectedSetupAfterManualStep(sync, "l'", ["z2"]);
@@ -52,6 +59,16 @@ describe("manualStepReachedOnCube", () => {
       await manualStepReachedOnCube(`${sync} u`, sync, "u", []),
       true,
     );
+  });
+
+  it("PLL：z2…f 后 u 按公式记号对表，映成 d 会卡死", async () => {
+    const sync = "z2 F' U' f R2";
+    assert.equal(
+      await manualStepReachedOnCube(`${sync} u`, sync, "u", ["z2"]),
+      true,
+    );
+    // 误把 u 当绝对 d 时不应作为唯一期望
+    assert.equal(await algStatesMatch(`${sync} u`, `${sync} d`), false);
   });
 
   it("E 后再 M'：须用公式前缀 E，不能用 facelets 的 D' U 再拼 M'", async () => {

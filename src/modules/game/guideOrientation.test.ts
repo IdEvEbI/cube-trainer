@@ -9,6 +9,8 @@ import { quatFromOrientationAlg } from "../score/cubeOrientation.ts";
 import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
+  crossBleRemapOrientations,
+  gameBleRemapOrientations,
   guideDisplayOrientationQuat,
   guideMeshFollowQuat,
   hintTokenInSolveView,
@@ -185,6 +187,32 @@ describe("remapGripTokenToPuzzleHint", () => {
 describe("absoluteMoveToGripGuide", () => {
   it("z2 后蓝牙 D' 对上握持 U'", () => {
     assert.equal(absoluteMoveToGripGuide("D'", ["z2"]), "U'");
+  });
+});
+
+describe("crossBleRemapOrientations", () => {
+  it("公式已 z2 时忽略白上活吸附，避免 D 映成顶面", () => {
+    assert.deepEqual(crossBleRemapOrientations(["z2"], ""), ["z2"]);
+    assert.deepEqual(crossBleRemapOrientations(["z2"], null), ["z2"]);
+    assert.equal(remapGripTokenToPuzzleHint("D", ["z2"]), "U");
+  });
+
+  it("公式已 z2 时仍接受黄上 y 换槽", () => {
+    assert.deepEqual(crossBleRemapOrientations(["z2"], "z2 y"), ["z2", "y"]);
+  });
+
+  it("公式尚无 z2 时可用活朝向", () => {
+    assert.deepEqual(crossBleRemapOrientations([], "z2"), ["z2"]);
+  });
+});
+
+describe("gameBleRemapOrientations", () => {
+  it("f 到位后叠 z，使握持 R' 映到绝对 D'", () => {
+    const moves = ["z2", "U2", "f", "R'"];
+    const orients = gameBleRemapOrientations(moves, 3, ["z2"]);
+    assert.deepEqual(orients, ["z2", "z"]);
+    assert.equal(remapGripTokenToPuzzleHint("R'", orients), "D'");
+    assert.equal(absoluteMoveToGripGuide("D'", orients), "R'");
   });
 });
 

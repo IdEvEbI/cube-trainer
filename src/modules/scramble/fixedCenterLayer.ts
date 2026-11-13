@@ -4,7 +4,7 @@
  */
 
 import { Alg } from "cubing/alg";
-import type { KPattern } from "cubing/kpuzzle";
+import { KPattern } from "cubing/kpuzzle";
 import { cube3x3x3 } from "cubing/puzzles";
 import {
   faceletsMidColumn,
@@ -16,11 +16,21 @@ import {
   nailFixedCenters,
   withRawSliceCenters,
 } from "../game/algStateMatch.ts";
+import { isRotationGuideToken } from "./guided.ts";
 
 export {
   guideAlgToCubingAlg,
   guideTokenToCubingAlg,
 } from "../game/algStateMatch.ts";
+
+/** 绝对 alg 中的公式转体（x/y/z），供钉色心后恢复黄上等姿态。 */
+export function orientationAlgFromAbsolute(alg: string): string {
+  return alg
+    .trim()
+    .split(/\s+/)
+    .filter((token) => token && isRotationGuideToken(token))
+    .join(" ");
+}
 
 /** 含中层 / 宽层的绝对 alg 不能交给 Twisty.alg（会带走色心）。 */
 export function algNeedsFixedCenterPaint(alg: string): boolean {
@@ -41,9 +51,9 @@ export function algNeedsFixedCenterPaint(alg: string): boolean {
 }
 
 /**
- * 绝对 alg → 3D 贴图：角棱钉中心置换 + cubing raw 色心。
- * facelets 字母串对 nail/raw 相同，但 Twisty transformation 不同——钉死色心会把
- * `M` 后顶心画成白，与实体不符；必须带 raw 色心。mesh 仍锁单位（勿跟手双计）。
+ * 绝对 alg → 层转跟手参考 pattern（角棱钉中心 + cubing raw 色心）。
+ * 仅供 `scrambleGuideLayerFollow` 等 XF 参考；**静态 3D 贴图**用
+ * {@link absoluteAlgToNailedDisplayPattern}（魔域固定色心）。
  */
 export async function absoluteAlgToFixedCenterPattern(
   alg: string,
@@ -56,6 +66,38 @@ export async function absoluteAlgToFixedCenterPattern(
   }
   const raw = id.applyAlg(trimmed);
   return withRawSliceCenters(raw, raw);
+}
+
+/**
+ * 绝对 alg → 钉色心 pattern（facelets/对表等非跟转 3D 用途）。
+ * - 角棱：整段 alg 后钉死切片/宽层对色心的偷换
+ * - 色心：只保留公式 x/y/z（如 Cross `z2` 黄上）
+ * **蓝牙跟转 3D 不要用**：跟转走 `setAbsoluteAlg` 公式旋转（宽层 `l` 顶心为蓝等公式语义）。
+ */
+export async function absoluteAlgToNailedDisplayPattern(
+  alg: string,
+): Promise<KPattern> {
+  const puzzle = await cube3x3x3.kpuzzle();
+  const id = puzzle.defaultPattern();
+  const trimmed = guideAlgToCubingAlg(alg);
+  if (!trimmed) {
+    return id;
+  }
+  const nailed = nailFixedCenters(id.applyAlg(trimmed));
+  const orientAlg = orientationAlgFromAbsolute(trimmed);
+  if (!orientAlg) {
+    return nailed;
+  }
+  const orientCenters = id.applyAlg(orientAlg).patternData.CENTERS;
+  return new KPattern(nailed.kpuzzle, {
+    CORNERS: nailed.patternData.CORNERS,
+    EDGES: nailed.patternData.EDGES,
+    CENTERS: {
+      pieces: [...orientCenters.pieces],
+      orientation: [...orientCenters.orientation],
+      orientationMod: [...(orientCenters.orientationMod ?? [1, 1, 1, 1, 1, 1])],
+    },
+  });
 }
 
 /**

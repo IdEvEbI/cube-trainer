@@ -58,11 +58,15 @@
 
 ## 层转后错面 / 整机假转
 
-**贴纸写入白名单**：连接（facelets）/ 断开 / 前台对表；引导里仅「步到位」钉公式前缀（alg 未变则跳过）。过程中 facelets 只对表，3D 只靠转动包与陀螺 scrub——禁止 poll 重刷整盘。
+**贴纸写入白名单**：连接（facelets）/ 断开 / 前台对表；引导里仅「步到位」写公式前缀（`setAbsoluteAlg`，alg 未变则跳过）。过程中 facelets 只对表，3D 只靠转动包与陀螺 scrub——禁止 poll 重刷整盘。
 
-**层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀；开轨道摘盒后须立刻 `rebindPendingMoveHint`（`f'2` 半程未 matched 前不会 finish，否则高亮盒消失）。`rebindAfterAbsoluteChange` / 重挂须把现有 hint 组传给 `applyMoveHint`（传 `null` 会残留旧盒，出现双高亮）。mesh 锁单位。
+**跟转 3D（与 L9 外层面转同一路径）**：宽层/中层也走**公式 `Twisty.alg` 旋转**，色心跟公式语义（例：Cross `z2` 后 `l` → 顶心蓝）。禁止再用 `setAbsoluteFromPattern` / `absoluteAlgToNailedDisplayPattern` 改贴图「钉回黄上」——会与实体对照及公式语义打架，越改越乱。`absoluteAlgToNailedDisplayPattern` 仅保留给 facelets/对表等非跟转 3D 用途。
+
+**层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀，整段 `baseAlg + move` 进 Twisty.alg scrub；开轨道摘盒后须立刻 `rebindPendingMoveHint`（`f'2` 半程未 matched 前不会 finish，否则高亮盒消失）。`rebindAfterAbsoluteChange` / 重挂须把现有 hint 组传给 `applyMoveHint`（传 `null` 会残留旧盒，出现双高亮）。mesh 锁单位。
 
 L9（**通过 2026-11-13**）：层转一步 scrub 后保持该 alg；mesh 锁单位。BLE 面转：`resolveGuideBleFaceMove`——色心已对上期望则不映（避 live `y` 噪声 L→F）；否则按引导起点→live 朝向映回（未摆正 F'→U'）。字母偶发不符时 facelets 兜底。
+
+**共用模块**：首页打乱与游戏页跟拧映面均走 `src/modules/scramble/guideBleFaceRemap.ts`（`guideBleFaceOrientCandidates` / home 状态机）。禁止各页再写一套「期望 Δ」或「绝对 held 替换公式」。游戏页：relative 基准用**公式转体姿态**（防 Cross `z2` 双计）；候选链为 match → 相对取反 → 仅公式。**不要**把层转期望 Δ 全历史（如 `S' S d'` → `z' z y'`）塞进候选，否则失败时末个脏 Δ 会把误面收成「请转 L」。黄上 `z2` 时禁止 `resolveGuideBleFaceMove` 的 raw===expected 原样短路。
 
 ## 后续候选（等人确认）
 
