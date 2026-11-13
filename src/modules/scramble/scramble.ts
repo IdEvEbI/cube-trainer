@@ -18,8 +18,11 @@ const AXIS: Record<Face, Axis> = {
 const SUFFIXES = ["", "'", "2"] as const;
 const SCRAMBLE_LENGTH = 20;
 const FACE_TURN = /^[UDLRFB](?:2'|2|')?$/;
-/** 引导公式：面转 + 宽层 + 中层 + 整机转体（界面可保留 u，底层 facelets 判定）。 */
-const GUIDED_TURN = /^(?:[UDLRFBudlrfbxyz]|[MES])(?:2'|2|')?$/;
+/**
+ * 引导公式：面转 + 宽层 + 中层 + 整机转体。
+ * 双步撇同时认 `2'`（cubing）与 `'2`（采集/联调表，如 `r'2`）。
+ */
+const GUIDED_TURN = /^(?:[UDLRFBudlrfbxyz]|[MES])(?:2'|'2|2|')?$/;
 
 function pick<T>(items: readonly T[], random: () => number): T {
   const index = Math.floor(random() * items.length);
@@ -59,12 +62,27 @@ export function parseScramble(source: string): string[] {
 
 /**
  * 蓝牙跟转公式：允许宽层 / 中层 / 转体；展示仍用原记号，到位靠 facelets。
+ * 含 `r'2` 等采集记号时不走 cubing `Alg`（其只认 `r2'`），按空格拆以保真。
  * 随机打乱仍走 {@link parseScramble}（仅外层）。
  */
 export function parseGuidedAlg(source: string): string[] {
-  const moves = [...new Alg(source).experimentalLeafMoves()].map((move) =>
-    move.toString(),
-  );
+  const trimmed = source.trim();
+  if (!trimmed) {
+    throw new Error("打乱是空的");
+  }
+  const spaced = trimmed.split(/\s+/).filter(Boolean);
+  if (spaced.length > 0 && spaced.every((move) => GUIDED_TURN.test(move))) {
+    return spaced;
+  }
+  let moves: string[];
+  try {
+    moves = [...new Alg(trimmed).experimentalLeafMoves()].map((move) =>
+      move.toString(),
+    );
+  } catch {
+    const invalid = spaced.find((move) => !GUIDED_TURN.test(move)) ?? trimmed;
+    throw new Error(`无法引导：${invalid}`);
+  }
   if (moves.length === 0) {
     throw new Error("打乱是空的");
   }
@@ -104,9 +122,176 @@ export function randomScramble3x3(
   };
 }
 
-/** 计时首页「下一打乱」：随机外层打乱。 */
+/**
+ * 真机联调：首页用引导式层转公式（不含外层单面、不含转体）。
+ * 验收通过后改回 false（恢复仅外层随机打乱）。
+ */
+export const USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE = true;
+
+/**
+ * 联调焦点：决定首页随机公式族，对准当前 NOW 指针。
+ * L7 / 中层观感回归 → slice-quarter；L8 → slice-double；L9 错面 → layer-then-face。
+ */
+export type GuidedHomeTestFocus =
+  | "wide-quarter"
+  | "wide-double"
+  | "slice-quarter"
+  | "slice-double"
+  | "wide-slice"
+  | "layer-then-face";
+
+/** 先稳住 M/E/S 四分之一观感；L9 错面再改回 layer-then-face。 */
+export const GUIDED_HOME_TEST_FOCUS: GuidedHomeTestFocus = "slice-quarter";
+
+const SLICE_BASES = ["M", "E", "S"] as const;
+const WIDE_BASES = ["u", "d", "l", "r", "f", "b"] as const;
+const FACE_BASES = ["U", "D", "L", "R", "F", "B"] as const;
+const QUARTER_SUFFIXES = ["", "'"] as const;
+const DOUBLE_SUFFIXES = ["2", "'2"] as const;
+
+function pickMove(
+  bases: readonly string[],
+  suffixes: readonly string[],
+  random: () => number,
+  previousBase: string | null,
+): string {
+  const choices =
+    previousBase === null
+      ? bases
+      : bases.filter(
+          (base) => base.toLowerCase() !== previousBase.toLowerCase(),
+        );
+  const pool = choices.length > 0 ? choices : bases;
+  const base = pick(pool, random);
+  const suffix = pick(suffixes, random);
+  return `${base}${suffix}`;
+}
+
+function appendRandomMoves(
+  tokens: string[],
+  count: number,
+  bases: readonly string[],
+  suffixes: readonly string[],
+  random: () => number,
+): void {
+  let previousBase: string | null =
+    tokens.length > 0 ? tokens[tokens.length - 1]![0]! : null;
+  for (let i = 0; i < count; i += 1) {
+    const move = pickMove(bases, suffixes, random, previousBase);
+    tokens.push(move);
+    previousBase = move[0]!;
+  }
+}
+
+/**
+ * 联调用随机引导打乱：按 {@link GUIDED_HOME_TEST_FOCUS} 针对性出步。
+ * L6（wide-double）：前两步固定为 `r2`/`r'2`（顺序随机），再补若干宽层双步。
+ */
+export function randomGuidedTestScramble(
+  random: () => number = Math.random,
+  focus: GuidedHomeTestFocus = GUIDED_HOME_TEST_FOCUS,
+): string {
+  const tokens: string[] = [];
+
+  switch (focus) {
+    case "wide-quarter": {
+      appendRandomMoves(
+        tokens,
+        5 + Math.floor(random() * 2),
+        WIDE_BASES,
+        QUARTER_SUFFIXES,
+        random,
+      );
+      break;
+    }
+    case "wide-double": {
+      // L6 人工脚本要立刻碰到 r2 / r'2：固定前两步，顺序随机。
+      if (random() < 0.5) {
+        tokens.push("r2", "r'2");
+      } else {
+        tokens.push("r'2", "r2");
+      }
+      appendRandomMoves(
+        tokens,
+        2 + Math.floor(random() * 2),
+        WIDE_BASES,
+        DOUBLE_SUFFIXES,
+        random,
+      );
+      break;
+    }
+    case "slice-quarter": {
+      appendRandomMoves(
+        tokens,
+        5 + Math.floor(random() * 2),
+        SLICE_BASES,
+        QUARTER_SUFFIXES,
+        random,
+      );
+      break;
+    }
+    case "slice-double": {
+      // L8：先碰到 M2/M'2，再补中层双步（含 E2/S2）。
+      if (random() < 0.5) {
+        tokens.push("M2", "M'2");
+      } else {
+        tokens.push("M'2", "M2");
+      }
+      appendRandomMoves(
+        tokens,
+        2 + Math.floor(random() * 2),
+        SLICE_BASES,
+        DOUBLE_SUFFIXES,
+        random,
+      );
+      break;
+    }
+    case "wide-slice": {
+      appendRandomMoves(
+        tokens,
+        3 + Math.floor(random() * 2),
+        SLICE_BASES,
+        SUFFIXES,
+        random,
+      );
+      appendRandomMoves(
+        tokens,
+        3 + Math.floor(random() * 2),
+        WIDE_BASES,
+        SUFFIXES,
+        random,
+      );
+      break;
+    }
+    case "layer-then-face": {
+      // L9：层转后紧接外面转，验错面 / 整机假转。
+      tokens.push(random() < 0.5 ? "r" : "M");
+      appendRandomMoves(tokens, 1, FACE_BASES, QUARTER_SUFFIXES, random);
+      tokens.push(random() < 0.5 ? "M'" : "r'");
+      appendRandomMoves(
+        tokens,
+        1 + Math.floor(random() * 2),
+        FACE_BASES,
+        QUARTER_SUFFIXES,
+        random,
+      );
+      break;
+    }
+    default: {
+      const _exhaustive: never = focus;
+      throw new Error(`未知联调焦点：${String(_exhaustive)}`);
+    }
+  }
+
+  return parseGuidedAlg(tokens.join(" ")).join(" ");
+}
+
+/** 计时首页「下一打乱」：联调期按焦点出引导式，否则随机外层。 */
 export function nextHomeScrambleMoves(
   random: () => number = Math.random,
 ): string {
+  if (USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE) {
+    return randomGuidedTestScramble(random);
+  }
   return randomScramble3x3(random).moves;
 }

@@ -41,9 +41,9 @@ export function algNeedsFixedCenterPaint(alg: string): boolean {
 }
 
 /**
- * 绝对 alg → 3D 贴图用 KPattern：角棱钉中心 + cubing raw 色心。
- * 白上绿前拧 M → 顶蓝前白（对齐实体）；facelets 对表见
- * {@link absoluteAlgToFixedCenterFacelets}（中心字母钉死）。
+ * 绝对 alg → 3D 贴图：角棱钉中心置换 + cubing raw 色心。
+ * facelets 字母串对 nail/raw 相同，但 Twisty transformation 不同——钉死色心会把
+ * `M` 后顶心画成白，与实体不符；必须带 raw 色心。mesh 仍锁单位（勿跟手双计）。
  */
 export async function absoluteAlgToFixedCenterPattern(
   alg: string,
@@ -58,11 +58,20 @@ export async function absoluteAlgToFixedCenterPattern(
   return withRawSliceCenters(raw, raw);
 }
 
-/** 绝对 alg → 与蓝牙同构的 URFDLB facelets。 */
+/**
+ * 绝对 alg → 蓝牙同构 facelets（钉中心字母，供对表）。
+ * 注意：与 {@link absoluteAlgToFixedCenterPattern} 色心处理不同。
+ */
 export async function absoluteAlgToFixedCenterFacelets(
   alg: string,
 ): Promise<string> {
-  return kpatternToFacelets(await absoluteAlgToFixedCenterPattern(alg));
+  const puzzle = await cube3x3x3.kpuzzle();
+  const id = puzzle.defaultPattern();
+  const trimmed = guideAlgToCubingAlg(alg);
+  if (!trimmed) {
+    return kpatternToFacelets(id);
+  }
+  return kpatternToFacelets(nailFixedCenters(id.applyAlg(trimmed)));
 }
 
 /** 公式前缀步数 → 期望 facelets（引导对表用）。 */

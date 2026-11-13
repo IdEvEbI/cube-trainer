@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   back,
   showGame,
+  showLayerCapture,
   showPractice,
   showScores,
   showTiming,
@@ -23,5 +24,10 @@ describe("practice focus", () => {
   it("游戏页可从首页进入，返回计时即离开游戏", () => {
     assert.deepEqual(showGame(), { kind: "游戏" });
     assert.deepEqual(back(showGame()), { kind: "计时" });
+  });
+
+  it("层转采集页可进入并返回计时", () => {
+    assert.deepEqual(showLayerCapture(), { kind: "采集" });
+    assert.deepEqual(back(showLayerCapture()), { kind: "计时" });
   });
 });

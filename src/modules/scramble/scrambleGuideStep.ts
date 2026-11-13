@@ -84,15 +84,20 @@ export async function checkScrambleGuideStepByFacelets(options: {
   progress: number;
   /** 连续与上次相同且未到位的次数；调用方在 facelets 变化时归零。 */
   settledSameCount: number;
+  /** 连接时已有实体态（打乱起点），与层转引导一致。 */
+  scrambleSetupAlg?: string;
 }): Promise<ScrambleGuideStepCheck> {
+  const setup = options.scrambleSetupAlg ?? "";
   const ble = await faceletsToKPattern(options.facelets);
   const start = await expectedFixedCenterPattern(
     options.displayMoves,
     options.progress,
+    setup,
   );
   const reached = await expectedFixedCenterPattern(
     options.displayMoves,
     options.progress + 1,
+    setup,
   );
   if (patternsMatchFixedCenters(ble, reached)) {
     return "reached";
@@ -104,4 +109,82 @@ export async function checkScrambleGuideStepByFacelets(options: {
     return "wrong";
   }
   return "in_progress";
+}
+
+/**
+ * 蓝牙面转字母与期望不符时，用 facelets 兜底（层转后偶发错面字母）。
+ * - reached：实体已到位 → 当作 progress
+ * - at_start：实体未动 → 丢弃该包（尾包/误报）
+ * - in_progress：拧动中快照 → 也丢弃（切勿当 keep_wrong，否则 M 后拧 F 途中冒 U 会误报）
+ * - wrong（需 settle 或 readFacelets 复读）：才按字母判错
+ */
+export type FaceMoveFaceletsReconcile =
+  | "accept_progress"
+  | "ignore_packet"
+  | "keep_wrong";
+
+const RECONCILE_SETTLE_READS = 3;
+const RECONCILE_SETTLE_GAP_MS = 120;
+
+function waitMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+export async function reconcileFaceMoveWithFacelets(options: {
+  facelets: string;
+  displayMoves: readonly string[];
+  progress: number;
+  scrambleSetupAlg?: string;
+  /** 可选：复读 facelets，用于确认真正停在错态（而非拧动中）。 */
+  readFacelets?: () => Promise<string>;
+}): Promise<FaceMoveFaceletsReconcile> {
+  const classify = async (
+    facelets: string,
+    settledSameCount: number,
+  ): Promise<FaceMoveFaceletsReconcile | "in_progress"> => {
+    const check = await checkScrambleGuideStepByFacelets({
+      facelets,
+      displayMoves: options.displayMoves,
+      progress: options.progress,
+      settledSameCount,
+      scrambleSetupAlg: options.scrambleSetupAlg,
+    });
+    if (check === "reached") {
+      return "accept_progress";
+    }
+    if (check === "at_start") {
+      return "ignore_packet";
+    }
+    if (check === "wrong") {
+      return "keep_wrong";
+    }
+    return "in_progress";
+  };
+
+  const first = await classify(options.facelets, 0);
+  if (first !== "in_progress") {
+    return first;
+  }
+
+  const readFacelets = options.readFacelets;
+  if (!readFacelets) {
+    // 单帧中间态：宁可漏报错，也不要在拧 F 途中因冒包标成「请转 U'」。
+    return "ignore_packet";
+  }
+
+  let last = options.facelets;
+  let same = 0;
+  for (let i = 0; i < RECONCILE_SETTLE_READS; i += 1) {
+    await waitMs(RECONCILE_SETTLE_GAP_MS);
+    const next = await readFacelets();
+    same = next === last ? same + 1 : 0;
+    last = next;
+    const again = await classify(next, same);
+    if (again !== "in_progress") {
+      return again;
+    }
+  }
+  return "ignore_packet";
 }

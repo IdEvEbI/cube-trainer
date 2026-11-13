@@ -50,9 +50,9 @@ export function isFaceGuideToken(token: string): boolean {
   return FACE_TURN.test(token.trim());
 }
 
-const ROTATION_TOKEN = /^[xyz](?:2'|2|')?$/;
-const WIDE_TOKEN = /^[udlrfb](?:2'|2|')?$/;
-const SLICE_TOKEN = /^[MES](?:2'|2|')?$/;
+const ROTATION_TOKEN = /^[xyz](?:2'|'2|2|')?$/;
+const WIDE_TOKEN = /^[udlrfb](?:2'|'2|2|')?$/;
+const SLICE_TOKEN = /^[MES](?:2'|'2|2|')?$/;
 
 /** 整机转体（x/y/z）。 */
 export function isRotationGuideToken(token: string): boolean {

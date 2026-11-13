@@ -369,8 +369,9 @@ function disposeHintGroup(group: Group) {
  * 空心描边框 + 四边各一短白箭头，同步沿各自边循环。
  * 本地系：Z 朝外法向，XY 为层平面。
  */
-const WIDE_TURN = /^([udlrfb])(2'|2|')?$/;
-const SLICE_TURN = /^([MES])(2'|2|')?$/;
+/** 双步撇认 `2'`（cubing）与 `'2`（采集/联调，如 `r'2`）。 */
+const WIDE_TURN = /^([udlrfb])(2'|'2|2|')?$/;
+const SLICE_TURN = /^([MES])(2'|'2|2|')?$/;
 /**
  * 中层高亮轴向：须与 WCA 同向参照一致，否则箭头会反。
  * M 同 L，E 同 D，S 同 F（不是 R / U）。
@@ -429,9 +430,13 @@ function parseHintMove(
     const suffix = wideMatch[2] ?? "";
     return {
       face: WIDE_TO_FACE[family]!,
-      prime: suffix === "'",
-      double: suffix === "2" || suffix === "2'",
-      half: false,
+      prime: suffix === "'" || suffix === "'2" || suffix === "2'",
+      double:
+        suffix === "2" ||
+        suffix === "2'" ||
+        suffix === "'2" ||
+        Boolean(options.double),
+      half: Boolean(options.half),
       kind: "wide",
     };
   }
@@ -441,9 +446,13 @@ function parseHintMove(
     const suffix = sliceMatch[2] ?? "";
     return {
       face: SLICE_AXIS_FACE[family],
-      prime: suffix === "'",
-      double: suffix === "2" || suffix === "2'",
-      half: false,
+      prime: suffix === "'" || suffix === "'2" || suffix === "2'",
+      double:
+        suffix === "2" ||
+        suffix === "2'" ||
+        suffix === "'2" ||
+        Boolean(options.double),
+      half: Boolean(options.half),
       kind: "middle",
     };
   }
@@ -585,6 +594,7 @@ function buildHintGroup(
 
   group.userData.ringRadius = ringRadius;
   group.userData.depthTest = depthTest;
+  group.userData.prime = prime;
   group.userData.double = double;
   group.userData.fillColor = fillColor;
   group.userData.sideMs = sideMs;

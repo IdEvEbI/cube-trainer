@@ -9,19 +9,32 @@ import {
 import { remapGripTokenToPuzzleHint } from "./guideOrientation.ts";
 
 /**
- * 引导/公式里的切片记号 → cubing.js 算法。
+ * 引导/公式记号 → cubing.js 可 `applyAlg` 的写法。
  * 白上绿前拧 M：前面出白条、顶面出蓝条（与 SiGN/cubing `M` 一致，跟 L）。
- * 此函数保留统一入口；当前 M/E/S 与 cubing 同向，原样返回。
+ * 采集/联调双步撇 `r'2` / `M'2` 须写成 `r2'` / `M2'`（Alg 不认 `'2`）。
  */
 export function guideTokenToCubingAlg(token: string): string {
-  return token.trim();
+  const trimmed = token.trim();
+  const invDouble = /^([MESudlrfbxyz])'2$/i.exec(trimmed);
+  if (invDouble) {
+    return `${invDouble[1]}2'`;
+  }
+  return trimmed;
 }
 
-/** 把绝对 alg 中的 M/M' 按 {@link guideTokenToCubingAlg} 改写。 */
+/** 把绝对 alg 中的记号按 {@link guideTokenToCubingAlg} 改写（含 `'2`→`2'`）。 */
 export function guideAlgToCubingAlg(alg: string): string {
   const trimmed = alg.trim();
   if (!trimmed) {
     return "";
+  }
+  // 含采集式 `'2` 时整串 Alg 会失败；先按空格拆再规范化。
+  if (/(?:^|\s)[MESudlrfbxyz]'2(?:\s|$)/i.test(trimmed)) {
+    return trimmed
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(guideTokenToCubingAlg)
+      .join(" ");
   }
   try {
     return [...new Alg(trimmed).experimentalLeafMoves()]
@@ -183,25 +196,33 @@ export async function algStatesMatch(
 export async function expectedRawPattern(
   moves: readonly string[],
   count: number,
+  /** 引导起点：连接时实体绝对态（可非复原）；空串表示从复原起。 */
+  setupAlg = "",
 ): Promise<KPattern> {
   const puzzle = await cube3x3x3.kpuzzle();
-  const id = puzzle.defaultPattern();
-  const prefix = nonRotationAlgPrefix(moves, count).trim();
-  if (!prefix) {
-    return id;
+  let pattern = puzzle.defaultPattern();
+  const setup = guideAlgToCubingAlg(setupAlg.trim());
+  if (setup) {
+    pattern = pattern.applyAlg(setup);
   }
-  return id.applyAlg(prefix);
+  const prefix = nonRotationAlgPrefix(moves, count).trim();
+  if (prefix) {
+    pattern = pattern.applyAlg(prefix);
+  }
+  return pattern;
 }
 
 /**
  * 公式前缀 → 实体固定色心期望态（钉中心）。
  * `count` 为已包含的步数（完成到下标 count-1）。
+ * `setupAlg` 为打乱引导起点（当前实体态），未还原时以此时为初始再叠公式。
  */
 export async function expectedFixedCenterPattern(
   moves: readonly string[],
   count: number,
+  setupAlg = "",
 ): Promise<KPattern> {
-  return nailFixedCenters(await expectedRawPattern(moves, count));
+  return nailFixedCenters(await expectedRawPattern(moves, count, setupAlg));
 }
 
 /**

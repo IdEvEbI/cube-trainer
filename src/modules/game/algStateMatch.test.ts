@@ -2,10 +2,28 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   algStatesMatch,
+  expectedFixedCenterPattern,
+  guideAlgToCubingAlg,
   guidePaintAlgPrefix,
   guideProgressMatchesCube,
+  guideTokenToCubingAlg,
   nonRotationAlgPrefix,
+  patternsMatchFixedCenters,
 } from "./algStateMatch.ts";
+
+describe("guideTokenToCubingAlg", () => {
+  it("采集式双步撇改写为 cubing 可解析的 2'", () => {
+    assert.equal(guideTokenToCubingAlg("r'2"), "r2'");
+    assert.equal(guideTokenToCubingAlg("d'2"), "d2'");
+    assert.equal(guideTokenToCubingAlg("M'2"), "M2'");
+    assert.equal(guideTokenToCubingAlg("r2"), "r2");
+    assert.equal(guideTokenToCubingAlg("d'"), "d'");
+  });
+
+  it("guideAlgToCubingAlg 整串含 '2 时仍可规范化", () => {
+    assert.equal(guideAlgToCubingAlg("r'2 r2 d'2"), "r2' r2 d2'");
+  });
+});
 
 describe("algStatesMatch", () => {
   it("same alg matches", async () => {
@@ -63,6 +81,36 @@ describe("guidePaintAlgPrefix", () => {
     assert.equal(guidePaintAlgPrefix(moves, 8), "M E' S r l f' D B'");
     assert.equal(guidePaintAlgPrefix(moves, 9), "M E' S r l f' D B' z'");
     assert.equal(guidePaintAlgPrefix(moves, 10), "M E' S r l f' D B' z' y");
+  });
+});
+
+describe("expectedFixedCenterPattern + setupAlg", () => {
+  it("未还原起点：期望态 = setup ⊕ 公式前缀，不等于从复原起的同前缀", async () => {
+    const fromSolved = await expectedFixedCenterPattern(["M"], 0);
+    const fromScrambledStart = await expectedFixedCenterPattern(
+      ["M"],
+      0,
+      "R U",
+    );
+    assert.equal(
+      patternsMatchFixedCenters(fromSolved, fromScrambledStart),
+      false,
+    );
+    const afterM = await expectedFixedCenterPattern(["M"], 1, "R U");
+    const viaCompose = await expectedFixedCenterPattern(["R", "U", "M"], 3);
+    assert.equal(patternsMatchFixedCenters(afterM, viaCompose), true);
+  });
+
+  it("公式含采集式 d'2 时期望态可算（不抛），与 d2' 同态", async () => {
+    const fromCapture = await expectedFixedCenterPattern(
+      ["r'2", "r2", "d'2"],
+      3,
+    );
+    const fromCubing = await expectedFixedCenterPattern(
+      ["r2'", "r2", "d2'"],
+      3,
+    );
+    assert.equal(patternsMatchFixedCenters(fromCapture, fromCubing), true);
   });
 });
 

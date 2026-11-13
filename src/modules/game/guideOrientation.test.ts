@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { IDENTITY_QUAT } from "../bluetooth/moyu/orientation.ts";
+import {
+  IDENTITY_QUAT,
+  quatMultiply,
+  quatNormalize,
+} from "../bluetooth/moyu/orientation.ts";
 import { quatFromOrientationAlg } from "../score/cubeOrientation.ts";
 import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
   guideDisplayOrientationQuat,
+  guideMeshFollowQuat,
   hintTokenInSolveView,
+  relativeOrientationAlg,
   relativeOrientationQuat,
   remapGripTokenToPuzzleHint,
+  shouldUpdateGuideMeshHomeAfterAdvance,
 } from "./guideOrientation.ts";
 
 describe("completedOrientationMoves", () => {
@@ -87,6 +94,23 @@ describe("guideDisplayOrientationQuat", () => {
   });
 });
 
+describe("guideMeshFollow / mesh home", () => {
+  it("宽层手持 x' 后 mesh 跟手，不锁单位", () => {
+    const home = quatFromOrientationAlg("");
+    const live = quatFromOrientationAlg("x'");
+    const mesh = guideMeshFollowQuat(home, live);
+    assert.deepEqual(mesh, live);
+  });
+
+  it("仅公式转体步推进后更新 mesh 基准", () => {
+    assert.equal(shouldUpdateGuideMeshHomeAfterAdvance("z'"), true);
+    assert.equal(shouldUpdateGuideMeshHomeAfterAdvance("y"), true);
+    assert.equal(shouldUpdateGuideMeshHomeAfterAdvance("r'"), false);
+    assert.equal(shouldUpdateGuideMeshHomeAfterAdvance("M"), false);
+    assert.equal(shouldUpdateGuideMeshHomeAfterAdvance("D'"), false);
+  });
+});
+
 describe("relativeOrientationQuat", () => {
   it("相对步起点：静止为单位，转 z' 后接近公式 z'", () => {
     const start = IDENTITY_QUAT;
@@ -98,6 +122,37 @@ describe("relativeOrientationQuat", () => {
     assert.ok(Math.abs(delta.y - expected.y) < 1e-9);
     assert.ok(Math.abs(delta.z - expected.z) < 1e-9);
     assert.ok(Math.abs(delta.w - expected.w) < 1e-9);
+  });
+
+  it("世界系左乘：起点已有 y 时再叠 z'，增量仍是 z'（勿共轭成 x/y）", () => {
+    const start = quatFromOrientationAlg("y");
+    const zPrime = quatFromOrientationAlg("z'");
+    // MoyuOrientationTracker：orientation = R_world ⊗ previous
+    const live = quatNormalize(quatMultiply(zPrime, start));
+    const delta = relativeOrientationQuat(start, live);
+    assert.ok(Math.abs(delta.x - zPrime.x) < 1e-9);
+    assert.ok(Math.abs(delta.y - zPrime.y) < 1e-9);
+    assert.ok(Math.abs(delta.z - zPrime.z) < 1e-9);
+    assert.ok(Math.abs(delta.w - zPrime.w) < 1e-9);
+  });
+});
+
+describe("relativeOrientationAlg", () => {
+  it("从任意起点再转世界系 z'，相对吸附为 z'", () => {
+    const start = quatFromOrientationAlg("y");
+    const live = quatNormalize(
+      quatMultiply(quatFromOrientationAlg("z'"), start),
+    );
+    assert.equal(relativeOrientationAlg(start, start), "");
+    assert.equal(relativeOrientationAlg(start, live), "z'");
+  });
+
+  it("起点略有 x 偏斜时世界系 z' 仍吸附为 z'（旧右乘相对会变成 y）", () => {
+    const start = quatFromOrientationAlg("x");
+    const live = quatNormalize(
+      quatMultiply(quatFromOrientationAlg("z'"), start),
+    );
+    assert.equal(relativeOrientationAlg(start, live), "z'");
   });
 });
 

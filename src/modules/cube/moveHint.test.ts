@@ -227,7 +227,18 @@ describe("applyMoveHint", () => {
     assert.equal(wide!.userData.travelHalf, MOVE_HINT_TRAVEL_HALF);
     assert.ok(wide!.getObjectByName("cube-move-hint-arrow-1"));
 
-    const whole = applyMoveHint(puzzle, wide, "x", { tone: "guide" });
+    const wideDoublePrime = applyMoveHint(puzzle, wide, "r'2", {
+      tone: "guide",
+    });
+    assert.ok(wideDoublePrime, "采集式 r'2 应能画出宽层高亮盒");
+    assert.equal(wideDoublePrime!.userData.face, "R");
+    assert.equal(wideDoublePrime!.userData.layerKind, "wide");
+    assert.equal(wideDoublePrime!.userData.double, true);
+    assert.equal(wideDoublePrime!.userData.prime, true);
+
+    const whole = applyMoveHint(puzzle, wideDoublePrime, "x", {
+      tone: "guide",
+    });
     assert.ok(whole);
     assert.equal(whole!.userData.layerKind, "whole");
     assert.equal(whole!.userData.arrowBeltCount, 3);

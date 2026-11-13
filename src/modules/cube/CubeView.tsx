@@ -17,10 +17,7 @@ import {
 } from "../bluetooth/moyu/orientation.ts";
 import { faceletsToKPattern } from "../bluetooth/moyu/pattern.ts";
 import { parseAlgorithm } from "../formula/formulas.ts";
-import {
-  absoluteAlgToFixedCenterPattern,
-  algNeedsFixedCenterPaint,
-} from "../scramble/fixedCenterLayer.ts";
+import { algNeedsFixedCenterPaint } from "../scramble/fixedCenterLayer.ts";
 import {
   scrambleDisplayAlgorithm,
   scrambleViewAlgorithm,
@@ -83,6 +80,7 @@ export type CubeHandle = {
   setAbsoluteFromPattern(
     pattern: KPattern,
     orientation?: CubeOrientationQuat,
+    options?: { force?: boolean },
   ): void;
   /**
    * 把相对姿态四元数乘到 Twisty Cube3D 上（真·三自由度跟随，含垂直翻转）。
@@ -98,6 +96,10 @@ export type CubeHandle = {
     samples: readonly { move: string; intervalMs: number }[],
     config?: Partial<MoyuMoveAnimConfig>,
   ): void;
+  /** 引导跟手：是否仍有未播完的蓝牙层转动画（硬切贴图前应等待）。 */
+  hasPendingBluetoothMoves(): boolean;
+  /** 等到蓝牙层转动画播完或超时。 */
+  awaitBluetoothMovesIdle(timeoutMs?: number): Promise<void>;
   showMoves(moves: string): Promise<void>;
   animateMove(
     before: string,
@@ -105,6 +107,23 @@ export type CubeHandle = {
     direction: CubeMotion,
     quarterTurnMs: number,
   ): Promise<void>;
+  /**
+   * 蓝牙打乱引导：在当前 setupTransformation（步起点）上播一步转动动画。
+   * 结束后仍留在 Twisty 原生态；调用方再 `setAbsoluteFromPattern` 钉中心终态。
+   */
+  animateGuideStep(move: string, quarterTurnMs: number): Promise<void>;
+  /**
+   * 陀螺跟手：在 `baseAlg`（已完成前缀）上追加一步并停在起点，再用
+   * {@link setGuideStepGyroProgress} 按 0…1 scrub。
+   * `baseAlg` 必填：若仍停在 setupTransformation（alg 空），会从复原态闪切。
+   */
+  startGuideStepGyroTrack(move: string, baseAlg?: string): Promise<void>;
+  /** 陀螺跟手：按进度 scrub；单调不回退。 */
+  setGuideStepGyroProgress(progress: number): void;
+  /**
+   * 陀螺跟手：补间到终点（避免 matched 瞬间闪切）并释放 pending。
+   */
+  finishGuideStepGyroTrack(): Promise<void>;
   /**
    * 手持朝向球面插值（复盘 x/y/z 转体）；时长按夹角相对 90° 缩放 quarterTurnMs。
    */
@@ -378,6 +397,17 @@ export function CubeView({
   const generation = useRef(0);
   /** 队列中尚未播完的蓝牙动画步数（用于积压瞬切）。 */
   const bluetoothPending = useRef(0);
+  /** 陀螺跟手轨道：generation + Twisty 时间轴起止。 */
+  const guideStepGyroTrack = useRef<{
+    generation: number;
+    start: number;
+    end: number;
+    lastProgress: number;
+  } | null>(null);
+  /** 当前 start 会话；finish/cancel 置 aborted，避免晚到的 queue 又挂上轨道。 */
+  const guideStepGyroSession = useRef<{ aborted: boolean } | null>(null);
+  /** 轨道尚未挂上时仍累计进度，挂上后立刻落到该值（避免首包异步窗口丢进度）。 */
+  const guideStepGyroDesire = useRef(0);
   const moveHintGroup = useRef<Group | null>(null);
   /** 与 alg 队列串行，避免 setAbsoluteAlg 重建场景后箭头画在旧 puzzle 上。 */
   const moveHintToken = useRef(0);
@@ -633,6 +663,11 @@ export function CubeView({
       lastAbsoluteFacelets.current = null;
       generation.current += 1;
       bluetoothPending.current = 0;
+      guideStepGyroTrack.current = null;
+      if (guideStepGyroSession.current) {
+        guideStepGyroSession.current.aborted = true;
+        guideStepGyroSession.current = null;
+      }
       const hintToken = (moveHintToken.current += 1);
       const orient = lastOrientation.current ?? IDENTITY_QUAT;
       queue.current = queue.current.then(async () => {
@@ -640,17 +675,8 @@ export function CubeView({
         if (!twisty) {
           return;
         }
-        // 含 M/E/S/u… 时禁止走 Twisty.alg（色心被带走 → 绿上黄前）；钉中心后贴 pattern。
-        if (algNeedsFixedCenterPaint(alg)) {
-          try {
-            const pattern = await absoluteAlgToFixedCenterPattern(alg);
-            await applyPatternToTwisty(twisty, pattern, hintToken, orient);
-          } catch {
-            // 保持上次画面
-          }
-          return;
-        }
-        // alg 变更后 Three 场景可能重建，丢掉旧 puzzle / 箭头缓存。
+        // 含 M/r… 也走 Twisty.alg（与 raw 色心一致），便于陀螺轨道追加，避免
+        // setupTransformation 与空 alg 切换造成闪切。
         if (moveHintGroup.current) {
           applyMoveHint({ add() {}, remove() {} }, moveHintGroup.current, null);
           moveHintGroup.current = null;
@@ -679,6 +705,11 @@ export function CubeView({
       lastAbsoluteAlg.current = null;
       generation.current += 1;
       bluetoothPending.current = 0;
+      guideStepGyroTrack.current = null;
+      if (guideStepGyroSession.current) {
+        guideStepGyroSession.current.aborted = true;
+        guideStepGyroSession.current = null;
+      }
       const hintToken = (moveHintToken.current += 1);
       queue.current = queue.current.then(async () => {
         const twisty = player.current;
@@ -696,11 +727,16 @@ export function CubeView({
     setAbsoluteFromPattern(
       pattern: KPattern,
       orientation?: CubeOrientationQuat,
+      options?: { force?: boolean },
     ) {
+      // 层转 / 跟转动画进行中：默认禁止 bump，以免掐掉排队动画；确认到位 / 快拧追上可 force。
+      if (bluetoothPending.current > 0 && !options?.force) {
+        return;
+      }
       // 缓存键带上色心置换：仅角棱相同、色心不同（M→M E'）也必须重贴。
       const key = `pattern:${JSON.stringify(pattern.patternData.EDGES)}:${JSON.stringify(pattern.patternData.CORNERS)}:${JSON.stringify(pattern.patternData.CENTERS)}`;
       const orient = orientation ?? lastOrientation.current ?? IDENTITY_QUAT;
-      if (lastAbsoluteFacelets.current === key) {
+      if (lastAbsoluteFacelets.current === key && !options?.force) {
         if (orientation && !sameOrientation(lastOrientation.current, orient)) {
           applyOrientationOnly(orient);
         }
@@ -710,6 +746,11 @@ export function CubeView({
       lastAbsoluteAlg.current = null;
       generation.current += 1;
       bluetoothPending.current = 0;
+      guideStepGyroTrack.current = null;
+      if (guideStepGyroSession.current) {
+        guideStepGyroSession.current.aborted = true;
+        guideStepGyroSession.current = null;
+      }
       const hintToken = (moveHintToken.current += 1);
       queue.current = queue.current.then(async () => {
         const twisty = player.current;
@@ -809,17 +850,50 @@ export function CubeView({
         () => undefined,
       );
     },
+    hasPendingBluetoothMoves() {
+      return bluetoothPending.current > 0;
+    },
+    awaitBluetoothMovesIdle(timeoutMs = 2000) {
+      if (bluetoothPending.current <= 0) {
+        return Promise.resolve();
+      }
+      const limit = Math.max(0, timeoutMs);
+      const started = performance.now();
+      return new Promise((resolve) => {
+        const tick = () => {
+          if (
+            bluetoothPending.current <= 0 ||
+            performance.now() - started >= limit
+          ) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+    },
     showMoves(moves: string) {
       const parsed = algText(moves);
       lastAbsoluteAlg.current = null;
+      const hintToken = (moveHintToken.current += 1);
       const task = queue.current.then(async () => {
         const twisty = player.current;
         if (!twisty) {
           return;
         }
         twisty.pause();
+        // 含 M/r… 同样 Twisty.alg（raw 色心），与蓝牙层转陀螺轨道同一路径。
+        twisty.experimentalModel.setupTransformation.set(null);
         twisty.alg = parsed;
         twisty.timestamp = "end";
+        if (algNeedsFixedCenterPaint(parsed)) {
+          await rebindAfterAbsoluteChange(
+            twisty,
+            hintToken,
+            lastOrientation.current ?? IDENTITY_QUAT,
+          );
+        }
       });
       queue.current = task.then(
         () => undefined,
@@ -839,6 +913,218 @@ export function CubeView({
           () => generation.current === token,
         ),
       );
+      queue.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
+      return task;
+    },
+    animateGuideStep(move, quarterTurnMs) {
+      const trimmed = move.trim();
+      if (!trimmed || !PLAYBACK_MOVE.test(trimmed)) {
+        return Promise.resolve();
+      }
+      const token = generation.current;
+      // 与 playBluetoothMoves 共用 pending，避免 facelets 硬切掐掉整步层转动画。
+      bluetoothPending.current += 1;
+      // 动画中只摘视觉盒，保留 pendingMoveHint 意图。
+      // 若写成 null + finally 恢复旧步，会在快拧确认后冲掉下一步 setMoveHint（高亮盒消失）。
+      if (moveHintGroup.current) {
+        applyMoveHint({ add() {}, remove() {} }, moveHintGroup.current, null);
+        moveHintGroup.current = null;
+      }
+      const task = queue.current.then(async () => {
+        try {
+          const twisty = player.current;
+          if (!twisty || generation.current !== token) {
+            return;
+          }
+          // 以当前画面为底，整步追加 M/E/S/r…（不要拆成外层包）。
+          await animateAppendMove(
+            twisty,
+            trimmed,
+            quarterTurnMs,
+            () => generation.current === token,
+          );
+        } finally {
+          bluetoothPending.current = Math.max(0, bluetoothPending.current - 1);
+          // 仅本动画仍有效时重挂「当前」意图；被 cancel/force 贴图后交给调用方 setMoveHint。
+          if (generation.current === token && pendingMoveHint.current?.move) {
+            const hintToken = (moveHintToken.current += 1);
+            const twisty = player.current;
+            if (twisty) {
+              await rebindAfterAbsoluteChange(
+                twisty,
+                hintToken,
+                lastOrientation.current ?? IDENTITY_QUAT,
+              );
+            }
+          }
+        }
+      });
+      queue.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
+      return task;
+    },
+    startGuideStepGyroTrack(move, baseAlg = "") {
+      const trimmed = move.trim();
+      if (!trimmed || !PLAYBACK_MOVE.test(trimmed)) {
+        return Promise.resolve();
+      }
+      const token = generation.current;
+      guideStepGyroTrack.current = null;
+      guideStepGyroDesire.current = 0;
+      const session = { aborted: false };
+      guideStepGyroSession.current = session;
+      bluetoothPending.current += 1;
+      if (moveHintGroup.current) {
+        applyMoveHint({ add() {}, remove() {} }, moveHintGroup.current, null);
+        moveHintGroup.current = null;
+      }
+      const task = queue.current.then(async () => {
+        try {
+          const twisty = player.current;
+          if (!twisty || generation.current !== token || session.aborted) {
+            return;
+          }
+          // 优先用调用方给的已完成前缀；勿信空 alg（pattern 贴图后 alg 常为空）。
+          const fromProp = baseAlg.trim();
+          const current = (await twisty.experimentalGet.alg())
+            .toString()
+            .trim();
+          const before = fromProp || current;
+          const after = `${before} ${trimmed}`.trim();
+          twisty.pause();
+          twisty.experimentalModel.setupTransformation.set(null);
+          twisty.alg = before;
+          twisty.timestamp = "end";
+          await twisty.experimentalModel.indexer.get();
+          if (generation.current !== token || session.aborted) {
+            return;
+          }
+          const atBoundary = await twisty.experimentalGet.timestamp();
+          twisty.timestamp = atBoundary;
+          await twisty.experimentalModel.timestampRequest.get();
+          if (generation.current !== token || session.aborted) {
+            return;
+          }
+          twisty.alg = after;
+          const span = await moveSpan(twisty);
+          if (generation.current !== token || session.aborted) {
+            return;
+          }
+          if (!span) {
+            twisty.alg = after;
+            twisty.timestamp = "end";
+            return;
+          }
+          const desire = Math.min(1, Math.max(0, guideStepGyroDesire.current));
+          place(twisty, span.start + (span.end - span.start) * desire);
+          guideStepGyroTrack.current = {
+            generation: token,
+            start: span.start,
+            end: span.end,
+            lastProgress: desire,
+          };
+          // alg 变更可能换 Three 场景：重绑朝向（保留 App 下发的跟手姿态）。
+          invalidatePuzzle3DCache();
+          const orient = lastOrientation.current ?? IDENTITY_QUAT;
+          const puzzle = await resolvePuzzle3D(twisty);
+          if (puzzle && generation.current === token && !session.aborted) {
+            applyOrientationToPuzzle(puzzle, orient);
+          }
+        } catch {
+          // 保持画面；pending 在 finish/cancel 释放
+        }
+      });
+      queue.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
+      return task;
+    },
+    setGuideStepGyroProgress(progress) {
+      const t = Math.min(1, Math.max(0, progress));
+      if (t + 1e-4 >= guideStepGyroDesire.current) {
+        guideStepGyroDesire.current = t;
+      }
+      const track = guideStepGyroTrack.current;
+      if (!track || track.generation !== generation.current) {
+        return;
+      }
+      if (t + 1e-4 < track.lastProgress) {
+        return;
+      }
+      track.lastProgress = t;
+      const twisty = player.current;
+      if (!twisty) {
+        return;
+      }
+      place(twisty, track.start + (track.end - track.start) * t);
+    },
+    finishGuideStepGyroTrack() {
+      const session = guideStepGyroSession.current;
+      if (session) {
+        session.aborted = true;
+      }
+      guideStepGyroSession.current = null;
+      guideStepGyroDesire.current = 0;
+      const track = guideStepGyroTrack.current;
+      guideStepGyroTrack.current = null;
+      const gen = generation.current;
+      const task = queue.current.then(async () => {
+        const twisty = player.current;
+        if (track && twisty && track.generation === gen) {
+          const from = Math.min(1, Math.max(0, track.lastProgress));
+          const span = track.end - track.start;
+          if (from < 0.98 && span > 0) {
+            // 包已齐、matched 时进度常被软封顶；按剩余比例补间，勿瞬切终点。
+            const durationMs = Math.max(120, (1 - from) * 280);
+            const wall0 = performance.now();
+            await new Promise<void>((resolve) => {
+              const step = () => {
+                if (generation.current !== gen || !player.current) {
+                  resolve();
+                  return;
+                }
+                const u = Math.min(1, (performance.now() - wall0) / durationMs);
+                const p = from + (1 - from) * u;
+                place(player.current, track.start + span * p);
+                if (u >= 1) {
+                  resolve();
+                  return;
+                }
+                requestAnimationFrame(step);
+              };
+              requestAnimationFrame(step);
+            });
+          }
+          if (generation.current === gen && player.current) {
+            place(player.current, track.end);
+            player.current.timestamp = "end";
+            try {
+              const alg = await player.current.experimentalGet.alg();
+              if (generation.current === gen) {
+                lastAbsoluteAlg.current = alg.toString().trim();
+                lastAbsoluteFacelets.current = null;
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+        bluetoothPending.current = Math.max(0, bluetoothPending.current - 1);
+        if (player.current && generation.current === gen) {
+          const hintToken = (moveHintToken.current += 1);
+          await rebindAfterAbsoluteChange(
+            player.current,
+            hintToken,
+            lastOrientation.current ?? IDENTITY_QUAT,
+          );
+        }
+      });
       queue.current = task.then(
         () => undefined,
         () => undefined,
@@ -883,6 +1169,12 @@ export function CubeView({
     },
     cancelAnimation() {
       generation.current += 1;
+      bluetoothPending.current = 0;
+      guideStepGyroTrack.current = null;
+      if (guideStepGyroSession.current) {
+        guideStepGyroSession.current.aborted = true;
+        guideStepGyroSession.current = null;
+      }
     },
     setStickering(stickering) {
       queue.current = queue.current.then(async () => {

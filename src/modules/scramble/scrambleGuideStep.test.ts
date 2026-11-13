@@ -10,6 +10,7 @@ import {
 import {
   checkScrambleGuideStepByFacelets,
   classifyScrambleGuideStep,
+  reconcileFaceMoveWithFacelets,
   SCRAMBLE_GUIDE_WRONG_SETTLE_POLLS,
   syntheticWrongMoveForExpected,
 } from "./scrambleGuideStep.ts";
@@ -152,6 +153,61 @@ describe("checkScrambleGuideStepByFacelets", () => {
         settledSameCount: 0,
       }),
       "in_progress",
+    );
+  });
+});
+
+describe("reconcileFaceMoveWithFacelets", () => {
+  it("字母不符但贴纸已到位 → 当作推进", async () => {
+    const reached = await expectedFixedCenterPattern(["r", "U"], 2);
+    assert.equal(
+      await reconcileFaceMoveWithFacelets({
+        facelets: patternToFacelets(reached),
+        displayMoves: ["r", "U"],
+        progress: 1,
+      }),
+      "accept_progress",
+    );
+  });
+
+  it("字母不符但贴纸仍在起点 → 忽略该包", async () => {
+    const start = await expectedFixedCenterPattern(["r", "U"], 1);
+    assert.equal(
+      await reconcileFaceMoveWithFacelets({
+        facelets: patternToFacelets(start),
+        displayMoves: ["r", "U"],
+        progress: 1,
+      }),
+      "ignore_packet",
+    );
+  });
+
+  it("单帧中间态不标错（避免 M 后拧 F 途中冒 U）", async () => {
+    const puzzle = await cube3x3x3.kpuzzle();
+    const mid = nailFixedCenters(puzzle.defaultPattern().applyAlg("r F"));
+    assert.equal(
+      await reconcileFaceMoveWithFacelets({
+        facelets: patternToFacelets(mid),
+        displayMoves: ["r", "U"],
+        progress: 1,
+      }),
+      "ignore_packet",
+    );
+  });
+
+  it("复读 settle 后确认错态 → keep_wrong", async () => {
+    const puzzle = await cube3x3x3.kpuzzle();
+    const wrongFacelets = patternToFacelets(
+      nailFixedCenters(puzzle.defaultPattern().applyAlg("r F")),
+    );
+    assert.equal(
+      await reconcileFaceMoveWithFacelets({
+        facelets: wrongFacelets,
+        displayMoves: ["r", "U"],
+        progress: 1,
+        readFacelets: async () => wrongFacelets,
+      }),
+      "keep_wrong",
     );
   });
 });

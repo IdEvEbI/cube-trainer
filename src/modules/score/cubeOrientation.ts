@@ -429,13 +429,18 @@ export function orientationSatisfiesRotation(
   if (held === target) {
     return true;
   }
-  // 到位后仅差 y / y' / y2：视为已完成该转体（打乱引导 z'→y 常见）。
-  const yawAfter = orientationRotationPath(target, held);
-  if (
-    yawAfter.length > 0 &&
-    yawAfter.every((move) => move === "y" || move === "y'" || move === "y2")
-  ) {
-    return true;
+  // 到位后仅差 y / y' / y2：视为已完成该转体（打乱引导 z' 后偏航常见）。
+  // 期望本身是偏航时禁用：未拧时 held=from、target=from+y，差值也是 y，会误判已到位并跳过 y。
+  const expectedIsYaw =
+    expected === "y" || expected === "y'" || expected === "y2";
+  if (!expectedIsYaw) {
+    const yawAfter = orientationRotationPath(target, held);
+    if (
+      yawAfter.length > 0 &&
+      yawAfter.every((move) => move === "y" || move === "y'" || move === "y2")
+    ) {
+      return true;
+    }
   }
   // z2 / x2 等：朝上色心到位即可（含提前翻转到位、或随后微调 y）。
   if (expected.endsWith("2") || expected.endsWith("2'")) {

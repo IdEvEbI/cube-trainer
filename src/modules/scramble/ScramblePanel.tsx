@@ -144,7 +144,16 @@ export function ScramblePanel({
       {footer}
       {guided && guide?.correction ? (
         <p className="scramble-guide-note scramble-guide-error" role="status">
-          转错了，请转 {guide.correction}
+          转错了，请先转 {guide.correction} 撤销
+          {guide.expectedMove ||
+          (guide.currentIndex != null
+            ? guide.displayMoves[guide.currentIndex]
+            : null)
+            ? `，再转 ${
+                guide.expectedMove ??
+                guide.displayMoves[guide.currentIndex ?? 0]
+              }`
+            : ""}
         </p>
       ) : null}
       {guided &&

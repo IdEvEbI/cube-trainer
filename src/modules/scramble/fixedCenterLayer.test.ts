@@ -21,10 +21,10 @@ import { tickScrambleGuideLayerFollow } from "./scrambleGuideLayerFollow.ts";
 import { parseGuidedAlg } from "./scramble.ts";
 
 /**
- * 验收锚点（白上绿前、固定色心）：
- * - M 后：顶仍白心；前面中列白-绿-白（冲前；与 cubing M / 实体照一致），不是绿上。
- * - 对表：设备 facelets 与期望 facelets 全等即推进。
- * - 含 M/E/S/u 的绝对串禁止走 Twisty.alg。
+ * 验收锚点（白上绿前）：
+ * - 对表 facelets：钉中心字母；M 后前面中列白-绿-白，顶中列蓝-白-蓝。
+ * - 3D pattern：raw 色心（与 nail 的 Twisty xf 不同）。
+ * - 含 M/E/S/u 的绝对串禁止只走 Twisty.alg 当终态。
  */
 describe("fixedCenterLayer 中层 / 宽层规格", () => {
   const moves = parseGuidedAlg("M E' S r l f' D B' z' y");
@@ -37,29 +37,27 @@ describe("fixedCenterLayer 中层 / 宽层规格", () => {
     assert.equal(algNeedsFixedCenterPaint(""), false);
   });
 
-  it("M：棱块前面白条顶面蓝条；3D 色心白到前、蓝到顶（对齐实体）", async () => {
+  it("M：对表钉中心字母；3D raw 色心（Twisty xf 与 nail 不同）", async () => {
     const afterM = await absoluteAlgToFixedCenterFacelets("M");
     const fp = faceletsLayerFingerprint(afterM);
-    // facelets 对表仍钉中心字母（与蓝牙同构）
     assert.equal(fp.uCenter, "U", "facelets 顶心字母仍为 U");
     assert.equal(fp.fCenter, "F", "facelets 前心字母仍为 F");
     assert.equal(fp.fMid, "UFU", "前面中列应为白-绿-白（冲前，对齐实体）");
     assert.equal(fp.uMid, "BUB", "顶面中列应为蓝-白-蓝");
 
     const painted = await absoluteAlgToFixedCenterPattern("M");
-    // cubing CENTERS 轨道非 URFDLB；raw M = [4,1,0,3,5,2] → 顶蓝前白
     assert.deepEqual(
       [...painted.patternData.CENTERS.pieces],
       [4, 1, 0, 3, 5, 2],
-      "raw M 色心（顶蓝前白）",
+      "3D 用 raw 色心（与 nail 的 Twisty xf 不同）",
     );
-
     const puzzle = await cube3x3x3.kpuzzle();
     const raw = puzzle.defaultPattern().applyAlg("M");
-    assert.notDeepEqual(
-      raw.patternData.CENTERS.pieces,
-      [0, 1, 2, 3, 4, 5],
-      "裸 M 会移动中心，禁止当展示态",
+    const nailed = nailFixedCenters(raw);
+    assert.notEqual(
+      JSON.stringify(painted.experimentalToTransformation()),
+      JSON.stringify(nailed.experimentalToTransformation()),
+      "nail 与 raw 的 transformation 必须不同，否则顶心仍白",
     );
     const restored = kpatternToFacelets(restoreFixedCenters(raw));
     const restoreFp = faceletsLayerFingerprint(restored);

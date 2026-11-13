@@ -104,6 +104,15 @@ describe("cubeOrientation", () => {
     assert.equal(scrambleGuideRotationSatisfied("", "z' y", "z'"), true);
   });
 
+  it("期望本身是 y 时不做 yaw-after，避免 z' 后跳过 y 进观察", () => {
+    assert.equal(orientationSatisfiesRotation("z'", "z'", "y"), false);
+    assert.equal(scrambleGuideRotationSatisfied("z'", "z'", "y"), false);
+    assert.equal(orientationSatisfiesRotation("z'", "z' y", "y"), true);
+    // 引导对 y 走镜像：陀螺仪常记成 y'
+    assert.equal(scrambleGuideRotationSatisfied("z'", "z' y'", "y"), true);
+    assert.equal(scrambleGuideRotationSatisfied("z'", "z' y", "y"), false);
+  });
+
   it("同轴过冲到 z2 仍算 z' 到位（连续拧不暂停时）", () => {
     assert.equal(orientationSatisfiesRotation("", "z2", "z'"), true);
     assert.equal(orientationSatisfiesRotation("", "z2", "z"), true);

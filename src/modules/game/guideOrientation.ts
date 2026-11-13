@@ -6,19 +6,55 @@ import {
   type MoyuQuat,
 } from "../bluetooth/moyu/orientation.ts";
 import { isRotationGuideToken } from "../scramble/guided.ts";
-import { quatFromOrientationAlg } from "../score/cubeOrientation.ts";
+import {
+  nearestCubeOrientationAlg,
+  quatFromOrientationAlg,
+} from "../score/cubeOrientation.ts";
 import { absoluteFaceMoveToGrip } from "../score/solveAlgDisplay.ts";
 import { remapFaceMoveThroughOrientation } from "../score/solveTrace.ts";
 
 /**
- * 转体步跟手：相对进入该步时的手持增量。
- * 贴纸已含此前公式转体时，mesh 只乘此增量，避免与 z'/y 贴纸叠乘。
+ * 转体步跟手：相对进入该步时的手持增量（世界系 / 左乘，与 MoyuOrientationTracker 一致）。
+ * delta = live ⊗ from⁻¹；若写成 from⁻¹ ⊗ live，起点略有 yaw/pitch 时会把 z' 共轭成 y/x。
  */
 export function relativeOrientationQuat(
   fromQuat: MoyuQuat,
   liveQuat: MoyuQuat,
 ): MoyuQuat {
-  return quatNormalize(quatMultiply(quatInvert(fromQuat), liveQuat));
+  return quatNormalize(quatMultiply(liveQuat, quatInvert(fromQuat)));
+}
+
+/**
+ * 相对步起点的手持增量吸附到 24 朝向（起点为 ""）。
+ * 打乱引导转体到位判定用此串，避免两端分别吸附后再求路径时轴漂。
+ */
+export function relativeOrientationAlg(
+  fromQuat: MoyuQuat,
+  liveQuat: MoyuQuat,
+): string {
+  return nearestCubeOrientationAlg(relativeOrientationQuat(fromQuat, liveQuat));
+}
+
+/**
+ * 引导 mesh 跟手：相对「贴纸已烘焙基准」的增量。
+ * 宽层 / 中层会带动手持朝向，但钉中心贴纸不含整机转；用此增量让屏幕与实体同向，
+ * 避免下一步面转（如 D'）被报成 B'。
+ */
+export function guideMeshFollowQuat(
+  meshHome: MoyuQuat,
+  liveQuat: MoyuQuat,
+): MoyuQuat {
+  return relativeOrientationQuat(meshHome, liveQuat);
+}
+
+/**
+ * 仅公式 x/y/z 步推进后需重吸 mesh 基准（贴纸已含该转体，否则会双计）。
+ * 宽层 / 中层 / 面转推进后不更新基准。
+ */
+export function shouldUpdateGuideMeshHomeAfterAdvance(
+  completedToken: string | null | undefined,
+): boolean {
+  return Boolean(completedToken && isRotationGuideToken(completedToken.trim()));
 }
 
 /**
