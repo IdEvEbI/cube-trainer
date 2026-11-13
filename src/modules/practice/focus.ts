@@ -30,6 +30,12 @@ export function showLayerCapture(): Focus {
   return { kind: "采集" };
 }
 
+/**
+ * 首页顶栏「采」入口。层转联调后默认隐藏；测 Gan / 再采指纹时改 true。
+ * 页面与路由仍保留，勿删。
+ */
+export const SHOW_LAYER_CAPTURE_ENTRY = false;
+
 export function back(focus: Focus): Focus {
   if (
     focus.kind === "练习" ||

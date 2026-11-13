@@ -123,10 +123,11 @@ export function randomScramble3x3(
 }
 
 /**
- * 真机联调：首页用引导式层转公式（不含外层单面、不含转体）。
- * 验收通过后改回 false（恢复仅外层随机打乱）。
+ * 真机联调：首页用引导式层转公式（宽层 / 中层混测）。
+ * L0–L9 已通过；产品首页改回 false，走 {@link randomScramble3x3}。
+ * 联调生成器代码保留，需要时再打开。
  */
-export const USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE = true;
+export const USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE = false;
 
 /**
  * 联调焦点：决定首页随机公式族。

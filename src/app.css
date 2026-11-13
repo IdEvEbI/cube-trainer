@@ -203,6 +203,12 @@
   cursor: wait;
 }
 
+/* 未连接时仍占中栏位，避免连上后「对齐」出现导致顶栏/魔方区跳一下。 */
+.bt-align-icon.is-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .bt-status {
   min-width: 0;
   max-width: 42vw;
