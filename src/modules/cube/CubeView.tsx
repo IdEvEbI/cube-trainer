@@ -1,5 +1,4 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
-import { Alg } from "cubing/alg";
 import type { KPattern } from "cubing/kpuzzle";
 import { TwistyPlayer, type ExperimentalStickering } from "cubing/twisty";
 import type { Group } from "three";
@@ -24,11 +23,13 @@ import {
 } from "../scramble/scramble.ts";
 import { CUBE_ORIENTATION_ALG, isLayerMove } from "./cube.ts";
 import { applyMoveHint, type MoveHintOptions } from "./moveHint.ts";
+import {
+  PLAYBACK_MOVE,
+  playbackAlgText,
+  playbackMoveToken,
+} from "./playbackAlg.ts";
 import { LAYER_MOVES, type LayerMove } from "./types.ts";
 import "./cube.css";
-
-/** 回放 / 练习动画：层转 + 整步转体（复盘含 x/y/z）。 */
-const PLAYBACK_MOVE = /^(?:[UDLRFBudlrfbxyz]|[MES])(?:2'|'2|2|')?$/;
 
 export type CubeMotion = "forward" | "back";
 
@@ -261,7 +262,7 @@ async function animateAppendMove(
   }
   const current = (await twisty.experimentalGet.alg()).toString().trim();
   const before = current;
-  const after = `${before} ${move}`.trim();
+  const after = `${before} ${playbackMoveToken(move)}`.trim();
   twisty.pause();
   twisty.alg = before;
   twisty.timestamp = "end";
@@ -303,25 +304,9 @@ async function appendMovesInstant(
     return;
   }
   const current = (await twisty.experimentalGet.alg()).toString().trim();
-  const added = moves.join(" ").trim();
+  const added = playbackAlgText(moves.join(" "));
   twisty.alg = `${current} ${added}`.trim();
   twisty.timestamp = "end";
-}
-
-/** Allow empty alg (solved cube) for scramble / review playback from white-up start. */
-function algText(source: string): string {
-  const trimmed = source.trim();
-  if (!trimmed) {
-    return "";
-  }
-  const moves = [...new Alg(trimmed).experimentalLeafMoves()].map((move) =>
-    move.toString(),
-  );
-  const invalid = moves.find((move) => !PLAYBACK_MOVE.test(move));
-  if (invalid) {
-    throw new Error(`无法播放转动：${invalid}`);
-  }
-  return moves.join(" ");
 }
 
 async function animatePracticeMove(
@@ -335,8 +320,8 @@ async function animatePracticeMove(
   if (!twisty || !isCurrent()) {
     return;
   }
-  const fromMoves = algText(before);
-  const toMoves = algText(after);
+  const fromMoves = playbackAlgText(before);
+  const toMoves = playbackAlgText(after);
   twisty.pause();
   twisty.alg = fromMoves;
   twisty.timestamp = "end";
@@ -880,7 +865,7 @@ export function CubeView({
       });
     },
     showMoves(moves: string) {
-      const parsed = algText(moves);
+      const parsed = playbackAlgText(moves);
       lastAbsoluteAlg.current = null;
       const hintToken = (moveHintToken.current += 1);
       const task = queue.current.then(async () => {
@@ -1000,8 +985,8 @@ export function CubeView({
           const current = (await twisty.experimentalGet.alg())
             .toString()
             .trim();
-          const before = fromProp || current;
-          const after = `${before} ${trimmed}`.trim();
+          const before = fromProp ? playbackAlgText(fromProp) : current;
+          const after = `${before} ${playbackMoveToken(trimmed)}`.trim();
           twisty.pause();
           twisty.experimentalModel.setupTransformation.set(null);
           twisty.alg = before;
