@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { cube3x3x3 } from "cubing/puzzles";
 import {
   guideLayerGyroOrientationAlg,
+  guideLayerGyroOrientationAlgLast,
   layerTokenDualParts,
   remapBleFaceMoveAfterLayerGyro,
   remapBleFaceMoveThroughOrientationAlg,
@@ -48,6 +49,23 @@ describe("guideLayerGyroOrientationAlg", () => {
 
   it("空前缀", () => {
     assert.equal(guideLayerGyroOrientationAlg(["r", "U'"], 0), "");
+  });
+});
+
+describe("guideLayerGyroOrientationAlgLast", () => {
+  it("只取最近一层转 Δ，不拼全历史", () => {
+    assert.equal(
+      guideLayerGyroOrientationAlgLast(["z2", "S'", "S", "d'", "R'"], 4),
+      "y'",
+    );
+    assert.equal(
+      guideLayerGyroOrientationAlg(["z2", "S'", "S", "d'", "R'"], 4),
+      "z' z y'",
+    );
+    assert.equal(
+      guideLayerGyroOrientationAlgLast(["z2", "U'", "M'", "U'"], 3),
+      "x'",
+    );
   });
 });
 

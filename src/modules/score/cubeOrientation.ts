@@ -290,6 +290,15 @@ export function scrambleToHeldPrepRotations(heldAlg: string): string[] {
 
 /** 计时中朝向需稳定这么久才写入转体，避免 z z' 抖动。 */
 export const ORIENTATION_HOLD_STABLE_MS = 320;
+/** x2/y2/z2：黄上翻转到位即可，过长稳定窗会逼用户猛晃才提交。 */
+export const ORIENTATION_HOLD_DOUBLE_TURN_MS = 100;
+
+/** 期望为双步转体（z2/x2/y2）时用更短稳定窗。 */
+export function orientationHoldStableMsForMove(expectedMove: string): number {
+  return /2/.test(expectedMove.trim())
+    ? ORIENTATION_HOLD_DOUBLE_TURN_MS
+    : ORIENTATION_HOLD_STABLE_MS;
+}
 
 /** 面转后静默窗口：此间不采纳陀螺仪转体，避免打断 R2 等连拧。 */
 export const ORIENTATION_FACE_QUIET_MS = 450;

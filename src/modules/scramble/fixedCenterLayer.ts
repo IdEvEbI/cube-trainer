@@ -69,10 +69,10 @@ export async function absoluteAlgToFixedCenterPattern(
 }
 
 /**
- * 绝对 alg → 钉色心 pattern（facelets/对表等非跟转 3D 用途）。
+ * 绝对 alg → 钉色心 pattern（facelets/对表等用途）。
  * - 角棱：整段 alg 后钉死切片/宽层对色心的偷换
  * - 色心：只保留公式 x/y/z（如 Cross `z2` 黄上）
- * **蓝牙跟转 3D 不要用**：跟转走 `setAbsoluteAlg` 公式旋转（宽层 `l` 顶心为蓝等公式语义）。
+ * 蓝牙跟转 3D 走 `setAbsoluteAlg` 公式旋转，不用本函数改贴图。
  */
 export async function absoluteAlgToNailedDisplayPattern(
   alg: string,

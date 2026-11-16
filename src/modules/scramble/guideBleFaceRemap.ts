@@ -177,18 +177,18 @@ export function guideBleFaceOrientAlg(
 
 /**
  * 映面候选（去重，按优先级）：
- * 1. 公式 + relative(basis→live)
- * 2. 公式 + relative 取反（陀螺/吸附把 r' 的 x 认成 x' 时）
- * 3. 仅公式（摆正兜底）
+ * 1. 仅公式（黄上 z2 等）— 优先，摆正外面转先命中
+ * 2. 公式 + relative(basis→live) / 取反
+ * 3. 公式 + 已完成层转期望 Δ / 取反
+ *    （Twisty 公式色心：`M'`≡`x`，跟 3D 拧顶面常报绝对 F'；无此项会收成 F'）
  *
- * 不要把「已完成层转期望 Δ 全历史」塞进候选：`S' … S … d'` 会拼成
- * `z' z y'`，失败时把 B' 映成 L' 并误报「请转 L」。
+ * 回落仍用首个（公式）；勿把层转 Δ 放第一，也勿作唯一回落。
  */
 export function guideBleFaceOrientCandidates(options: {
   formulaOrients: readonly string[];
   homeQuat: MoyuQuat;
   liveQuat: MoyuQuat | null | undefined;
-  /** @deprecated 忽略；保留参数以免旧调用方立刻报错。 */
+  /** 已完成宽层/中层期望陀螺 Δ（{@link guideLayerGyroOrientationAlg}）。 */
   layerGyroAlg?: string | null;
 }): string[] {
   const formula = options.formulaOrients;
@@ -208,6 +208,9 @@ export function guideBleFaceOrientCandidates(options: {
     }
   };
 
+  if (formulaAlg) {
+    push(formulaAlg);
+  }
   if (options.liveQuat) {
     const basis = guideBleRelativeBasisQuat(formula, options.homeQuat);
     const rel = relativeOrientationAlg(basis, options.liveQuat);
@@ -217,13 +220,16 @@ export function guideBleFaceOrientCandidates(options: {
       push(composeGuideBleMatchOrients(formula, inv).join(" "));
     }
   }
-  if (formulaAlg) {
-    push(formulaAlg);
-  } else if (out.length === 0) {
-    push("");
+  const layer = (options.layerGyroAlg ?? "").trim();
+  if (layer) {
+    push(composeGuideBleMatchOrients(formula, layer).join(" "));
+    const layerInv = invertOrientationAlgParts(layer);
+    if (layerInv && layerInv !== layer) {
+      push(composeGuideBleMatchOrients(formula, layerInv).join(" "));
+    }
   }
   if (out.length === 0) {
-    out.push("");
+    push("");
   }
   return out;
 }
@@ -255,7 +261,7 @@ export function resolveGuideBleFaceMoveWithCandidates(
 ): string {
   const want = (expectedToken ?? "").trim();
   const list = orientAlgs.length > 0 ? orientAlgs : [""];
-  // 无一命中时回落**首个**候选的映面（勿用末个：层转期望 Δ 会把 B' 收成 L'）。
+  // 无一命中时回落**首个**候选（现为公式-only，勿把层转 yaw 脏映面当回落）。
   let first: string | null = null;
   for (const alg of list) {
     const got = resolveGuideBleFaceMove(bleMove, expectedToken, alg);
