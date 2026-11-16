@@ -76,7 +76,7 @@ describe("guideBleFaceOrientCandidates / r' 后 U", () => {
       homeQuat: home,
       liveQuat: live,
     });
-    assert.ok(candidates.some((alg) => alg === "z2"));
+    assert.equal(candidates[0], "z2", "公式优先");
     assert.equal(
       resolveGuideBleFaceMoveWithCandidates("B", "U", candidates),
       "U",
@@ -84,6 +84,31 @@ describe("guideBleFaceOrientCandidates / r' 后 U", () => {
     assert.equal(
       resolveGuideBleFaceMoveWithCandidates("D", "U", candidates),
       "U",
+    );
+  });
+
+  it("截图：z2 后 u 残留 yaw 时，期望 R 仍吃绝对 L（勿把绝对 R 收成 F）", () => {
+    const home = quatFromOrientationAlg("z2");
+    const live = quatFromOrientationAlg("z2 y'");
+    const candidates = guideBleFaceOrientCandidates({
+      formulaOrients: ["z2"],
+      homeQuat: home,
+      liveQuat: live,
+    });
+    assert.equal(candidates[0], "z2");
+    // 黄上公式 R = 绝对 L；摆正拧法应直接命中
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("L", "R", candidates),
+      "R",
+    );
+    // 绝对 R 在脏 yaw 下曾被首个候选映成 F；公式优先后回落为 L（对面），勿报 F
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("R", "R", candidates),
+      "L",
+    );
+    assert.notEqual(
+      resolveGuideBleFaceMoveWithCandidates("R", "R", candidates),
+      "F",
     );
   });
 
@@ -99,25 +124,57 @@ describe("guideBleFaceOrientCandidates / r' 后 U", () => {
     );
   });
 
-  it("S'+S+d' 累加期望 Δ 不得再进候选：B' 勿收成 L'", () => {
-    const candidates = guideBleFaceOrientCandidates({
+  it("层转 Δ 只用最近一步：摆正 L' 进 R'；勿传全历史脏串", () => {
+    // 全历史 z' z y' 取反含 y，B' 会误命中 R'——调用方须传 Last
+    const dirty = guideBleFaceOrientCandidates({
       formulaOrients: ["z2"],
       homeQuat: quatFromOrientationAlg("z2"),
       liveQuat: quatFromOrientationAlg("z2"),
       layerGyroAlg: "z' z y'",
     });
-    assert.deepEqual(candidates, ["z2"]);
     assert.equal(
-      resolveGuideBleFaceMoveWithCandidates("B'", "R'", candidates),
-      "B'",
-    );
-    assert.equal(
-      resolveGuideBleFaceMoveWithCandidates("L'", "R'", candidates),
+      resolveGuideBleFaceMoveWithCandidates("B'", "R'", dirty),
       "R'",
+      "全历史仍会误命中",
+    );
+    const lastOnly = guideBleFaceOrientCandidates({
+      formulaOrients: ["z2"],
+      homeQuat: quatFromOrientationAlg("z2"),
+      liveQuat: quatFromOrientationAlg("z2"),
+      layerGyroAlg: "y'",
+    });
+    assert.equal(lastOnly[0], "z2");
+    // 摆正正确拧法：黄上公式 R = 绝对 L
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("L'", "R'", lastOnly),
+      "R'",
+    );
+    // Last 的 y' 取反仍是 y，B'→R' 别名还在；Last 只去掉 S'S 等更脏组合
+    assert.ok(lastOnly.includes("z2 y'") || lastOnly.includes("z2 y"));
+  });
+
+  it("截图：M' 后跟公式拧顶面（绝对 F'）应推进 U'，勿报请转 F", () => {
+    // Twisty：z2 M' 色心 ≡ z2 x；M' 期望 Δ=x'。跟 3D 顶面 = 绝对 F'。
+    const candidates = guideBleFaceOrientCandidates({
+      formulaOrients: ["z2"],
+      homeQuat: quatFromOrientationAlg("z2"),
+      liveQuat: quatFromOrientationAlg("z2"),
+      layerGyroAlg: "x'",
+    });
+    assert.equal(candidates[0], "z2");
+    assert.ok(candidates.includes("z2 x'") || candidates.includes("z2 x"));
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("F'", "U'", candidates),
+      "U'",
+    );
+    // 摆正拧黄面（绝对 D'）仍走公式优先
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("D'", "U'", candidates),
+      "U'",
     );
   });
 
-  it("无一命中时回落首个候选，勿用末个脏 Δ", () => {
+  it("无一命中时回落首个候选（公式优先后即公式-only）", () => {
     assert.equal(
       resolveGuideBleFaceMoveWithCandidates("B'", "R'", ["z2", "z2 z' z y'"]),
       "B'",

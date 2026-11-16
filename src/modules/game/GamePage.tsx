@@ -7,6 +7,7 @@ import { PracticeControls } from "../practice/PracticeControls.tsx";
 import {
   createOrientationHoldState,
   nearestCubeOrientationAlg,
+  orientationHoldStableMsForMove,
   scrambleGuideRotationSatisfied,
   tickOrientationHold,
   type OrientationHoldState,
@@ -53,6 +54,7 @@ import {
   resolveGuideBleFaceMoveWithCandidates,
   syncGuideFaceRemapHome,
 } from "../scramble/guideBleFaceRemap.ts";
+import { guideLayerGyroOrientationAlgLast } from "../scramble/layerGuideDualPaint.ts";
 import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
@@ -334,7 +336,7 @@ export function GamePage({
   /**
    * 跟拧映面候选：共用 {@link guideBleFaceOrientCandidates}。
    * 打乱段（尚无 z2）：只返回空串（色心绝对面）。
-   * 含 z2：公式姿态作 relative 基准（防 z2 双计），并回退相对取反 / 仅公式 / 层转期望 Δ。
+   * 含 z2：公式优先 + live relative + 已完成层转期望 Δ（及取反）。
    */
   function faceOrientCandidatesForGuide(guide: GuidedScramble): string[] {
     const formula = formulaOrientationMovesForGuide(guide);
@@ -349,10 +351,15 @@ export function GamePage({
         live,
       );
     }
+    const layerGyroAlg = guideLayerGyroOrientationAlgLast(
+      guide.displayMoves,
+      guide.progress,
+    );
     return guideBleFaceOrientCandidates({
       formulaOrients: formula,
       homeQuat: faceRemapHomeRef.current.homeQuat,
       liveQuat: live,
+      layerGyroAlg,
     });
   }
 
@@ -398,9 +405,8 @@ export function GamePage({
   }
 
   /**
-   * 步到位后写公式前缀（与首页打乱引导同一路径）：`setAbsoluteAlg` 旋转，
-   * 勿改 pattern 贴图。宽层/中层色心跟 Twisty 公式语义（如 z2…l 后顶心蓝）。
-   * mesh 单位；过程中禁止用 facelets 重刷整盘。
+   * 步到位后写公式前缀：`setAbsoluteAlg` 旋转（含宽层/中层），勿改 pattern 贴图。
+   * 例：z2…f' 后顶心为橙（公式语义）。mesh 单位；过程中禁止 facelets 重刷。
    */
   function paintGameGuideCube(guide: GuidedScramble): Promise<void> {
     const paintAlg = formulaPaintAlg(guide);
@@ -854,9 +860,15 @@ export function GamePage({
         orientHoldRef.current,
         relativeAlg,
         performance.now(),
+        orientationHoldStableMsForMove(manual),
       );
       orientHoldRef.current = tick.state;
-      if (scrambleGuideRotationSatisfied("", tick.state.committed, manual)) {
+      // z2/x2/y2：实况已到位即可（勿只等 committed，否则 320ms 窗被抖动重置，要猛晃）。
+      const heldOk =
+        scrambleGuideRotationSatisfied("", tick.state.committed, manual) ||
+        (/2/.test(manual) &&
+          scrambleGuideRotationSatisfied("", relativeAlg, manual));
+      if (heldOk) {
         rotationStepKeyRef.current = null;
         tryConfirmManualFromGuide();
       }

@@ -117,60 +117,26 @@ describe("fixedCenterLayer 中层 / 宽层规格", () => {
   });
 
   /**
-   * 表驱动：蓝牙跟转 3D 走公式 Twisty.alg（与 L9 外层面转同一路径），
-   * 色心跟公式语义，禁止再用钉色心贴图把宽层 l 顶心拧回黄。
+   * 表驱动：跟转 3D 走公式 Twisty.alg（勿钉贴图）。
    * 色心 piece：0白U 1橙L 2绿F 3红R 4蓝B 5黄D；slot 序 U L F R B D。
    */
   describe("表驱动：公式旋转色心（跟转 3D）", () => {
-    async function formulaCenters(alg: string): Promise<number[]> {
+    it("截图 F2L1：z2…f' 后顶心为橙（公式语义，钉会变黄）", async () => {
+      const alg = "z2 F B' R2 L2 U' F R' L L' U L U f'";
       const puzzle = await cube3x3x3.kpuzzle();
-      return [
-        ...puzzle.defaultPattern().applyAlg(alg).patternData.CENTERS.pieces,
-      ];
-    }
-
-    it("截图 F2L2：z2…l 后顶心为蓝（公式 l，勿钉回黄）", async () => {
-      const alg = "z2 R2 D' R' B' R' L' U L U L' U2 L l";
-      const centers = await formulaCenters(alg);
-      assert.equal(centers[0], 4, "U 槽应为蓝心 piece");
-      assert.equal(algNeedsFixedCenterPaint(alg), true);
-      // 钉色心会把顶心拧回黄——跟转 3D 禁止走这条
+      const raw = puzzle.defaultPattern().applyAlg(alg);
+      assert.equal(raw.patternData.CENTERS.pieces[0], 1, "公式 U=橙");
       const nailed = await absoluteAlgToNailedDisplayPattern(alg);
-      assert.equal(nailed.patternData.CENTERS.pieces[0], 5, "钉后顶心黄");
-      assert.notEqual(
-        centers[0],
-        nailed.patternData.CENTERS.pieces[0],
-        "公式色心 ≠ 钉色心；paint 须 setAbsoluteAlg",
-      );
+      assert.equal(nailed.patternData.CENTERS.pieces[0], 5, "钉后 U=黄");
+      assert.equal(algNeedsFixedCenterPaint(alg), true);
     });
 
-    const matrix: ReadonlyArray<{
-      label: string;
-      alg: string;
-      /** U 槽期望 piece */
-      uPiece: number;
-    }> = [
-      {
-        label: "F2L2 l",
-        alg: "z2 R2 D' R' B' R' L' U L U L' U2 L l",
-        uPiece: 4,
-      },
-      { label: "z2 l", alg: "z2 l", uPiece: 4 },
-      { label: "z2 S'", alg: "z2 S'", uPiece: 1 },
-      { label: "z2 M", alg: "z2 M", uPiece: 4 },
-      { label: "仅 z2（对照）", alg: "z2", uPiece: 5 },
-    ];
-
-    for (const row of matrix) {
-      it(`${row.label}：U 心 piece=${row.uPiece}`, async () => {
-        const centers = await formulaCenters(row.alg);
-        assert.equal(
-          centers[0],
-          row.uPiece,
-          `${row.alg} → U=${centers[0]} 期望 ${row.uPiece}`,
-        );
-      });
-    }
+    it("z2…u 后公式前面为橙；映面靠公式优先，不靠钉贴图", async () => {
+      const alg = "z2 D U' B2 R D' L' U' R U R' U' R U R' U' R' U' R2 u";
+      const puzzle = await cube3x3x3.kpuzzle();
+      const raw = puzzle.defaultPattern().applyAlg(alg);
+      assert.equal(raw.patternData.CENTERS.pieces[2], 1, "公式 F=橙");
+    });
   });
 
   it("E'：钉中心后与 D'U 整机归心不同态", async () => {

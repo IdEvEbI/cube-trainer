@@ -60,9 +60,14 @@
 
 **贴纸写入白名单**：连接（facelets）/ 断开 / 前台对表；引导里仅「步到位」写公式前缀（`setAbsoluteAlg`，alg 未变则跳过）。过程中 facelets 只对表，3D 只靠转动包与陀螺 scrub——禁止 poll 重刷整盘。
 
-**跟转 3D（与 L9 外层面转同一路径）**：宽层/中层也走**公式 `Twisty.alg` 旋转**，色心跟公式语义（例：Cross `z2` 后 `l` → 顶心蓝）。禁止再用 `setAbsoluteFromPattern` / `absoluteAlgToNailedDisplayPattern` 改贴图「钉回黄上」——会与实体对照及公式语义打架，越改越乱。`absoluteAlgToNailedDisplayPattern` 仅保留给 facelets/对表等非跟转 3D 用途。
+**跟转 3D**：宽层/中层走**公式 `Twisty.alg` 旋转**（`setAbsoluteAlg`），色心跟公式语义（例：`z2…f'` 后顶心橙）。禁止用 `setAbsoluteFromPattern` 钉贴图「拧回黄上」。`absoluteAlgToNailedDisplayPattern` 仅给 facelets/对表。
 
-**层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀，整段 `baseAlg + move` 进 Twisty.alg scrub；开轨道摘盒后须立刻 `rebindPendingMoveHint`（`f'2` 半程未 matched 前不会 finish，否则高亮盒消失）。`rebindAfterAbsoluteChange` / 重挂须把现有 hint 组传给 `applyMoveHint`（传 `null` 会残留旧盒，出现双高亮）。mesh 锁单位。
+**映面候选**：公式转体优先，再 live relative / 取反，再**最近一次**层转期望 Δ / 取反（`guideLayerGyroOrientationAlgLast`）。  
+`M'` 公式色心 ≡ `x`（期望陀螺 Δ=`x'` 的取反）：跟 3D 拧顶面常报绝对 `F'`，无此项会收成「请转 F」。勿拼全历史 Δ（`S' S d'`→`z' z y'` 放大别名面）；Last 单步仍可能含 `y'` 取反的 B'→R' 别名，但少得多。回落仍用公式。
+
+**转体 z2**：双步转体用短稳定窗，且实况 relative 已满足即可确认（勿只等 hold committed，否则抖动反复重置，要猛晃才过）。
+
+**层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀，整段进 Twisty.alg scrub；开轨道摘盒后须立刻 `rebindPendingMoveHint`。mesh 锁单位。
 
 L9（**通过 2026-11-13**）：层转一步 scrub 后保持该 alg；mesh 锁单位。BLE 面转：`resolveGuideBleFaceMove`——色心已对上期望则不映（避 live `y` 噪声 L→F）；否则按引导起点→live 朝向映回（未摆正 F'→U'）。字母偶发不符时 facelets 兜底。
 

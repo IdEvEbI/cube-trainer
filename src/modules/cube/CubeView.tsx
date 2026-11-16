@@ -114,7 +114,7 @@ export type CubeHandle = {
   animateGuideStep(move: string, quarterTurnMs: number): Promise<void>;
   /**
    * 陀螺跟手：在 `baseAlg`（已完成前缀）上追加一步公式进 Twisty.alg，再用
-   * {@link setGuideStepGyroProgress} 按 0…1 scrub（与 L9 外层面转同一路径）。
+   * {@link setGuideStepGyroProgress} 按 0…1 scrub。
    * `baseAlg` 必填：空串会从复原态闪切。
    */
   startGuideStepGyroTrack(move: string, baseAlg?: string): Promise<void>;
@@ -988,8 +988,7 @@ export function CubeView({
           const moveTok = playbackMoveToken(trimmed);
           const after = `${before} ${moveTok}`.trim();
           twisty.pause();
-          // 与首页 L9 / 外层面转同一路径：整段公式走 Twisty.alg 旋转，
-          // 勿用 setupTransformation 钉色心贴图（宽层 l 后顶心应为公式语义蓝上等）。
+          // 整段公式进 Twisty.alg（含宽层/中层）；色心跟公式语义，勿钉贴图。
           twisty.experimentalModel.setupTransformation.set(null);
           twisty.alg = before;
           twisty.timestamp = "end";

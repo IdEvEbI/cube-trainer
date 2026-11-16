@@ -63,6 +63,30 @@ export function guideLayerGyroOrientationAlg(
 }
 
 /**
+ * 最近一次已完成层转的期望 Δ（单步）。
+ * 映面候选用这个，勿用全历史拼接——`S' S d'`→`z' z y'` 取反会误把 B' 收成 R'。
+ */
+export function guideLayerGyroOrientationAlgLast(
+  moves: readonly string[],
+  count: number,
+): string {
+  const truncated = Math.trunc(count);
+  if (!Number.isFinite(truncated)) {
+    throw new Error(
+      "guideLayerGyroOrientationAlgLast: count must be a finite number",
+    );
+  }
+  const end = Math.max(0, Math.min(moves.length, truncated));
+  for (let i = end - 1; i >= 0; i -= 1) {
+    const dual = layerTokenDualParts(moves[i] ?? "");
+    if (dual) {
+      return dual.orientationAlg.trim();
+    }
+  }
+  return "";
+}
+
+/**
  * BLE 色心面转 → 公式帧（经朝向串）。
  * `orientationAlg` 为空或非面转时原样返回。
  */

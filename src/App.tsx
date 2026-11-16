@@ -72,6 +72,7 @@ import {
   createOrientationHoldState,
   midSolveOrientationCandidate,
   nearestCubeOrientationAlg,
+  orientationHoldStableMsForMove,
   orientationRotationPath,
   ORIENTATION_FACE_QUIET_MS,
   scrambleGuideRotationSatisfied,
@@ -122,6 +123,7 @@ import {
   guideBleFaceOrientCandidates,
   resolveGuideBleFaceMoveWithCandidates,
 } from "./modules/scramble/guideBleFaceRemap.ts";
+import { guideLayerGyroOrientationAlgLast } from "./modules/scramble/layerGuideDualPaint.ts";
 import {
   resolveLayerFollowKind,
   shouldPlayBluetoothMoveAnim,
@@ -860,13 +862,18 @@ export default function App() {
 
   /**
    * 引导中 BLE 面转：与游戏页共用 {@link guideBleFaceOrientCandidates}
-   *（打乱公式白上，formula 为空；含相对取反回退）。
+   *（打乱公式白上，formula 为空；含 relative / 层转期望 Δ）。
    */
   function scrambleGuideFaceOrientCandidates(): string[] {
+    const guide = scrambleGuideRef.current;
+    const layerGyroAlg = guide
+      ? guideLayerGyroOrientationAlgLast(guide.displayMoves, guide.progress)
+      : "";
     return guideBleFaceOrientCandidates({
       formulaOrients: [],
       homeQuat: scrambleGuideFaceRemapHomeQuatRef.current,
       liveQuat: currentBluetoothRelativeQuat(),
+      layerGyroAlg,
     });
   }
 
@@ -971,9 +978,15 @@ export default function App() {
       scrambleGuideOrientHoldRef.current,
       relativeAlg,
       now,
+      orientationHoldStableMsForMove(manual),
     );
     scrambleGuideOrientHoldRef.current = tick.state;
-    if (!scrambleGuideRotationSatisfied("", tick.state.committed, manual)) {
+    // z2/x2/y2：实况已到位即可，避免稳定窗被抖动反复重置。
+    const heldOk =
+      scrambleGuideRotationSatisfied("", tick.state.committed, manual) ||
+      (/2/.test(manual) &&
+        scrambleGuideRotationSatisfied("", relativeAlg, manual));
+    if (!heldOk) {
       return;
     }
     const result = confirmGuidedManualStep(guide);
@@ -1006,9 +1019,8 @@ export default function App() {
   }
 
   /**
-   * 引导写入（与 L9 外层面转同一路径）：步到位后 `setAbsoluteAlg` 公式前缀。
-   * 宽层/中层也走公式旋转，勿改 pattern 贴图。连接态仍由
-   * {@link applyBluetoothStatusToCube} 处理；过程中禁止 facelets 重刷整盘。
+   * 引导写入：步到位后 `setAbsoluteAlg` 公式前缀（含宽层/中层，勿改贴图）。
+   * 连接态仍由 {@link applyBluetoothStatusToCube} 处理；过程中禁止 facelets 重刷。
    * 层转勿把 Δ 打进 mesh；对表用 {@link remapBleFaceMoveAfterLayerGyro}。
    */
   function paintScrambleGuideCube(

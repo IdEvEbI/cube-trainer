@@ -12,7 +12,10 @@ import {
   invertRotationGuideToken,
   orientationAlgThroughProgress,
   orientationRotationPath,
+  orientationHoldStableMsForMove,
   orientationSatisfiesRotation,
+  ORIENTATION_HOLD_DOUBLE_TURN_MS,
+  ORIENTATION_HOLD_STABLE_MS,
   quatFromOrientationAlg,
   scrambleGuideRotationSatisfied,
   scrambleToHeldPrepRotations,
@@ -169,5 +172,33 @@ describe("cubeOrientation", () => {
     state = tick.state;
     tick = tickOrientationHold(state, "y", 500, 320);
     assert.deepEqual(tick.path, []);
+  });
+
+  it("z2/x2 用短稳定窗；实况 z2 即算到位（勿逼猛晃）", () => {
+    assert.equal(
+      orientationHoldStableMsForMove("z2"),
+      ORIENTATION_HOLD_DOUBLE_TURN_MS,
+    );
+    assert.equal(
+      orientationHoldStableMsForMove("U"),
+      ORIENTATION_HOLD_STABLE_MS,
+    );
+    assert.equal(scrambleGuideRotationSatisfied("", "z2", "z2"), true);
+    assert.equal(scrambleGuideRotationSatisfied("", "z2 y", "z2"), true);
+    let state = createOrientationHoldState("");
+    let tick = tickOrientationHold(
+      state,
+      "z2",
+      0,
+      ORIENTATION_HOLD_DOUBLE_TURN_MS,
+    );
+    state = tick.state;
+    tick = tickOrientationHold(
+      state,
+      "z2",
+      ORIENTATION_HOLD_DOUBLE_TURN_MS,
+      ORIENTATION_HOLD_DOUBLE_TURN_MS,
+    );
+    assert.deepEqual(tick.path, ["z2"]);
   });
 });
