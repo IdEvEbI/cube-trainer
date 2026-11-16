@@ -33,12 +33,7 @@ import {
   resolveLayerFollowKind,
   shouldPlayBluetoothMoveAnim,
 } from "../scramble/scrambleGuideLayerFollow.ts";
-import {
-  appendGuideLayerGestureMoves,
-  evaluateGuideLayerGesture,
-  syncGuideLayerGestureTracker,
-  type GuideLayerGestureTracker,
-} from "../scramble/scrambleGuideLayerGesture.ts";
+import { evaluateGuideLayerGesture } from "../scramble/scrambleGuideLayerGesture.ts";
 import {
   guidePaintAlgPrefix,
   guideProgressMatchesCube,
@@ -46,19 +41,11 @@ import {
 } from "./algStateMatch.ts";
 import { tokenizeAlg, type CfopPhaseSolution } from "./cfopSolve.ts";
 import { solveCfopGame } from "./cfopSolve.ts";
-import {
-  applyGuideFaceRemapHomeLive,
-  clearGuideFaceRemapHome,
-  createGuideFaceRemapHomeState,
-  guideBleFaceOrientCandidates,
-  resolveGuideBleFaceMoveWithCandidates,
-  syncGuideFaceRemapHome,
-} from "../scramble/guideBleFaceRemap.ts";
-import { guideLayerGyroOrientationAlgLast } from "../scramble/layerGuideDualPaint.ts";
+import { resolveGuideBleFaceMoveWithCandidates } from "../scramble/guideBleFaceRemap.ts";
+import { createGuideFollowController } from "../scramble/guideFollowController.ts";
 import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
-  relativeOrientationAlg,
 } from "./guideOrientation.ts";
 import { applyGuidedBleAbsoluteMoveWithOrientAlgs } from "./guidedAbsolute.ts";
 import { manualStepReachedOnCube } from "./manualStepSync.ts";
@@ -88,8 +75,6 @@ import "./gamePage.css";
 
 /** 宽层 / 中层对表轮询间隔，避免刷爆 BLE requestStatus。 */
 const MANUAL_STATE_POLL_MS = 450;
-/** 宽层 / 中层确认后忽略面转包，避免同一次拧转的 U/D 冲进后续 L' 等步。 */
-const MANUAL_STEP_QUIET_MS = 550;
 
 /** Cross 段内（含刚完成 Cross 最后一步）才启用活朝向映射与逐步对表。 */
 function isCrossGuideProgress(
@@ -254,24 +239,10 @@ export function GamePage({
   const gameGuidePaintBaseRef = useRef("");
   /** Cross 活朝向映射变化时才重画高亮，避免每帧重建箭头抖动。 */
   const crossHintOrientKeyRef = useRef("");
-  /** 转体步：进入该步时的手持，用作相对 Δ（与首页打乱引导一致）。 */
-  const rotationStepKeyRef = useRef<string | null>(null);
-  const rotationFromQuatRef = useRef<MoyuQuat>(IDENTITY_QUAT);
-  /**
-   * 面转映面 home（与首页共用 {@link syncGuideFaceRemapHome}）：
-   * 公式 x/y/z 键变时采 live；层转不更新。
-   */
-  const faceRemapHomeRef = useRef(createGuideFaceRemapHomeState());
+  /** 与首页打乱共用：映面 home / 层转 tracker / 静默窗 / 转体 Δ 起点。 */
+  const guideFollow = useRef(createGuideFollowController()).current;
   const statePollBusyRef = useRef(false);
   const statePollKickRef = useRef<(() => void) | null>(null);
-  /** 进入当前手动步时的公式前缀（非 facelets），供增量对表。 */
-  const manualSyncSetupRef = useRef<string | null>(null);
-  const manualSyncKeyRef = useRef<string | null>(null);
-  const manualQuietUntilRef = useRef(0);
-  /** 宽层 / 中层：手势 tracker + 陀螺 scrub（与首页 L0–L9 同路径）。 */
-  const layerGuideAnimKeyRef = useRef<string | null>(null);
-  const layerGestureTrackerRef = useRef<GuideLayerGestureTracker | null>(null);
-  const layerMatchHoldRef = useRef(false);
 
   const [scramble, setScramble] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
@@ -313,53 +284,17 @@ export function GamePage({
     return completedOrientationMoves(guide.displayMoves, guide.progress);
   }
 
-  function formulaHasYellowUp(formula: readonly string[]): boolean {
-    return formula.some((move) => {
-      const token = move.trim();
-      return token === "z2" || token === "z2'" || token.startsWith("z2 ");
-    });
-  }
-
-  /** 公式转体键 → 共用 home 状态机。 */
-  function syncFaceRemapHome(guide: GuidedScramble) {
-    const formula = formulaOrientationMovesForGuide(guide);
-    faceRemapHomeRef.current = syncGuideFaceRemapHome(
-      faceRemapHomeRef.current,
-      {
-        orientsKey: formula.join(" "),
-        active: formulaHasYellowUp(formula),
-        liveQuat: lastLiveOrientRef.current,
-      },
-    );
-  }
-
   /**
-   * 跟拧映面候选：共用 {@link guideBleFaceOrientCandidates}。
-   * 打乱段（尚无 z2）：只返回空串（色心绝对面）。
-   * 含 z2：公式优先 + live relative + 已完成层转期望 Δ（及取反）。
+   * 跟拧映面候选：经 {@link createGuideFollowController}。
+   * 打乱段（尚无 z2）：只返回空串；含 z2：公式优先 + relative + Last 层转 Δ。
    */
   function faceOrientCandidatesForGuide(guide: GuidedScramble): string[] {
-    const formula = formulaOrientationMovesForGuide(guide);
-    if (!formulaHasYellowUp(formula)) {
-      return [""];
-    }
-    syncFaceRemapHome(guide);
-    const live = lastLiveOrientRef.current;
-    if (live) {
-      faceRemapHomeRef.current = applyGuideFaceRemapHomeLive(
-        faceRemapHomeRef.current,
-        live,
-      );
-    }
-    const layerGyroAlg = guideLayerGyroOrientationAlgLast(
-      guide.displayMoves,
-      guide.progress,
-    );
-    return guideBleFaceOrientCandidates({
-      formulaOrients: formula,
-      homeQuat: faceRemapHomeRef.current.homeQuat,
-      liveQuat: live,
-      layerGyroAlg,
+    return guideFollow.faceOrientCandidates({
+      formulaOrients: formulaOrientationMovesForGuide(guide),
+      displayMoves: guide.displayMoves,
+      progress: guide.progress,
+      liveQuat: lastLiveOrientRef.current,
+      requireYellowUp: true,
     });
   }
 
@@ -418,7 +353,15 @@ export function GamePage({
 
   function publishGuide(guide: GuidedScramble) {
     guideRef.current = guide;
-    syncFaceRemapHome(guide);
+    const formula = formulaOrientationMovesForGuide(guide);
+    guideFollow.syncFaceRemapHome({
+      orientsKey: formula.join(" "),
+      active: formula.some((move) => {
+        const token = move.trim();
+        return token === "z2" || token === "z2'" || token.startsWith("z2 ");
+      }),
+      liveQuat: lastLiveOrientRef.current,
+    });
     const view = guidedScrambleView(guide);
     flushSync(() => {
       setGuideView(view);
@@ -476,13 +419,10 @@ export function GamePage({
       return;
     }
     // 下一步手动对表基线待进入时重采。
-    manualSyncKeyRef.current = null;
-    manualSyncSetupRef.current = null;
-    layerGuideAnimKeyRef.current = null;
-    layerGestureTrackerRef.current = null;
-    layerMatchHoldRef.current = false;
+    guideFollow.clearManualSync();
+    guideFollow.clearLayerGesture();
     // 吞掉宽层拧转残留的面转包，防止 d 之后的 U/D 被当成 L'。
-    manualQuietUntilRef.current = performance.now() + MANUAL_STEP_QUIET_MS;
+    guideFollow.beginQuiet(performance.now());
     const beforeProgress = guide.progress;
     void (async () => {
       try {
@@ -515,23 +455,14 @@ export function GamePage({
     guideKey: string,
     guide: GuidedScramble,
   ): string {
-    if (
-      manualSyncKeyRef.current === guideKey &&
-      manualSyncSetupRef.current !== null
-    ) {
-      return manualSyncSetupRef.current;
-    }
-    const syncSetup = formulaPaintAlg(guide);
     const token = guide.displayMoves[guide.progress] ?? "";
-    manualSyncKeyRef.current = guideKey;
-    manualSyncSetupRef.current = syncSetup;
-    layerGuideAnimKeyRef.current = null;
-    layerGestureTrackerRef.current = syncGuideLayerGestureTracker(null, {
+    return guideFollow.ensureManualSync({
+      guideKey,
+      syncSetup: formulaPaintAlg(guide),
       progress: guide.progress,
       expectedToken: token,
       gyroBefore: lastLiveOrientRef.current,
     });
-    return syncSetup;
   }
 
   function showCursor(next: GamePageCursor) {
@@ -565,7 +496,7 @@ export function GamePage({
     setCursor(null);
     guideRef.current = null;
     setGuideView(null);
-    faceRemapHomeRef.current = clearGuideFaceRemapHome();
+    guideFollow.reset();
     cube.current?.setMoveHint(null);
     setStatus("loading");
     setError(null);
@@ -632,7 +563,7 @@ export function GamePage({
     let movesCancelled = false;
     const unregisterMoves = bluetooth.registerMoves((samples) => {
       // 宽层刚确认后的残留对面包（f→B）不可播、不可记账。
-      if (performance.now() < manualQuietUntilRef.current) {
+      if (guideFollow.isInQuiet(performance.now())) {
         return;
       }
       let guide = guideRef.current;
@@ -648,7 +579,7 @@ export function GamePage({
       const layerKind = resolveLayerFollowKind(view.manualMove);
       // 宽层 / 中层：固件报对面包或双包（f→B），禁止 playBluetoothMoves，否则中心与实体脱节。
       if (layerKind && !view.correction) {
-        if (layerMatchHoldRef.current) {
+        if (guideFollow.layerMatchHold) {
           return;
         }
         if (!shouldPlayBluetoothMoveAnim(layerKind)) {
@@ -657,27 +588,25 @@ export function GamePage({
             `${guide.progress}:${token}`,
             guide,
           );
-          let tracker = syncGuideLayerGestureTracker(
-            layerGestureTrackerRef.current,
-            {
-              progress: guide.progress,
-              expectedToken: token,
-              gyroBefore:
-                layerGestureTrackerRef.current?.gyroBefore ??
-                lastLiveOrientRef.current,
-            },
-          );
-          tracker = appendGuideLayerGestureMoves(
-            tracker,
+          guideFollow.syncLayerTracker({
+            progress: guide.progress,
+            expectedToken: token,
+            gyroBefore:
+              guideFollow.layerGestureTracker?.gyroBefore ??
+              lastLiveOrientRef.current,
+          });
+          const tracker = guideFollow.appendLayerMoves(
             samples.map((sample) => ({
               move: sample.move,
               intervalMs: sample.intervalMs,
             })),
           );
-          layerGestureTrackerRef.current = tracker;
+          if (!tracker) {
+            return;
+          }
           const animKey = `${guide.progress}:gyro`;
-          if (layerGuideAnimKeyRef.current !== animKey) {
-            layerGuideAnimKeyRef.current = animKey;
+          if (guideFollow.layerGuideAnimKey !== animKey) {
+            guideFollow.layerGuideAnimKey = animKey;
             void cube.current?.startGuideStepGyroTrack(
               guideTokenToCubingAlg(token),
               baseAlg,
@@ -694,13 +623,13 @@ export function GamePage({
           );
           const ev = evaluateGuideLayerGesture(tracker, live);
           if (ev.status === "matched") {
-            layerMatchHoldRef.current = true;
+            guideFollow.layerMatchHold = true;
             void (async () => {
               try {
                 await cube.current?.finishGuideStepGyroTrack();
                 tryConfirmManualFromGuide();
               } catch {
-                layerMatchHoldRef.current = false;
+                guideFollow.layerMatchHold = false;
               }
             })();
             return;
@@ -771,10 +700,7 @@ export function GamePage({
 
     const unregisterOrientation = bluetooth.registerOrientation((quat) => {
       lastLiveOrientRef.current = quat;
-      faceRemapHomeRef.current = applyGuideFaceRemapHomeLive(
-        faceRemapHomeRef.current,
-        quat,
-      );
+      guideFollow.applyFaceRemapHomeLive(quat);
       const guide = guideRef.current;
       const base = cursorRef.current;
       const view = guide ? guidedScrambleView(guide) : null;
@@ -802,10 +728,10 @@ export function GamePage({
           manual &&
           resolveLayerFollowKind(manual) &&
           !view?.correction &&
-          layerGuideAnimKeyRef.current === `${guide.progress}:gyro` &&
-          layerGestureTrackerRef.current
+          guideFollow.layerGuideAnimKey === `${guide.progress}:gyro` &&
+          guideFollow.layerGestureTracker
         ) {
-          const tracker = layerGestureTrackerRef.current;
+          const tracker = guideFollow.layerGestureTracker;
           cube.current?.setGuideStepGyroProgress(
             layerGuideVisualProgress(
               manual,
@@ -814,16 +740,16 @@ export function GamePage({
               quat,
             ),
           );
-          if (!layerMatchHoldRef.current) {
+          if (!guideFollow.layerMatchHold) {
             const ev = evaluateGuideLayerGesture(tracker, quat);
             if (ev.status === "matched") {
-              layerMatchHoldRef.current = true;
+              guideFollow.layerMatchHold = true;
               void (async () => {
                 try {
                   await cube.current?.finishGuideStepGyroTrack();
                   tryConfirmManualFromGuide();
                 } catch {
-                  layerMatchHoldRef.current = false;
+                  guideFollow.layerMatchHold = false;
                 }
               })();
             }
@@ -839,7 +765,7 @@ export function GamePage({
         !base ||
         !guide
       ) {
-        rotationStepKeyRef.current = null;
+        guideFollow.clearRotationStep();
         orientHoldRef.current = createOrientationHoldState(
           nearestCubeOrientationAlg(quat),
         );
@@ -847,15 +773,11 @@ export function GamePage({
       }
       // 与首页打乱引导相同：相对进入该步的手持 Δ，避免绝对朝向漂了认不出 z2。
       const stepKey = `${guide.progress}:${manual}`;
-      if (rotationStepKeyRef.current !== stepKey) {
-        rotationStepKeyRef.current = stepKey;
-        rotationFromQuatRef.current = quat;
+      const { relativeAlg, isNewStep } =
+        guideFollow.beginOrContinueRotationStep(stepKey, quat);
+      if (isNewStep) {
         orientHoldRef.current = createOrientationHoldState("");
       }
-      const relativeAlg = relativeOrientationAlg(
-        rotationFromQuatRef.current,
-        quat,
-      );
       const tick = tickOrientationHold(
         orientHoldRef.current,
         relativeAlg,
@@ -869,7 +791,7 @@ export function GamePage({
         (/2/.test(manual) &&
           scrambleGuideRotationSatisfied("", relativeAlg, manual));
       if (heldOk) {
-        rotationStepKeyRef.current = null;
+        guideFollow.clearRotationStep();
         tryConfirmManualFromGuide();
       }
     });
@@ -924,7 +846,7 @@ export function GamePage({
         if (cancelled || setupAlg === null) {
           return;
         }
-        if (layerMatchHoldRef.current) {
+        if (guideFollow.layerMatchHold) {
           return;
         }
         const orientation = hintOrientationMovesForGuide(guide);
@@ -980,7 +902,7 @@ export function GamePage({
     }
     guideRef.current = null;
     setGuideView(null);
-    faceRemapHomeRef.current = clearGuideFaceRemapHome();
+    guideFollow.reset();
     cube.current?.setMoveHint(null);
     applyCursorToCube(cube.current, cursorRef.current);
   }, [bluetooth, status]);
@@ -1134,12 +1056,9 @@ export function GamePage({
       return;
     }
     // 跳过：钉公式前缀（与自动确认相同），不刷 facelets。
-    manualSyncKeyRef.current = null;
-    manualSyncSetupRef.current = null;
-    layerGuideAnimKeyRef.current = null;
-    layerGestureTrackerRef.current = null;
-    layerMatchHoldRef.current = false;
-    manualQuietUntilRef.current = performance.now() + MANUAL_STEP_QUIET_MS;
+    guideFollow.clearManualSync();
+    guideFollow.clearLayerGesture();
+    guideFollow.beginQuiet(performance.now());
     void (async () => {
       try {
         await cube.current?.finishGuideStepGyroTrack();
