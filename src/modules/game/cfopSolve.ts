@@ -6,16 +6,16 @@
  * 2. 还原先 z2 → 黄上白下绿前，并入 Cross 段公式前缀；
  * 3. 把原打乱经 z2 共轭，得到「白底下的等价打乱」，再 @moishy/cfop fixed 求解
  *    （输出在黄上握持帧，不是白上绿前）；
- * 4. Cross 段把宽层 / 中层展开成固定色心面转，便于蓝牙逐步上报；
- * 5. 展示：打乱 + Cross（含 z2，面转）+ F2L1–4 + OLL + PLL（后段暂不展开）。
+ * 4. Cross 保留宽层 / 中层（蓝牙跟拧已支持），按 HTM 计步（R2 / r2 / M2 各 1）；
+ * 5. 展示：打乱 + Cross（含 z2）+ F2L1–4 + OLL + PLL。
  *
  * 验证：scramble · z2 · rest ≡ z2（黄上复原）。
  */
 
 import { Alg } from "cubing/alg";
 import { cfop } from "@moishy/cfop";
+import { isRotationGuideToken } from "../scramble/guided.ts";
 import { coalesceWideMoves } from "./coalesceWideMoves.ts";
-import { expandCrossPhaseToFaceMoves } from "./crossFaceExpand.ts";
 
 export const CFOP_PHASE_IDS = [
   "Cross",
@@ -233,9 +233,23 @@ export function mergeZ2IntoCross(
 }
 
 /**
- * 游戏还原公式：对「白底等价打乱」的 CFOP 解；z2 并入 Cross；
- * Cross 段宽层 / 中层再展开成固定色心面转（蓝牙可逐步上报）。
- * F2L 及后续段暂不展开。
+ * Cross（及任意段）HTM：非转体记号条数；`R2` / `r2` / `M2` 各计 1，不含 x/y/z。
+ */
+export function countPhaseHtm(moves: readonly string[]): number {
+  let n = 0;
+  for (const token of moves) {
+    const trimmed = token.trim();
+    if (!trimmed || isRotationGuideToken(trimmed)) {
+      continue;
+    }
+    n += 1;
+  }
+  return n;
+}
+
+/**
+ * 游戏还原公式：对「白底等价打乱」的 CFOP 解；z2 并入 Cross。
+ * Cross 保留宽层 / 中层（不再展开成面转）。
  */
 export async function solveCfopGame(
   scramble: string,
@@ -260,6 +274,5 @@ export async function solveCfopGame(
   if (solvePhases.length === 0) {
     throw new Error("CFOP 求解无分段");
   }
-  const withZ2 = mergeZ2IntoCross(solvePhases);
-  return expandCrossPhaseToFaceMoves(trimmed, withZ2);
+  return mergeZ2IntoCross(solvePhases);
 }

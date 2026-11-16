@@ -4,6 +4,7 @@ import { cube3x3x3 } from "cubing/puzzles";
 import {
   conjugateScrambleForYellowUp,
   conjugateTokenByZ2,
+  countPhaseHtm,
   mergeZ2IntoCross,
   moveToToken,
   normalizeAlgTokens,
@@ -93,17 +94,27 @@ describe("mergeZ2IntoCross", () => {
   });
 });
 
+describe("countPhaseHtm", () => {
+  it("R2 / r2 / M2 各计 1，不含 z2", () => {
+    assert.equal(countPhaseHtm(["z2", "R2", "r2", "M2", "U"]), 4);
+    assert.equal(countPhaseHtm(["z2", "y", "R", "U'"]), 2);
+  });
+});
+
 describe("solveCfopGame", () => {
-  it("z2 并入 Cross；Cross 无宽层/中层；整串到黄上复原", async () => {
-    const scramble = "R U2 F' L D B2 R' U F2 D' L2 B R2 U' F D2 B' L U2 R'";
+  const FIXED_SCRAMBLES = [
+    "R U2 F' L D B2 R' U F2 D' L2 B R2 U' F D2 B' L U2 R'",
+    "L2 R2 B' U2 L B F2 U2 L R' D2 B R' U' R2 U' D R' B' L",
+    "D' B' U' L F' U2 L' D2 U L' D' B2 F2 L B' U' L R' B2 R",
+    "F2 L' U2 R F' D2 B' R2 U F L2 D' B2 R' U' F' L D2 B R'",
+    "U R2 F' D L2 B U' R F2 D' L B2 R' U F' L2 D B' R U2 F",
+  ] as const;
+
+  it("z2 并入 Cross；可含宽层/中层；整串到黄上复原", async () => {
+    const scramble = FIXED_SCRAMBLES[0]!;
     const phases = await solveCfopGame(scramble);
     assert.equal(phases[0]?.id, "Cross");
     assert.equal(phases[0]?.moves[0], "z2");
-    assert.ok(
-      phases[0]!.moves.every(
-        (token) => !/^[udlrfbMES](?:2'|2|')?$/.test(token),
-      ),
-    );
     assert.equal(phases.at(-1)?.id, "PLL");
 
     const puzzle = await cube3x3x3.kpuzzle();
@@ -117,5 +128,31 @@ describe("solveCfopGame", () => {
         .isIdentical(yellowUpSolved),
       true,
     );
+  });
+
+  it("若干固定打乱：Cross HTM ≤ 8，且仍以 z2 开头、终态黄上复原", async () => {
+    const puzzle = await cube3x3x3.kpuzzle();
+    const identity = puzzle.defaultPattern();
+    const yellowUpSolved = identity.applyAlg("z2");
+    for (const scramble of FIXED_SCRAMBLES) {
+      const phases = await solveCfopGame(scramble);
+      const cross = phases[0];
+      assert.equal(cross?.id, "Cross", scramble);
+      assert.equal(cross?.moves[0], "z2", scramble);
+      const htm = countPhaseHtm(cross!.moves);
+      assert.ok(
+        htm <= 8,
+        `${scramble} Cross HTM=${htm} > 8（${cross!.moves.join(" ")}）`,
+      );
+      const solution = phases.flatMap((phase) => phase.moves).join(" ");
+      assert.equal(
+        identity
+          .applyAlg(scramble)
+          .applyAlg(solution)
+          .isIdentical(yellowUpSolved),
+        true,
+        scramble,
+      );
+    }
   });
 });
