@@ -1,6 +1,7 @@
 import { Alg } from "cubing/alg";
 import { KPattern } from "cubing/kpuzzle";
 import { cube3x3x3 } from "cubing/puzzles";
+import { joinAlgParts } from "../scramble/bluetoothSolve.ts";
 import { isRotationGuideToken } from "../scramble/guided.ts";
 import {
   CUBE_ORIENTATION_ALGS,
@@ -244,6 +245,43 @@ export function guidePaintAlgPrefix(
     .map((token) => guideTokenToCubingAlg(token.trim()))
     .filter(Boolean)
     .join(" ");
+}
+
+/**
+ * 游戏页跟拧 3D 公式前缀（{@link setAbsoluteAlg}，勿钉贴图 / 勿 facelets 重刷）。
+ *
+ * - `setupAlg` 空：`flatMoves[0..progress]`（含打乱，从复原起绝对）。
+ * - `setupAlg` 非空：已是连接时打乱态，**只叠还原段**（`flatMoves` 去掉前
+ *   `scrambleLen` 步后再按 progress 截）。若再拼打乱段会与 setup 双计，
+ *   宽层 `f'` 确认后顶心/侧面配色错乱。
+ */
+export function gameGuidePaintAlg(
+  setupAlg: string,
+  scrambleLen: number,
+  flatMoves: readonly string[],
+  progress: number,
+): string {
+  const truncated = Math.trunc(progress);
+  if (!Number.isFinite(truncated)) {
+    throw new Error("gameGuidePaintAlg: progress must be a finite number");
+  }
+  const scrambleEnd = Math.max(
+    0,
+    Math.min(flatMoves.length, Math.trunc(scrambleLen)),
+  );
+  if (!Number.isFinite(scrambleEnd)) {
+    throw new Error("gameGuidePaintAlg: scrambleLen must be a finite number");
+  }
+  const setup = setupAlg.trim();
+  if (!setup) {
+    return guidePaintAlgPrefix(flatMoves, truncated);
+  }
+  const solveMoves = flatMoves.slice(scrambleEnd);
+  const solveProgress = Math.max(0, truncated - scrambleEnd);
+  return joinAlgParts(
+    setup,
+    guidePaintAlgPrefix(solveMoves, solveProgress).split(/\s+/).filter(Boolean),
+  );
 }
 
 /**

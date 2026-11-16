@@ -6,25 +6,26 @@
 
 ## 正在做的任务
 
-**抽取公共跟拧控制器**（[#138](https://github.com/IdEvEbI/cube-trainer/issues/138) / [PR #139](https://github.com/IdEvEbI/cube-trainer/pull/139)）：首页打乱与游戏页共用 `GuideFollowController`，删重复接线 ref。PR 待合并；合入前不继续开发。
+**游戏页宽层 paint 双计**（[#140](https://github.com/IdEvEbI/cube-trainer/issues/140) / [PR #141](https://github.com/IdEvEbI/cube-trainer/pull/141)）：`setupAlg` 与打乱段双计导致 PLL `f'` 后 3D 配色错乱。PR 待合并；合入前不继续开发。
 
 ### 本 PR 范围
 
-- 新建 `guideFollowController.ts` 及单测（home / 候选链 / 静默窗）
-- `App.tsx` 与 `GamePage` 改用控制器
-- 不改计时页；不改 `guided` / `guideBleFaceRemap` / `scrambleGuideLayerGesture` 核心算法
+- `gameGuidePaintAlg`：有连接 setup 时只叠还原段
+- 删除无引用旧对照 `gameBleRemapOrientations`
+- 不用 facelets 轮询重贴
 
 ### 近期已合入
 
-- G2 蓝牙跟拧（#132 / PR #133）
+- 抽取 `GuideFollowController`（#138 / PR #139）
 - 层转后外面转映面（#136 / PR #137）
+- G2 蓝牙跟拧（#132 / PR #133）
 
 ### G1 · 非蓝牙：恢复打乱 + 跟步还原
 
 - **状态**：本轮未单独开 Issue；G2 回归中已顺带观察。若需正式过门，再说「G1 通过」或另开验收。
 - **通过标准**：你回复「G1 通过」。
 
-**当前指针**：等 PR #139 合入 → 切回 `main`、拉取、删本地分支 → 再定下一件。
+**当前指针**：等 PR #141 合入 → 切回 `main`、拉取、删本地分支 → 再定下一件。
 
 **旁路（不插队）**：AI CFOP 调研笔记已合入（#121 / #122）；确认前不写接入代码。公式练习蓝牙（#127）延期。层转 L10 冻结。
 
@@ -61,7 +62,7 @@ L0–L9 真机通过并合入。清单与备忘保留备查；**产品当前不�
 1. ~~记录转动序列…~~（略，见 git 历史）
 2. ~~魔域层转 L0→L9~~（#123 / #124 已合入）
 3. ~~打乱计时恢复~~（#130 / #131 已合入：外层打乱、隐藏「采」、连接不跳；非蓝牙 / 蓝牙主流程已回归）
-4. **游戏页收口** ← 当前：跟拧控制器抽取（#138 / PR #139）→ 再定 G1 / 其它收口
+4. **游戏页收口** ← 当前：宽层 paint 双计（#140 / PR #141）→ 再定 G1 / 其它收口
 5. ~~公式练习蓝牙闭环~~（#127 延期；日后按 A/B/C 拆子 Issue）
 6. ~~AI CFOP 调研文档~~（#121 / #122 已合入；接入代码仍后置）
 7. 其余后置项见 `docs/prd.md`（含 UI/UE 统一、计时 3D 未跟等）
