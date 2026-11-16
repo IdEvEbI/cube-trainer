@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   algStatesMatch,
   expectedFixedCenterPattern,
+  gameGuidePaintAlg,
   guideAlgToCubingAlg,
   guidePaintAlgPrefix,
   guideProgressMatchesCube,
@@ -10,6 +11,7 @@ import {
   nonRotationAlgPrefix,
   patternsMatchFixedCenters,
 } from "./algStateMatch.ts";
+import { cube3x3x3 } from "cubing/puzzles";
 
 describe("guideTokenToCubingAlg", () => {
   it("采集式双步撇改写为 cubing 可解析的 2'", () => {
@@ -81,6 +83,41 @@ describe("guidePaintAlgPrefix", () => {
     assert.equal(guidePaintAlgPrefix(moves, 8), "M E' S r l f' D B'");
     assert.equal(guidePaintAlgPrefix(moves, 9), "M E' S r l f' D B' z'");
     assert.equal(guidePaintAlgPrefix(moves, 10), "M E' S r l f' D B' z' y");
+  });
+});
+
+describe("gameGuidePaintAlg", () => {
+  const scramble = ["L2", "R2", "B'", "U2"];
+  const solve = ["z2", "R'", "U", "R", "U", "R'", "f'"];
+  const flat = [...scramble, ...solve];
+
+  it("无 setup：整段 flatMoves 前缀（含打乱）", () => {
+    assert.equal(
+      gameGuidePaintAlg("", scramble.length, flat, flat.length),
+      "L2 R2 B' U2 z2 R' U R U R' f'",
+    );
+  });
+
+  it("有 setup：只叠还原段，不与打乱双计", () => {
+    const setup = scramble.join(" ");
+    const paint = gameGuidePaintAlg(setup, scramble.length, flat, flat.length);
+    assert.equal(paint, "L2 R2 B' U2 z2 R' U R U R' f'");
+    assert.notEqual(
+      paint,
+      `${setup} ${flat.join(" ")}`,
+      "禁止 setup⊕完整 flatMoves（双计打乱）",
+    );
+  });
+
+  it("PLL f'：正确 paint 顶心橙；双计打乱后整盘贴纸与公式不同态", async () => {
+    const setup = scramble.join(" ");
+    const wrong = `${setup} ${flat.join(" ")}`;
+    const right = gameGuidePaintAlg(setup, scramble.length, flat, flat.length);
+    const puzzle = await cube3x3x3.kpuzzle();
+    const rightPat = puzzle.defaultPattern().applyAlg(right);
+    const wrongPat = puzzle.defaultPattern().applyAlg(wrong);
+    assert.equal(rightPat.patternData.CENTERS.pieces[0], 1, "公式 U=橙");
+    assert.equal(await algStatesMatch(right, wrong), false, "双计≠公式态");
   });
 });
 

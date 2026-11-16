@@ -25,7 +25,6 @@ import {
   type GuidedScramble,
   type GuidedScrambleView,
 } from "../scramble/guided.ts";
-import { joinAlgParts } from "../scramble/bluetoothSolve.ts";
 import { layerGuideVisualProgress } from "../scramble/layerGuideGyroFollow.ts";
 import { SCRAMBLE_PLAYBACK_STEP_MS } from "../scramble/playback.ts";
 import { randomScramble3x3 } from "../scramble/scramble.ts";
@@ -35,7 +34,7 @@ import {
 } from "../scramble/scrambleGuideLayerFollow.ts";
 import { evaluateGuideLayerGesture } from "../scramble/scrambleGuideLayerGesture.ts";
 import {
-  guidePaintAlgPrefix,
+  gameGuidePaintAlg,
   guideProgressMatchesCube,
   guideTokenToCubingAlg,
 } from "./algStateMatch.ts";
@@ -303,17 +302,20 @@ export function GamePage({
     return formulaOrientationMovesForGuide(guide);
   }
 
-  /** 公式已完成前缀（不含当前步），作层转对表基线与钉贴纸。 */
+  /**
+   * 公式已完成前缀（不含当前步），作层转对表基线与 3D `setAbsoluteAlg`。
+   * 有连接 setup 时勿再拼打乱段（见 {@link gameGuidePaintAlg}）。
+   */
   function formulaPaintAlg(guide: GuidedScramble): string {
     const base = cursorRef.current;
     if (!base) {
       return gameGuidePaintBaseRef.current;
     }
-    return joinAlgParts(
+    return gameGuidePaintAlg(
       gameGuidePaintBaseRef.current,
-      guidePaintAlgPrefix(base.flatMoves, guide.progress)
-        .split(/\s+/)
-        .filter(Boolean),
+      base.scrambleMoves.length,
+      base.flatMoves,
+      guide.progress,
     );
   }
 

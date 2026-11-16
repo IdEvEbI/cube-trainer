@@ -12,7 +12,6 @@ import {
   quatFromOrientationAlg,
   scrambleToHeldPrepRotations,
 } from "../score/cubeOrientation.ts";
-import { guideLayerGyroOrientationAlg } from "../scramble/layerGuideDualPaint.ts";
 import { absoluteFaceMoveToGrip } from "../score/solveAlgDisplay.ts";
 import { remapFaceMoveThroughOrientation } from "../score/solveTrace.ts";
 
@@ -40,20 +39,6 @@ export function crossBleRemapOrientations(
     return formula;
   }
   return scrambleToHeldPrepRotations(liveHeldAlg);
-}
-
-/**
- * 游戏页 BLE 映面朝向 = 公式转体 + 已完成宽层/中层**期望** Δ。
- * 仅作对照 / 旧测；真机跟拧用 `scramble/guideBleFaceRemap.ts`。
- */
-export function gameBleRemapOrientations(
-  displayMoves: readonly string[],
-  progress: number,
-  formulaOrients: readonly string[],
-): string[] {
-  const layerAlg = guideLayerGyroOrientationAlg(displayMoves, progress);
-  const layerParts = layerAlg.split(/\s+/).filter(Boolean);
-  return [...formulaOrients, ...layerParts];
 }
 
 /**
