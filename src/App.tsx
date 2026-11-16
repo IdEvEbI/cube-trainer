@@ -103,10 +103,7 @@ import {
   isSolvedFromSetup,
   joinAlgParts,
 } from "./modules/scramble/bluetoothSolve.ts";
-import {
-  relativeOrientationAlg,
-  relativeOrientationQuat,
-} from "./modules/game/guideOrientation.ts";
+import { relativeOrientationQuat } from "./modules/game/guideOrientation.ts";
 import {
   applyGuidedMove,
   confirmGuidedFaceletsStep,
@@ -119,11 +116,8 @@ import {
   type GuidedScramble,
   type GuidedScrambleView,
 } from "./modules/scramble/guided.ts";
-import {
-  guideBleFaceOrientCandidates,
-  resolveGuideBleFaceMoveWithCandidates,
-} from "./modules/scramble/guideBleFaceRemap.ts";
-import { guideLayerGyroOrientationAlgLast } from "./modules/scramble/layerGuideDualPaint.ts";
+import { resolveGuideBleFaceMoveWithCandidates } from "./modules/scramble/guideBleFaceRemap.ts";
+import { createGuideFollowController } from "./modules/scramble/guideFollowController.ts";
 import {
   resolveLayerFollowKind,
   shouldPlayBluetoothMoveAnim,
@@ -131,12 +125,7 @@ import {
 } from "./modules/scramble/scrambleGuideLayerFollow.ts";
 import { layerGuideVisualProgress } from "./modules/scramble/layerGuideGyroFollow.ts";
 import { reconcileFaceMoveWithFacelets } from "./modules/scramble/scrambleGuideStep.ts";
-import {
-  appendGuideLayerGestureMoves,
-  evaluateGuideLayerGesture,
-  syncGuideLayerGestureTracker,
-  type GuideLayerGestureTracker,
-} from "./modules/scramble/scrambleGuideLayerGesture.ts";
+import { evaluateGuideLayerGesture } from "./modules/scramble/scrambleGuideLayerGesture.ts";
 import {
   guidePaintAlgPrefix,
   guideTokenToCubingAlg,
@@ -297,10 +286,8 @@ export default function App() {
   const scrambleGuideRef = useRef<GuidedScramble | null>(null);
   /** 宽层步收到面转包时立刻拉 facelets（由引导轮询 effect 挂载）。 */
   const scrambleGuideLayerKickRef = useRef<(() => void) | null>(null);
-  /** 宽层 / 中层：转动包 + 陀螺手势跟踪。 */
-  const layerGestureTrackerRef = useRef<GuideLayerGestureTracker | null>(null);
-  /** 本步已播过的整步层转动画相位（`progress:phase`），避免拆包重播。 */
-  const layerGuideAnimKeyRef = useRef("");
+  /** 与游戏页共用：映面 home / 层转 tracker / 转体 Δ 起点 / 静默窗。 */
+  const scrambleGuideFollow = useRef(createGuideFollowController()).current;
   const confirmScrambleGuideLayerStepRef = useRef<() => void>(() => undefined);
   /** 游戏页跟转：由 GamePage 注册，仅 focus=游戏 时转发。 */
   const gameBluetoothMovesRef = useRef<
@@ -339,23 +326,9 @@ export default function App() {
   const scrambleGuideOrientHoldRef = useRef<OrientationHoldState>(
     createOrientationHoldState(),
   );
-  /** 进入当前转体步时的手持四元数（相对增量判定，避免两端吸附后轴漂）。 */
-  const scrambleGuideRotationFromQuatRef = useRef<MoyuQuat>(IDENTITY_QUAT);
-  /**
-   * 引导面转 BLE→公式帧的朝向基准（开局 / 对齐时采）。
-   * 用 live 相对此基准吸附，避免长序列「表内期望 Δ」与真机漂移后 R/L 对调。
-   */
-  const scrambleGuideFaceRemapHomeQuatRef = useRef<MoyuQuat>(IDENTITY_QUAT);
-  /** 当前转体步键：`${progress}:${token}`，变了才重采 from。 */
-  const scrambleGuideRotationStepRef = useRef<string | null>(null);
   /** 引导步转动动画进行中：暂停 facelets 轮询贴图，避免冲掉中间帧。 */
   const scrambleGuideAnimatingRef = useRef(false);
-  /**
-   * 手势已 matched、正在等层转动画：挡住 facelets 抢跑硬切。
-   * 与 {@link scrambleGuideAnimatingRef} 分开，避免 confirm 入口因 animating 早退导致永不推进。
-   */
-  const scrambleGuideMatchHoldRef = useRef(false);
-  /** 面转后此时间戳前忽略陀螺仪转体推断。 */
+  /** 面转后此时间戳前忽略陀螺仪转体推断（计时轨迹，非跟拧控制器）。 */
   const bluetoothSolveOrientQuietUntilRef = useRef(0);
   /** 复盘页 history 标记，供滑动返回保存。 */
   const solveReviewHistoryEpochRef = useRef(0);
@@ -861,19 +834,17 @@ export default function App() {
   }
 
   /**
-   * 引导中 BLE 面转：与游戏页共用 {@link guideBleFaceOrientCandidates}
+   * 引导中 BLE 面转：经 {@link createGuideFollowController}
    *（打乱公式白上，formula 为空；含 relative / 层转期望 Δ）。
    */
   function scrambleGuideFaceOrientCandidates(): string[] {
     const guide = scrambleGuideRef.current;
-    const layerGyroAlg = guide
-      ? guideLayerGyroOrientationAlgLast(guide.displayMoves, guide.progress)
-      : "";
-    return guideBleFaceOrientCandidates({
+    return scrambleGuideFollow.faceOrientCandidates({
       formulaOrients: [],
-      homeQuat: scrambleGuideFaceRemapHomeQuatRef.current,
+      displayMoves: guide?.displayMoves ?? [],
+      progress: guide?.progress ?? 0,
       liveQuat: currentBluetoothRelativeQuat(),
-      layerGyroAlg,
+      requireYellowUp: false,
     });
   }
 
@@ -955,24 +926,17 @@ export default function App() {
     const liveQuat = currentBluetoothRelativeQuat();
     if (!manual || !isRotationGuideToken(manual) || view.correction) {
       scrambleGuideOrientHoldRef.current = createOrientationHoldState(
-        relativeOrientationAlg(
-          scrambleGuideRotationFromQuatRef.current,
-          liveQuat,
-        ),
+        scrambleGuideFollow.relativeRotationAlg(liveQuat),
       );
-      scrambleGuideRotationStepRef.current = null;
+      scrambleGuideFollow.clearRotationStep();
       return;
     }
     const stepKey = `${guide.progress}:${manual}`;
-    if (scrambleGuideRotationStepRef.current !== stepKey) {
-      scrambleGuideRotationStepRef.current = stepKey;
-      scrambleGuideRotationFromQuatRef.current = liveQuat;
+    const { relativeAlg, isNewStep } =
+      scrambleGuideFollow.beginOrContinueRotationStep(stepKey, liveQuat);
+    if (isNewStep) {
       scrambleGuideOrientHoldRef.current = createOrientationHoldState("");
     }
-    const relativeAlg = relativeOrientationAlg(
-      scrambleGuideRotationFromQuatRef.current,
-      liveQuat,
-    );
     const now = performance.now();
     const tick = tickOrientationHold(
       scrambleGuideOrientHoldRef.current,
@@ -993,8 +957,7 @@ export default function App() {
     if (result.kind === "need_manual") {
       return;
     }
-    scrambleGuideRotationStepRef.current = null;
-    scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
+    scrambleGuideFollow.clearRotationStep();
     scrambleGuideRef.current = result.guide;
     flushSync(() => {
       setScrambleGuide(guidedScrambleView(result.guide));
@@ -1075,7 +1038,7 @@ export default function App() {
   /** 宽层 / 中层 / 转体自动对表失败时的逃生：手动确认已到位并推进。 */
   function confirmScrambleGuideLayerStep(): void {
     // 先释放 matchHold，避免早退时 hold 永真、公式卡死。
-    scrambleGuideMatchHoldRef.current = false;
+    scrambleGuideFollow.layerMatchHold = false;
     const guide = scrambleGuideRef.current;
     if (!guide || guide.phase === "done" || scrambleGuideAnimatingRef.current) {
       return;
@@ -1103,10 +1066,9 @@ export default function App() {
         logical.split(/\s+/).filter(Boolean),
       ),
     );
-    scrambleGuideRotationStepRef.current = null;
-    scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
-    layerGestureTrackerRef.current = null;
-    layerGuideAnimKeyRef.current = "";
+    scrambleGuideFollow.clearRotationStep();
+    scrambleGuideFollow.clearLayerGesture();
+    scrambleGuideFollow.beginQuiet(performance.now());
     scrambleGuideAnimatingRef.current = true;
     // 调用方应已 await 动画空闲；此处只钉终态，避免 cancel 把可见动画掐成秒切。
     void paintScrambleGuideCube(result.guide, { force: true })
@@ -1206,9 +1168,7 @@ export default function App() {
       scrambleGuideRef.current = null;
       setScrambleGuide(null);
       scrambleGuideOrientHoldRef.current = createOrientationHoldState();
-      scrambleGuideRotationStepRef.current = null;
-      scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
-      scrambleGuideFaceRemapHomeQuatRef.current = IDENTITY_QUAT;
+      scrambleGuideFollow.reset();
       resetBluetoothInspect();
       return;
     }
@@ -1218,10 +1178,9 @@ export default function App() {
       const guide = createGuidedScramble(moves);
       scrambleGuideRef.current = guide;
       scrambleGuideOrientHoldRef.current = createOrientationHoldState("");
-      scrambleGuideRotationStepRef.current = null;
       const live = currentBluetoothRelativeQuat();
-      scrambleGuideRotationFromQuatRef.current = live;
-      scrambleGuideFaceRemapHomeQuatRef.current = live;
+      scrambleGuideFollow.reset();
+      scrambleGuideFollow.captureFaceRemapHome(live);
       setScrambleGuide(guidedScrambleView(guide));
       resetBluetoothInspect();
       // 贴纸已在连接时 facelets 写入；引导开始勿重贴（避免闪切 / 色序被 alg 覆盖）。
@@ -1229,9 +1188,7 @@ export default function App() {
       scrambleGuideRef.current = null;
       setScrambleGuide(null);
       scrambleGuideOrientHoldRef.current = createOrientationHoldState();
-      scrambleGuideRotationStepRef.current = null;
-      scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
-      scrambleGuideFaceRemapHomeQuatRef.current = IDENTITY_QUAT;
+      scrambleGuideFollow.reset();
       resetBluetoothInspect();
     }
   }
@@ -1521,15 +1478,12 @@ export default function App() {
     if (!resolveLayerFollowKind(stepToken) || !stepToken) {
       return;
     }
-    layerGestureTrackerRef.current = syncGuideLayerGestureTracker(
-      layerGestureTrackerRef.current,
-      {
-        progress: idx,
-        expectedToken: stepToken,
-        gyroBefore: currentBluetoothRelativeQuat(),
-      },
-    );
-    layerGuideAnimKeyRef.current = "";
+    scrambleGuideFollow.syncLayerTracker({
+      progress: idx,
+      expectedToken: stepToken,
+      gyroBefore: currentBluetoothRelativeQuat(),
+    });
+    scrambleGuideFollow.layerGuideAnimKey = null;
     const session = moyuSession;
     let cancelled = false;
     let lastFacelets: string | null = null;
@@ -1589,7 +1543,7 @@ export default function App() {
           // 手势路径已在等层转动画：勿抢跑硬切，否则动画会被秒掐掉 / confirm 被堵死。
           if (
             scrambleGuideAnimatingRef.current ||
-            scrambleGuideMatchHoldRef.current
+            scrambleGuideFollow.layerMatchHold
           ) {
             return;
           }
@@ -1601,7 +1555,7 @@ export default function App() {
             scrambleGuideAnimatingRef.current = false;
             if (
               cancelled ||
-              scrambleGuideMatchHoldRef.current ||
+              scrambleGuideFollow.layerMatchHold ||
               scrambleGuideAnimatingRef.current
             ) {
               return;
@@ -1611,7 +1565,8 @@ export default function App() {
           if (result.kind === "need_manual") {
             return;
           }
-          layerGestureTrackerRef.current = null;
+          scrambleGuideFollow.clearLayerGesture();
+          scrambleGuideFollow.beginQuiet(performance.now());
           trackBluetoothSetupOnly(tick.trackSetupAlg);
           // 陀螺/手势已跟到终点；alg 未变时 paint 会跳过。无轨道时钉一次公式前缀。
           await paintScrambleGuideCube(result.guide);
@@ -1624,7 +1579,7 @@ export default function App() {
             setScrambleGuide(advancedView);
           });
           applyBluetoothGuideMoveHint(advancedView);
-          scrambleGuideRotationStepRef.current = null;
+          scrambleGuideFollow.clearRotationStep();
           lastFacelets = null;
           settledSameCount = 0;
           entryFacelets = null;
@@ -1641,7 +1596,7 @@ export default function App() {
         }
         if (tick.shouldMarkWrong) {
           // 手势已在收包（E2 四包只到一半等）时，facelets 中间态勿误标 wrong。
-          const tracker = layerGestureTrackerRef.current;
+          const tracker = scrambleGuideFollow.layerGestureTracker;
           if (
             tracker &&
             tracker.progress === guide.progress &&
@@ -2244,15 +2199,12 @@ export default function App() {
     const token = guide.displayMoves[guide.progress] ?? "";
     if (liveQuat && isRotationGuideToken(token)) {
       const stepKey = `${guide.progress}:${token}`;
-      if (scrambleGuideRotationStepRef.current !== stepKey) {
+      if (scrambleGuideFollow.rotationStepKey !== stepKey) {
         cube.current?.setOrientation(IDENTITY_QUAT);
         return;
       }
       cube.current?.setOrientation(
-        relativeOrientationQuat(
-          scrambleGuideRotationFromQuatRef.current,
-          liveQuat,
-        ),
+        relativeOrientationQuat(scrambleGuideFollow.rotationFromQuat, liveQuat),
       );
       return;
     }
@@ -2282,7 +2234,7 @@ export default function App() {
       syncScrambleGuideDisplayOrientation(guide, orientation);
       // 层转步：用陀螺相对转角驱动 3D 进度（与实体拧速同步）。
       const stepToken = guide.displayMoves[guide.progress] ?? "";
-      const layerTracker = layerGestureTrackerRef.current;
+      const layerTracker = scrambleGuideFollow.layerGestureTracker;
       if (
         resolveLayerFollowKind(stepToken) &&
         layerTracker &&
@@ -2354,9 +2306,9 @@ export default function App() {
   function onMoyuAlignOrientation() {
     try {
       const orientation = moyuOrientation.current.alignToCurrent();
-      scrambleGuideRotationFromQuatRef.current = IDENTITY_QUAT;
       // 对齐后 tracker 相对当前为身份，面转 remap 基准同步归零。
-      scrambleGuideFaceRemapHomeQuatRef.current = IDENTITY_QUAT;
+      scrambleGuideFollow.clearRotationStep();
+      scrambleGuideFollow.clearFaceRemapHome();
       cube.current?.setOrientation(orientation);
       cube.current?.setOrbit(MOYU_REST_ORBIT);
       // 首页不展示设备名；对齐成功用短 Toast。
@@ -2442,6 +2394,10 @@ export default function App() {
           guide.phase !== "done" &&
           btInspectPhaseRef.current === "off"
         ) {
+          // 层转确认后吞残留对面包（与游戏页共用静默窗）。
+          if (scrambleGuideFollow.isInQuiet(performance.now())) {
+            return;
+          }
           const kind = resolveLayerFollowKind(
             guide.displayMoves[guide.progress] ?? null,
           );
@@ -2452,7 +2408,7 @@ export default function App() {
               cube.current?.playBluetoothMoves(samples);
             }
             const token = guide.displayMoves[guide.progress] ?? "";
-            let tracker = layerGestureTrackerRef.current;
+            let tracker = scrambleGuideFollow.layerGestureTracker;
             if (
               tracker &&
               tracker.progress === guide.progress &&
@@ -2463,17 +2419,18 @@ export default function App() {
                 move: sample.move,
                 intervalMs: sample.intervalMs,
               }));
-              tracker = appendGuideLayerGestureMoves(
-                tracker,
+              tracker = scrambleGuideFollow.appendLayerMoves(
                 newSamples,
                 performance.now(),
               );
-              layerGestureTrackerRef.current = tracker;
+              if (!tracker) {
+                return;
+              }
               // 首包即开陀螺轨道，后续 orientation 帧按转角 scrub。
               if (beforeCount === 0 && tracker.samples.length > 0) {
                 const animKey = `${guide.progress}:gyro`;
-                if (layerGuideAnimKeyRef.current !== animKey) {
-                  layerGuideAnimKeyRef.current = animKey;
+                if (scrambleGuideFollow.layerGuideAnimKey !== animKey) {
+                  scrambleGuideFollow.layerGuideAnimKey = animKey;
                   void cube.current?.startGuideStepGyroTrack(
                     guideTokenToCubingAlg(token),
                     scrambleGuidePaintAlg(guide),
@@ -2496,14 +2453,14 @@ export default function App() {
               );
               const ev = evaluateGuideLayerGesture(tracker, live);
               if (ev.status === "matched") {
-                scrambleGuideMatchHoldRef.current = true;
+                scrambleGuideFollow.layerMatchHold = true;
                 void (async () => {
                   try {
                     // 先补间到终点（跟手进度常被包齐软封顶），再确认推进。
                     await cube.current?.finishGuideStepGyroTrack();
                     confirmScrambleGuideLayerStepRef.current();
                   } catch {
-                    scrambleGuideMatchHoldRef.current = false;
+                    scrambleGuideFollow.layerMatchHold = false;
                   }
                 })();
                 return;
