@@ -1,0 +1,17 @@
+{
+  "id": "golden-z2-d-prime-y-U",
+  "description": "黄金路径：黄上 z2 + 宽层 d' + 转体 y → U（绝对 D）。合入门禁。",
+  "displayMoves": ["z2", "d'", "y", "U"],
+  "requireYellowUp": true,
+  "events": [
+    { "t": 0, "type": "orient", "alg": "z2" },
+    { "t": 100, "type": "orient", "alg": "z2 y'" },
+    { "t": 200, "type": "orient", "alg": "z2 y' y" },
+    { "t": 300, "type": "face", "move": "D" }
+  ],
+  "expect": {
+    "progress": 4,
+    "done": true,
+    "sawWrong": false
+  }
+}

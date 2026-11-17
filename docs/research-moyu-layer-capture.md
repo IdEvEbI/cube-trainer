@@ -160,6 +160,8 @@ L0–L9 盖住**单步**识别；交接瓢出在组合空间。E1–E17 是真�
 
 首条：`e17-r-prime-b-prime-R.json`（E17 / #160：`z2 r' b' R`，绝对 `B` 不收成 `R`，`D` 推进）。
 
+**黄金路径（合入门禁）**：`src/fixtures/guide-replay/golden-*.json` 是固定短引导，必须 `done=true` 且 `sawWrong=false`。改映面 / 残留 / 转体 / 回放逻辑前，`guideReplay.test.ts` 黄金路径套件须全绿；否则不得合入。覆盖维：宽层、中层、转体（`z2` / `y`）各至少一条。
+
 ### 最小用例矩阵
 
 可增不可 silently 删。单测表驱动应对齐本表 `id`。

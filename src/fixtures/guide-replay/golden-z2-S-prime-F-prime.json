@@ -1,0 +1,16 @@
+{
+  "id": "golden-z2-S-prime-F-prime",
+  "description": "黄金路径：黄上 z2 + 中层 S' → F'（原包即期望）。合入门禁。",
+  "displayMoves": ["z2", "S'", "F'"],
+  "requireYellowUp": true,
+  "events": [
+    { "t": 0, "type": "orient", "alg": "z2" },
+    { "t": 100, "type": "orient", "alg": "z2 z'" },
+    { "t": 200, "type": "face", "move": "F'" }
+  ],
+  "expect": {
+    "progress": 3,
+    "done": true,
+    "sawWrong": false
+  }
+}
