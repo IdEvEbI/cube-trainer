@@ -75,7 +75,7 @@ import {
   orientationHoldStableMsForMove,
   orientationRotationPath,
   ORIENTATION_FACE_QUIET_MS,
-  scrambleGuideRotationSatisfied,
+  guideRotationStepConfirmable,
   scrambleToHeldPrepRotations,
   tickOrientationHold,
   type OrientationHoldState,
@@ -931,25 +931,31 @@ export default function App() {
       scrambleGuideFollow.clearRotationStep();
       return;
     }
+    const now = performance.now();
     const stepKey = `${guide.progress}:${manual}`;
     const { relativeAlg, isNewStep } =
-      scrambleGuideFollow.beginOrContinueRotationStep(stepKey, liveQuat);
+      scrambleGuideFollow.beginOrContinueRotationStep(stepKey, liveQuat, now);
     if (isNewStep) {
       scrambleGuideOrientHoldRef.current = createOrientationHoldState("");
     }
-    const now = performance.now();
+    const holdMs = orientationHoldStableMsForMove(manual);
     const tick = tickOrientationHold(
       scrambleGuideOrientHoldRef.current,
       relativeAlg,
       now,
-      orientationHoldStableMsForMove(manual),
+      holdMs,
     );
     scrambleGuideOrientHoldRef.current = tick.state;
-    // z2/x2/y2：实况已到位即可，避免稳定窗被抖动反复重置。
-    const heldOk =
-      scrambleGuideRotationSatisfied("", tick.state.committed, manual) ||
-      (/2/.test(manual) &&
-        scrambleGuideRotationSatisfied("", relativeAlg, manual));
+    const enteredAt = scrambleGuideFollow.rotationStepEnteredAtMs;
+    const heldOk = guideRotationStepConfirmable({
+      expectedMove: manual,
+      relativeCommittedAlg: tick.state.committed,
+      heldAlg: nearestCubeOrientationAlg(liveQuat),
+      displayMoves: guide.displayMoves,
+      progress: guide.progress,
+      msSinceStepEnter: enteredAt > 0 ? now - enteredAt : 0,
+      holdMs,
+    });
     if (!heldOk) {
       return;
     }

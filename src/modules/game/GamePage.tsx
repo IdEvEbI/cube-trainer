@@ -6,9 +6,9 @@ import { CubeView, type CubeHandle } from "../cube/CubeView.tsx";
 import { PracticeControls } from "../practice/PracticeControls.tsx";
 import {
   createOrientationHoldState,
+  guideRotationStepConfirmable,
   nearestCubeOrientationAlg,
   orientationHoldStableMsForMove,
-  scrambleGuideRotationSatisfied,
   tickOrientationHold,
   type OrientationHoldState,
 } from "../score/cubeOrientation.ts";
@@ -803,25 +803,32 @@ export function GamePage({
         );
         return;
       }
-      // 与首页打乱引导相同：相对进入该步的手持 Δ，避免绝对朝向漂了认不出 z2。
+      // 相对进入该步的手持 Δ；四分之一勿首帧绝对到位跳过（宽层 d' 后常已是 y'）。
+      const nowMs = performance.now();
       const stepKey = `${guide.progress}:${manual}`;
       const { relativeAlg, isNewStep } =
-        guideFollow.beginOrContinueRotationStep(stepKey, quat);
+        guideFollow.beginOrContinueRotationStep(stepKey, quat, nowMs);
       if (isNewStep) {
         orientHoldRef.current = createOrientationHoldState("");
       }
+      const holdMs = orientationHoldStableMsForMove(manual);
       const tick = tickOrientationHold(
         orientHoldRef.current,
         relativeAlg,
-        performance.now(),
-        orientationHoldStableMsForMove(manual),
+        nowMs,
+        holdMs,
       );
       orientHoldRef.current = tick.state;
-      // z2/x2/y2：实况已到位即可（勿只等 committed，否则 320ms 窗被抖动重置，要猛晃）。
-      const heldOk =
-        scrambleGuideRotationSatisfied("", tick.state.committed, manual) ||
-        (/2/.test(manual) &&
-          scrambleGuideRotationSatisfied("", relativeAlg, manual));
+      const enteredAt = guideFollow.rotationStepEnteredAtMs;
+      const heldOk = guideRotationStepConfirmable({
+        expectedMove: manual,
+        relativeCommittedAlg: tick.state.committed,
+        heldAlg: nearestCubeOrientationAlg(quat),
+        displayMoves: guide.displayMoves,
+        progress: guide.progress,
+        msSinceStepEnter: enteredAt > 0 ? nowMs - enteredAt : 0,
+        holdMs,
+      });
       if (heldOk) {
         guideFollow.clearRotationStep();
         tryConfirmManualFromGuide();
