@@ -20,7 +20,10 @@ import {
   type GuideFaceRemapHomeState,
 } from "./guideBleFaceRemap.ts";
 import { invertGuideToken } from "./guided.ts";
-import { guideLayerGyroOrientationAlgLast } from "./layerGuideDualPaint.ts";
+import {
+  guideLayerGyroOrientationAlgLast,
+  resolveGuideBleFaceMove,
+} from "./layerGuideDualPaint.ts";
 import {
   appendGuideLayerGestureMoves,
   syncGuideLayerGestureTracker,
@@ -60,15 +63,29 @@ export function layerEchoFaceMoves(layerToken: string): readonly string[] {
   return out;
 }
 
+/** 候选里只含公式转体（或空）的朝向串；勿用层转 Δ，以免 M' 回声假放行。 */
+export function formulaOrientAlgFromCandidates(
+  orientAlgs: readonly string[],
+): string {
+  for (const alg of orientAlgs) {
+    const parts = alg.trim().split(/\s+/).filter(Boolean);
+    if (parts.every((part) => /^([xyz])(2'|2|')?$/.test(part))) {
+      return parts.join(" ");
+    }
+  }
+  return (orientAlgs[0] ?? "").trim();
+}
+
 /**
  * 已完成层转的对偶色心包：属于该层转本身，不是下一步面转。
  * - 色心原字母已是下一步期望（如 `S'` 后真拧 `F'`）：放行。
- * - 对偶原包映面后才等于期望（如 `M'` 回声 `L'`→握持 `F'`）：仍丢弃。
+ * - **公式朝向**映面后等于期望（如 Cross `r` 后握持 `R` 报绝对 `L`）：放行。
+ * - 仅靠层转 Δ 才映成期望（如 `M'` 回声）：仍丢弃。
  */
 export function isResidualLayerDualFaceMove(
   bleMove: string,
   expectedOrCorrection: string | null | undefined,
-  _orientAlgs: readonly string[],
+  orientAlgs: readonly string[],
   completedLayerToken: string,
 ): boolean {
   const raw = bleMove.trim();
@@ -79,6 +96,13 @@ export function isResidualLayerDualFaceMove(
   const expected = (expectedOrCorrection ?? "").trim();
   if (expected && raw === expected) {
     return false;
+  }
+  if (expected) {
+    const formulaOrient = formulaOrientAlgFromCandidates(orientAlgs);
+    const viaFormula = resolveGuideBleFaceMove(raw, expected, formulaOrient);
+    if (viaFormula === expected) {
+      return false;
+    }
   }
   return true;
 }
@@ -127,10 +151,12 @@ export type GuideFollowController = {
    * 层转确认后：登记对偶残留过滤器，并开短静默窗少播动画。
    * 正确性靠 {@link shouldDiscardResidualLayerDual}，不靠窗长。
    */
+  /** `@param liveQuat` 预留（#159 重采 home）；本 PR 可忽略。 */
   beginLayerEchoQuiet(
     nowMs: number,
     layerToken: string,
     durationMs?: number,
+    liveQuat?: MoyuQuat | null,
   ): void;
   /** 下一步面转已推进：清对偶残留过滤。 */
   clearResidualLayerDual(): void;
@@ -139,12 +165,13 @@ export type GuideFollowController = {
   swallowsAllFaceMoves(nowMs: number): boolean;
   /**
    * 静默窗内是否应丢弃该色心面转（对面包回声）。
-   * `expectedOrCorrection` 与色心原包相同时不吞（`S'` 后立刻拧 `F'`）。
+   * 原包===期望，或公式朝向映面===期望时不吞（`S'`→`F'` / `r`→握持 `R` 报 `L`）。
    */
   shouldSwallowGuideFaceMove(
     bleMove: string,
     nowMs: number,
     expectedOrCorrection?: string | null,
+    orientAlgs?: readonly string[],
   ): boolean;
   shouldDiscardResidualLayerDual(
     bleMove: string,
@@ -316,6 +343,7 @@ export function createGuideFollowController(): GuideFollowController {
       nowMs,
       layerToken,
       durationMs = GUIDE_FOLLOW_MOVE_QUIET_MS,
+      _liveQuat = null,
     ) {
       quietUntilMs = nowMs + durationMs;
       const trimmed = layerToken.trim();
@@ -338,11 +366,24 @@ export function createGuideFollowController(): GuideFollowController {
       return nowMs < quietUntilMs && echoFaceMoves === null;
     },
 
-    shouldSwallowGuideFaceMove(bleMove, nowMs, expectedOrCorrection) {
+    shouldSwallowGuideFaceMove(
+      bleMove,
+      nowMs,
+      expectedOrCorrection,
+      orientAlgs = [],
+    ) {
       const raw = bleMove.trim();
       const expected = (expectedOrCorrection ?? "").trim();
       if (expected && raw === expected) {
         return false;
+      }
+      if (expected && orientAlgs.length > 0) {
+        const formulaOrient = formulaOrientAlgFromCandidates(orientAlgs);
+        if (
+          resolveGuideBleFaceMove(raw, expected, formulaOrient) === expected
+        ) {
+          return false;
+        }
       }
       if (nowMs >= quietUntilMs) {
         echoFaceMoves = null;

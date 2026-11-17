@@ -8,8 +8,8 @@
 
 ### 拆 PR 中（#157 → #160）
 
-- [#157](https://github.com/IdEvEbI/cube-trainer/issues/157) 转体 scrub ← 本 PR
-- [#158](https://github.com/IdEvEbI/cube-trainer/issues/158) `r`→`R` 残留放行（E14）
+- [#157](https://github.com/IdEvEbI/cube-trainer/issues/157) 转体 scrub（PR 开出）
+- [#158](https://github.com/IdEvEbI/cube-trainer/issues/158) `r`→`R` 残留放行（E14）← 本 PR
 - [#159](https://github.com/IdEvEbI/cube-trainer/issues/159) `S'` 后勿叠 relative `x'`
 - [#160](https://github.com/IdEvEbI/cube-trainer/issues/160) 层转公式色心 Δ 累积映面（`r' b'`→`R`）
 
