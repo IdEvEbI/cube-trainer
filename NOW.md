@@ -6,15 +6,11 @@
 
 ## 正在做的任务
 
-**[#147](https://github.com/IdEvEbI/cube-trainer/issues/147) · `S'` 后 `F'` 接线**（进行中）
+**[#146](https://github.com/IdEvEbI/cube-trainer/issues/146) · `y'` 转体确认接线**（进行中）
 
-- `GamePage` / `App`：层转用 `beginLayerEchoQuiet`；原包===期望不吞；推进后清残留。
+- `guideRotationStepConfirmable`：勿首帧绝对跳过；相对 hold 或满窗延迟确认。
 
-~~[#150](https://github.com/IdEvEbI/cube-trainer/issues/150) · 矩阵单测~~ / ~~[#148](https://github.com/IdEvEbI/cube-trainer/issues/148) · 决策表~~（已合入）
-
-### 排队
-
-1. [#146](https://github.com/IdEvEbI/cube-trainer/issues/146) · `d'` 后 `y'` 无提示跳过（转体确认接线）
+~~[#147](https://github.com/IdEvEbI/cube-trainer/issues/147)~~ / ~~[#150](https://github.com/IdEvEbI/cube-trainer/issues/150)~~ / ~~[#148](https://github.com/IdEvEbI/cube-trainer/issues/148)~~（已合入）
 
 ### 冻结
 
