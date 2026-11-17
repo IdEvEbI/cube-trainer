@@ -6,6 +6,11 @@
 
 ## 正在做的任务
 
+### 层转交接生成矩阵（第 1 层安全网）← 本 PR
+
+- [#170](https://github.com/IdEvEbI/cube-trainer/issues/170)：文档「生成矩阵」+ `layerHandoffGenerated.test.ts`（约 10584 条）
+- E1–E17 锚点保留；不改跟拧逻辑
+
 ### 拆 PR 已全部合入（#157 → #160）
 
 - [#157](https://github.com/IdEvEbI/cube-trainer/issues/157) 转体 scrub → [PR #161](https://github.com/IdEvEbI/cube-trainer/pull/161)
@@ -15,7 +20,7 @@
 
 **排队**：y' 无动画跳过 → `U+d'`→`y` 另 Issue；PLL `R'`（[#155](https://github.com/IdEvEbI/cube-trainer/issues/155) 已关闭，无修复 PR；仅 [#156](https://github.com/IdEvEbI/cube-trainer/pull/156) E13 文档行）
 
-**另记（未开 Issue）**：`z2` 转体动画偏快、像快切；与实体不同步。不与本串混修。
+**另记（未开 Issue）**：`z2` 转体动画偏快、像快切；与实体不同步。不与本串混修。跟拧 3D 与进度脱节（复现串已记，未开 Issue）。
 
 ### 本轮已合入（层转后稳定回归）
 
@@ -42,7 +47,7 @@
 - **状态**：本轮未单独开 Issue；G2 回归中已顺带观察。若需正式过门，再说「G1 通过」或另开验收。
 - **通过标准**：你回复「G1 通过」。
 
-**当前指针**：#157–#160 已合入 → 真机抽检清单 1–10，或重开 PLL `R'`。
+**当前指针**：[#170](https://github.com/IdEvEbI/cube-trainer/issues/170) 生成矩阵（第 1 层安全网）← 本 PR；合入后真机抽检 1–10，或重开 PLL `R'`。
 
 **旁路（不插队）**：AI CFOP 调研笔记已合入（#121 / #122）；确认前不写接入代码。公式练习蓝牙（#127）延期。层转 L10 冻结。
 
@@ -79,7 +84,7 @@ L0–L9 真机通过并合入。交接组合态见 `docs/research-moyu-layer-cap
 1. ~~记录转动序列…~~（略，见 git 历史）
 2. ~~魔域层转 L0→L9~~（#123 / #124 已合入）
 3. ~~打乱计时恢复~~（#130 / #131 已合入）
-4. **游戏页收口** ← 当前：#157–#160 已合入；真机抽检 1–10，或重开 PLL `R'`
+4. **游戏页收口** ← 当前：[#170](https://github.com/IdEvEbI/cube-trainer/issues/170) 生成矩阵；合入后真机抽检 1–10，或重开 PLL `R'`
 5. ~~公式练习蓝牙闭环~~（#127 延期）
 6. ~~AI CFOP 调研文档~~（#121 / #122 已合入）
 7. 其余后置项见 `docs/prd.md`
