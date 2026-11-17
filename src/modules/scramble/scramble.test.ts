@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { readCube } from "../cube/cube.ts";
 import { cube3x3x3 } from "cubing/puzzles";
 import {
+  FIXED_TEST_SCRAMBLE,
   GUIDED_HOME_TEST_FOCUS,
   nextHomeScrambleMoves,
   parseGuidedAlg,
@@ -11,6 +12,7 @@ import {
   randomScramble3x3,
   scrambleDisplayAlgorithm,
   scrambleViewAlgorithm,
+  USE_FIXED_TEST_SCRAMBLE,
   USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE,
 } from "./scramble.ts";
 
@@ -161,7 +163,22 @@ describe("randomGuidedTestScramble", () => {
 });
 
 describe("nextHomeScrambleMoves", () => {
-  it("联调开关关闭时走外层随机打乱", () => {
+  it("定点复测开关打开时钉死 FIXED_TEST_SCRAMBLE", () => {
+    if (!USE_FIXED_TEST_SCRAMBLE) {
+      return;
+    }
+    assert.equal(
+      nextHomeScrambleMoves(() => 0.2),
+      FIXED_TEST_SCRAMBLE,
+    );
+    assert.equal(
+      nextHomeScrambleMoves(() => 0.8),
+      FIXED_TEST_SCRAMBLE,
+    );
+  });
+
+  it("联调与定点均关闭时走外层随机打乱", () => {
+    assert.equal(USE_FIXED_TEST_SCRAMBLE, false);
     assert.equal(USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE, false);
     assert.equal(
       nextHomeScrambleMoves(() => 0.2),

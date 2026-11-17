@@ -164,30 +164,33 @@ L0–L9 盖住**单步**识别；交接瓢出在组合空间。E1–E17 是真�
 
 **双步 `*2` 方向**：实体上 `L2`≡`L'2`（180°），软件必须「两下同向 + 3D play 与记账 apply 同一握持四分之一」。黄上先绝对→握持再比期望；游戏页 `forPlay` 须走 `resolveGuidedBleAbsoluteGripMove`（与 apply 同串），不得对双步首半 `expectedMove` 正转字母单独 resolve。fixture / 单测：`bug-double-L2-prime-dir.json`、`guideDoubleMovePlayApply.test.ts`（含真机候选链）。
 
+**`y` 后映面（#180 / E19）**：真机日志：`absolute=D`，`orientAlgs=['z2 y', "z2 y y' y y' z"]`，期望 `R'`。`z2 y` 单独会把 `D` 收成 `U`（提示请转 `U'`）；live 链能映成 `R`。回落须优先与期望**同面**的候选映面，不得死用 `z2 y→U`。fixture / 单测：`bug-y-then-R-as-U.json`、`guideYThenRAsU.test.ts`。
+
 ### 最小用例矩阵
 
 可增不可 silently 删。单测表驱动应对齐本表 `id`。
 
-| id  | completedLayer            | nextExpected          | input                                 | want                                                  |
-| --- | ------------------------- | --------------------- | ------------------------------------- | ----------------------------------------------------- |
-| E1  | `f'`                      | `L'`                  | ble `B'`                              | reject（对偶）                                        |
-| E2  | `f'`                      | `L'`                  | ble `L'`                              | accept                                                |
-| E3  | `M'`                      | `F'`                  | ble `L'`                              | reject（回声映面假命中）                              |
-| E4  | `S'`                      | `F'`                  | ble `F'`                              | accept（原包即期望）                                  |
-| E5  | `S'`                      | `F'`                  | ble `B'`                              | reject                                                |
-| E6  | `d'`                      | `y'`                  | 绝对已 `… y'`、进入 0ms、无相对 hold  | reject（勿首帧跳过）                                  |
-| E7  | `d'`                      | `y'`                  | 同上、进入 ≥ holdMs                   | accept（延迟确认）                                    |
-| E8  | `d'`                      | `y'`                  | 相对 committed `y'`                   | accept                                                |
-| E9  | `u`                       | `y`                   | 绝对已到位、进入 0ms                  | reject                                                |
-| E10 | `E`                       | `U`                   | ble `U`（`U`∈`E` echo）               | accept（原包即期望，同 E4）                           |
-| E11 | `r'`                      | `U`                   | ble `U`（`U`∉`r'` echo=`L` 系）       | accept（普通外面转 / 映面）                           |
-| E12 | `b`                       | `R'`                  | ble `F`                               | reject（对偶）；ble `R'` → accept                     |
-| E13 | OLL 末层转（如 `r'`/`M`） | PLL 首面转（如 `R'`） | ble 握持 `R'`（及映面后字母）         | accept；残留/映面不得永久吞或错面（#155，先红测再修） |
-| E14 | `r`（黄上 `z2` 后）       | `R`                   | ble 绝对 `L`（握持 `R`）              | accept（公式映面===期望；#158）                       |
-| E15 | `S'`（黄上 `z2 y` 后）    | `L`                   | ble 绝对 `F`（握持 `L`）              | accept（公式映面；#159）                              |
-| E16 | `S'`（黄上 `z2 y` 后）    | `L`                   | live 仍含本步 `z'` 倾斜、ble 绝对 `D` | **不得**收成 `L`（残留窗勿叠 relative→`x'`；#159）    |
-| E17 | `r' b'`（黄上 `z2` 后）   | `R`                   | ble 绝对 `D`（色心累积 `x' z`）       | accept；绝对 `B` 不得收成 `R`（#160）                 |
-| E18 | `L2`（黄上 `z2`）         | （双步本身）          | 握持 `L' L'`（绝对 `R' R'`）          | 进度推进；play 与 apply 同为 `L'`（真机候选链亦同串） |
+| id  | completedLayer            | nextExpected          | input                                 | want                                                      |
+| --- | ------------------------- | --------------------- | ------------------------------------- | --------------------------------------------------------- |
+| E1  | `f'`                      | `L'`                  | ble `B'`                              | reject（对偶）                                            |
+| E2  | `f'`                      | `L'`                  | ble `L'`                              | accept                                                    |
+| E3  | `M'`                      | `F'`                  | ble `L'`                              | reject（回声映面假命中）                                  |
+| E4  | `S'`                      | `F'`                  | ble `F'`                              | accept（原包即期望）                                      |
+| E5  | `S'`                      | `F'`                  | ble `B'`                              | reject                                                    |
+| E6  | `d'`                      | `y'`                  | 绝对已 `… y'`、进入 0ms、无相对 hold  | reject（勿首帧跳过）                                      |
+| E7  | `d'`                      | `y'`                  | 同上、进入 ≥ holdMs                   | accept（延迟确认）                                        |
+| E8  | `d'`                      | `y'`                  | 相对 committed `y'`                   | accept                                                    |
+| E9  | `u`                       | `y`                   | 绝对已到位、进入 0ms                  | reject                                                    |
+| E10 | `E`                       | `U`                   | ble `U`（`U`∈`E` echo）               | accept（原包即期望，同 E4）                               |
+| E11 | `r'`                      | `U`                   | ble `U`（`U`∉`r'` echo=`L` 系）       | accept（普通外面转 / 映面）                               |
+| E12 | `b`                       | `R'`                  | ble `F`                               | reject（对偶）；ble `R'` → accept                         |
+| E13 | OLL 末层转（如 `r'`/`M`） | PLL 首面转（如 `R'`） | ble 握持 `R'`（及映面后字母）         | accept；残留/映面不得永久吞或错面（#155，先红测再修）     |
+| E14 | `r`（黄上 `z2` 后）       | `R`                   | ble 绝对 `L`（握持 `R`）              | accept（公式映面===期望；#158）                           |
+| E15 | `S'`（黄上 `z2 y` 后）    | `L`                   | ble 绝对 `F`（握持 `L`）              | accept（公式映面；#159）                                  |
+| E16 | `S'`（黄上 `z2 y` 后）    | `L`                   | live 仍含本步 `z'` 倾斜、ble 绝对 `D` | **不得**收成 `L`（残留窗勿叠 relative→`x'`；#159）        |
+| E17 | `r' b'`（黄上 `z2` 后）   | `R`                   | ble 绝对 `D`（色心累积 `x' z`）       | accept；绝对 `B` 不得收成 `R`（#160）                     |
+| E18 | `L2`（黄上 `z2`）         | （双步本身）          | 握持 `L' L'`（绝对 `R' R'`）          | 进度推进；play 与 apply 同为 `L'`（真机候选链亦同串）     |
+| E19 | `y`/`f`（黄上 `z2` 后）   | `R'`                  | ble 绝对 `D`（握持 `R`；真机日志）    | 映成 `R`（纠错 `R'`）；**不得** `z2 y` 回落成 `U`（#180） |
 
 ### 真机抽检清单（8–12 条）
 

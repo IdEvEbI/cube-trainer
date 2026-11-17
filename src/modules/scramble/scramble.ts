@@ -123,6 +123,16 @@ export function randomScramble3x3(
 }
 
 /**
+ * 真机定点复测：钉死一串打乱（首页下一打乱 + 游戏页重新打乱）。
+ * 测完改回 false。优先于 {@link USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE}。
+ */
+export const USE_FIXED_TEST_SCRAMBLE = false;
+
+/** 定点复测打乱（PLL 3D 脱节复现串等）。 */
+export const FIXED_TEST_SCRAMBLE =
+  "L D' U F L' U' R' D2 R' D' L R2 B2 L2 U D R L' B U";
+
+/**
  * 真机联调：首页用引导式层转公式（宽层 / 中层混测）。
  * L0–L9 已通过；产品首页改回 false，走 {@link randomScramble3x3}。
  * 联调生成器代码保留，需要时再打开。
@@ -340,10 +350,13 @@ export function randomGuidedTestScramble(
   return parseGuidedAlg(tokens.join(" ")).join(" ");
 }
 
-/** 计时首页「下一打乱」：联调期按焦点出引导式，否则随机外层。 */
+/** 计时首页「下一打乱」：定点复测 / 联调焦点 / 随机外层。 */
 export function nextHomeScrambleMoves(
   random: () => number = Math.random,
 ): string {
+  if (USE_FIXED_TEST_SCRAMBLE) {
+    return FIXED_TEST_SCRAMBLE;
+  }
   if (USE_TEMP_WIDE_SLICE_HOME_SCRAMBLE) {
     return randomGuidedTestScramble(random);
   }

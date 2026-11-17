@@ -259,6 +259,44 @@ export function resolveGuideBleFaceMoveWithHint(
   );
 }
 
+/**
+ * 干净黄上公式朝向：`z2 y` / `z2 y'`（不含 relative 倾斜）。
+ */
+export function isYellowUpFormulaYawOrientAlg(orientAlg: string): boolean {
+  const normalized = orientAlg.trim().split(/\s+/).filter(Boolean).join(" ");
+  return normalized === "z2 y" || normalized === "z2 y'";
+}
+
+/**
+ * 候选链是否表示「公式已含 y」：存在干净 `z2 y`/`z2 y'`，且**没有**裸 `z2`
+ * （裸 z2 仍在链上时，`z2 y` 只是 live yaw，不得抢回落）。
+ */
+export function orientCandidatesFormulaHasYaw(
+  orientAlgs: readonly string[],
+): boolean {
+  let hasFormulaYaw = false;
+  let hasBareZ2 = false;
+  for (const alg of orientAlgs) {
+    const normalized = alg.trim().split(/\s+/).filter(Boolean).join(" ");
+    if (normalized === "z2" || normalized === "z2'") {
+      hasBareZ2 = true;
+    }
+    if (isYellowUpFormulaYawOrientAlg(normalized)) {
+      hasFormulaYaw = true;
+    }
+  }
+  return hasFormulaYaw && !hasBareZ2;
+}
+
+function guideFaceLetter(move: string): string {
+  return (move.trim()[0] ?? "").toUpperCase();
+}
+
+/** 期望为侧面（L/R/F/B）时，回落优先同面映面。 */
+function isSideFaceLetter(face: string): boolean {
+  return face === "L" || face === "R" || face === "F" || face === "B";
+}
+
 export function resolveGuideBleFaceMoveWithCandidates(
   bleMove: string,
   expectedToken: string | null | undefined,
@@ -266,16 +304,44 @@ export function resolveGuideBleFaceMoveWithCandidates(
 ): string {
   const want = (expectedToken ?? "").trim();
   const list = orientAlgs.length > 0 ? orientAlgs : [""];
-  // 无一命中时回落**首个**候选（现为公式-only，勿把层转 yaw 脏映面当回落）。
+  const preferFormulaYaw = orientCandidatesFormulaHasYaw(list);
+  const wantFace = want ? guideFaceLetter(want) : "";
+  // 无一命中时（#180 真机）：
+  // 1) 侧面期望：优先候选里同面字母（绝对 D + live 链 → R，勿死用 z2 y → U）
+  // 2) 否则干净 z2 y
+  // 3) 否则首个候选
   let first: string | null = null;
+  let formulaYawGot: string | null = null;
+  let sameFaceGot: string | null = null;
   for (const alg of list) {
     const got = resolveGuideBleFaceMove(bleMove, expectedToken, alg);
     if (first === null) {
       first = got;
     }
+    if (
+      preferFormulaYaw &&
+      formulaYawGot === null &&
+      isYellowUpFormulaYawOrientAlg(alg)
+    ) {
+      formulaYawGot = got;
+    }
+    if (
+      preferFormulaYaw &&
+      sameFaceGot === null &&
+      isSideFaceLetter(wantFace) &&
+      guideFaceLetter(got) === wantFace
+    ) {
+      sameFaceGot = got;
+    }
     if (!want || got === want) {
       return got;
     }
+  }
+  if (sameFaceGot !== null) {
+    return sameFaceGot;
+  }
+  if (formulaYawGot !== null) {
+    return formulaYawGot;
   }
   return first ?? bleMove.trim();
 }

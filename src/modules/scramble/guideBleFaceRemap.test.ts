@@ -250,3 +250,22 @@ describe("resolveGuideBleFaceMoveWithHint", () => {
     assert.equal(resolveGuideBleFaceMoveWithHint("F", "U", "z2 x", "z2"), "U");
   });
 });
+
+describe("resolveGuideBleFaceMoveWithCandidates · E19", () => {
+  it("黄上已 y：脏首项 x' 不得把绝对 B 回落成 U", () => {
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("B", "R'", ["z2 y x'", "z2 y"]),
+      "R",
+    );
+  });
+
+  it("真机日志：绝对 D + z2 y 与 live 链 → R（勿回落成 U）", () => {
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("D", "R'", [
+        "z2 y",
+        "z2 y y' y y' z",
+      ]),
+      "R",
+    );
+  });
+});
