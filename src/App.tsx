@@ -1049,6 +1049,7 @@ export default function App() {
     if (kind !== "wide" && kind !== "slice" && !isRotation) {
       return;
     }
+    const completedToken = token ?? "";
     const result = isRotation
       ? confirmGuidedManualStep(guide)
       : confirmGuidedFaceletsStep(guide);
@@ -1068,7 +1069,14 @@ export default function App() {
     );
     scrambleGuideFollow.clearRotationStep();
     scrambleGuideFollow.clearLayerGesture();
-    scrambleGuideFollow.beginQuiet(performance.now());
+    if (kind === "wide" || kind === "slice") {
+      scrambleGuideFollow.beginLayerEchoQuiet(
+        performance.now(),
+        completedToken,
+      );
+    } else {
+      scrambleGuideFollow.beginQuiet(performance.now());
+    }
     scrambleGuideAnimatingRef.current = true;
     // 调用方应已 await 动画空闲；此处只钉终态，避免 cancel 把可见动画掐成秒切。
     void paintScrambleGuideCube(result.guide, { force: true })
@@ -1309,12 +1317,35 @@ export default function App() {
       let needStickerNail = false;
       for (; sampleIndex < samples.length; sampleIndex += 1) {
         const sample = samples[sampleIndex]!;
+        const expectedToken = next.displayMoves[next.progress] ?? null;
+        if (
+          scrambleGuideFollow.shouldSwallowGuideFaceMove(
+            sample.move,
+            performance.now(),
+            expectedToken,
+          )
+        ) {
+          continue;
+        }
+        if (
+          scrambleGuideFollow.shouldDiscardResidualLayerDual(
+            sample.move,
+            expectedToken,
+            scrambleGuideFaceOrientCandidates(),
+          )
+        ) {
+          continue;
+        }
         // 色心已对上期望则不映；否则按 live 朝向映回（防噪声把 L→F，又保留未摆正 F'→U'）。
-        const guideMove = remapGuideBleFaceMove(
-          sample.move,
-          next.displayMoves[next.progress] ?? null,
-        );
+        const guideMove = remapGuideBleFaceMove(sample.move, expectedToken);
         const result = applyGuidedMove(next, guideMove);
+        if (
+          result.kind === "progress" ||
+          result.kind === "partial" ||
+          result.kind === "done"
+        ) {
+          scrambleGuideFollow.clearResidualLayerDual();
+        }
         if (result.kind === "wrong") {
           // 层转后偶发错面字母：以 facelets 为准，避免「期望 U 却提示转 F'」。
           const session = moyuSessionRef.current;
@@ -1566,7 +1597,18 @@ export default function App() {
             return;
           }
           scrambleGuideFollow.clearLayerGesture();
-          scrambleGuideFollow.beginQuiet(performance.now());
+          {
+            const doneToken = guide.displayMoves[guide.progress] ?? "";
+            const doneKind = resolveLayerFollowKind(doneToken);
+            if (doneKind === "wide" || doneKind === "slice") {
+              scrambleGuideFollow.beginLayerEchoQuiet(
+                performance.now(),
+                doneToken,
+              );
+            } else {
+              scrambleGuideFollow.beginQuiet(performance.now());
+            }
+          }
           trackBluetoothSetupOnly(tick.trackSetupAlg);
           // 陀螺/手势已跟到终点；alg 未变时 paint 会跳过。无轨道时钉一次公式前缀。
           await paintScrambleGuideCube(result.guide);
@@ -2394,8 +2436,8 @@ export default function App() {
           guide.phase !== "done" &&
           btInspectPhaseRef.current === "off"
         ) {
-          // 层转确认后吞残留对面包（与游戏页共用静默窗）。
-          if (scrambleGuideFollow.isInQuiet(performance.now())) {
+          // 非层转 quiet 整窗吞；层转 echo 在 applyBluetoothGuideMoves 逐步过滤。
+          if (scrambleGuideFollow.swallowsAllFaceMoves(performance.now())) {
             return;
           }
           const kind = resolveLayerFollowKind(

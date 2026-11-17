@@ -6,18 +6,15 @@
 
 ## 正在做的任务
 
-**[#150](https://github.com/IdEvEbI/cube-trainer/issues/150) · 层转后交接矩阵表驱动单测**（进行中）
+**[#147](https://github.com/IdEvEbI/cube-trainer/issues/147) · `S'` 后 `F'` 接线**（进行中）
 
-- 纯函数：`layerEchoFaceMoves` / 残留过滤 / `guideRotationStepConfirmable`。
-- `layerHandoffMatrix.test.ts` 对齐文档 E1–E12。
-- 合入后分 PR 接线 #147 / #146（`GamePage` / `App`）。
+- `GamePage` / `App`：层转用 `beginLayerEchoQuiet`；原包===期望不吞；推进后清残留。
 
-~~[#148](https://github.com/IdEvEbI/cube-trainer/issues/148) · 交接决策表~~（已合入）
+~~[#150](https://github.com/IdEvEbI/cube-trainer/issues/150) · 矩阵单测~~ / ~~[#148](https://github.com/IdEvEbI/cube-trainer/issues/148) · 决策表~~（已合入）
 
-### 已定位、矩阵后再合（分 PR，不混 WIP）
+### 排队
 
-1. [#147](https://github.com/IdEvEbI/cube-trainer/issues/147) · `S'` 后 `F'` 死锁（原包===期望放行）
-2. [#146](https://github.com/IdEvEbI/cube-trainer/issues/146) · `d'` 后 `y'` 无提示跳过（延迟确认）
+1. [#146](https://github.com/IdEvEbI/cube-trainer/issues/146) · `d'` 后 `y'` 无提示跳过（转体确认接线）
 
 ### 冻结
 
