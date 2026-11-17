@@ -411,11 +411,22 @@ export function GamePage({
     return applyGuidedMove(before, gripWrong).guide;
   }
 
+  function beginPostManualQuiet(completedToken: string) {
+    const kind = resolveLayerFollowKind(completedToken);
+    if (kind === "wide" || kind === "slice") {
+      // 对偶残留过滤；原包===下一步期望时放行（S'→F'）。
+      guideFollow.beginLayerEchoQuiet(performance.now(), completedToken);
+      return;
+    }
+    guideFollow.beginQuiet(performance.now());
+  }
+
   function tryConfirmManualFromGuide() {
     const guide = guideRef.current;
     if (!guide || !bluetoothRef.current) {
       return;
     }
+    const completedToken = guide.displayMoves[guide.progress] ?? "";
     const result = confirmGuidedManualStep(guide);
     if (result.kind === "need_manual") {
       return;
@@ -423,8 +434,7 @@ export function GamePage({
     // 下一步手动对表基线待进入时重采。
     guideFollow.clearManualSync();
     guideFollow.clearLayerGesture();
-    // 吞掉宽层拧转残留的面转包，防止 d 之后的 U/D 被当成 L'。
-    guideFollow.beginQuiet(performance.now());
+    beginPostManualQuiet(completedToken);
     const beforeProgress = guide.progress;
     void (async () => {
       try {
@@ -564,8 +574,8 @@ export function GamePage({
     }
     let movesCancelled = false;
     const unregisterMoves = bluetooth.registerMoves((samples) => {
-      // 宽层刚确认后的残留对面包（f→B）不可播、不可记账。
-      if (guideFollow.isInQuiet(performance.now())) {
+      // 非层转 beginQuiet：整窗吞包。层转 echo quiet 走逐步 shouldSwallow（勿挡 S'→F'）。
+      if (guideFollow.swallowsAllFaceMoves(performance.now())) {
         return;
       }
       let guide = guideRef.current;
@@ -654,10 +664,29 @@ export function GamePage({
             const orientAlgs = faceOrientCandidatesForGuide(next);
             const hintOrients = hintOrientationMovesForGuide(next);
             const stepView = guidedScrambleView(next);
+            const expectOrUndo = stepView.correction ?? stepView.expectedMove;
+            if (
+              guideFollow.shouldSwallowGuideFaceMove(
+                sample.move,
+                performance.now(),
+                expectOrUndo,
+              )
+            ) {
+              continue;
+            }
+            if (
+              guideFollow.shouldDiscardResidualLayerDual(
+                sample.move,
+                expectOrUndo,
+                orientAlgs,
+              )
+            ) {
+              continue;
+            }
             // 3D 播公式帧字母（与高亮一致）；匹配走共用候选链。
             const forPlay = resolveGuideBleFaceMoveWithCandidates(
               sample.move,
-              stepView.correction ?? stepView.expectedMove,
+              expectOrUndo,
               orientAlgs,
             );
             playSamples.push({ ...sample, move: forPlay });
@@ -673,6 +702,7 @@ export function GamePage({
               break;
             }
             if (result.kind === "progress" || result.kind === "done") {
+              guideFollow.clearResidualLayerDual();
               bleAbsSetupRef.current = formulaPaintAlg(next);
               next = await rejectCrossProgressIfStateMismatch(
                 before,
@@ -1053,6 +1083,7 @@ export function GamePage({
     if (!guide || !bluetoothRef.current) {
       return;
     }
+    const completedToken = guide.displayMoves[guide.progress] ?? "";
     const result = confirmGuidedManualStep(guide);
     if (result.kind === "need_manual") {
       return;
@@ -1060,7 +1091,7 @@ export function GamePage({
     // 跳过：钉公式前缀（与自动确认相同），不刷 facelets。
     guideFollow.clearManualSync();
     guideFollow.clearLayerGesture();
-    guideFollow.beginQuiet(performance.now());
+    beginPostManualQuiet(completedToken);
     void (async () => {
       try {
         await cube.current?.finishGuideStepGyroTrack();
