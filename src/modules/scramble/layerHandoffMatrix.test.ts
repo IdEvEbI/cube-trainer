@@ -86,6 +86,44 @@ describe("层转后交接矩阵 · 对偶残留 / 静默", () => {
     assert.equal(ctrl.shouldDiscardResidualLayerDual("F", "L", zy), false);
   });
 
+  it("E17: r' b' → R（黄上）：色心累积映面，绝对 D 收成 R；勿停在 B", () => {
+    const formula = ["z2"] as const;
+    const moves = ["z2", "r'", "b'", "R", "u'", "L", "S'"] as const;
+    const progress = 3;
+    const ctrl = createGuideFollowController();
+    const z2 = quatFromOrientationAlg("z2");
+    ctrl.syncFaceRemapHome({
+      orientsKey: "z2",
+      active: true,
+      liveQuat: z2,
+    });
+    // 刚完成 b'：残留窗抑制 relative
+    ctrl.beginLayerEchoQuiet(
+      110_000,
+      "b'",
+      undefined,
+      quatFromOrientationAlg("z2 x z"),
+    );
+    const cands = ctrl.faceOrientCandidates({
+      formulaOrients: formula,
+      displayMoves: moves,
+      progress,
+      liveQuat: quatFromOrientationAlg("z2 x z"),
+      requireYellowUp: true,
+    });
+    assert.ok(
+      cands.some((alg) => alg.includes("x'") && alg.includes("z")),
+      `应含色心累积 x' z: ${cands.join(" | ")}`,
+    );
+    // 公式帧握持 R ≡ 色心 D（黄上 + r' b' 后）
+    assert.equal(resolveGuideBleFaceMoveWithCandidates("D", "R", cands), "R");
+    // 绝对 B 不得误收成 R（旧 Last-only 回落曾把 B 收成错步）
+    assert.notEqual(
+      resolveGuideBleFaceMoveWithCandidates("B", "R", cands),
+      "R",
+    );
+  });
+
   it("E16: S' → L：残留窗内勿叠 live relative，D 不得收成 L", () => {
     const formula = ["z2", "y"] as const;
     const beforeSlice = quatFromOrientationAlg("z2 y");

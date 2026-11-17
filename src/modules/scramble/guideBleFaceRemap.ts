@@ -223,9 +223,14 @@ export function guideBleFaceOrientCandidates(options: {
   const layer = (options.layerGyroAlg ?? "").trim();
   if (layer) {
     push(composeGuideBleMatchOrients(formula, layer).join(" "));
-    const layerInv = invertOrientationAlgParts(layer);
-    if (layerInv && layerInv !== layer) {
-      push(composeGuideBleMatchOrients(formula, layerInv).join(" "));
+    // 单步色心/陀螺 Δ 取反（M'≡x 时仍要 x'）；多步累积（r' b'→x' z）整串取反
+    // 会引入 B→R 等别名，故不取反（#160）。
+    const layerParts = layer.split(/\s+/).filter(Boolean);
+    if (layerParts.length === 1) {
+      const layerInv = invertOrientationAlgParts(layer);
+      if (layerInv && layerInv !== layer) {
+        push(composeGuideBleMatchOrients(formula, layerInv).join(" "));
+      }
     }
   }
   if (out.length === 0) {

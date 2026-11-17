@@ -62,12 +62,12 @@
 
 **跟转 3D**：宽层/中层走**公式 `Twisty.alg` 旋转**（`setAbsoluteAlg`），色心跟公式语义（例：`z2…f'` 后顶心橙）。禁止用 `setAbsoluteFromPattern` 钉贴图「拧回黄上」。`absoluteAlgToNailedDisplayPattern` 仅给 facelets/对表。
 
-**映面候选**：公式转体优先，再 live relative / 取反，再**最近一次**层转期望 Δ / 取反（`guideLayerGyroOrientationAlgLast`）。  
-`M'` 公式色心 ≡ `x`（期望陀螺 Δ=`x'` 的取反）：跟 3D 拧顶面常报绝对 `F'`，无此项会收成「请转 F」。勿拼全历史 Δ（`S' S d'`→`z' z y'` 放大别名面）；Last 单步仍可能含 `y'` 取反的 B'→R' 别名，但少得多。回落仍用公式。
+**映面候选**：公式转体优先，再 live relative / 取反，再**已完成层转的公式色心 Δ 累积**（`guideLayerCenterOrientationAlg`）。单步色心 Δ 仍取反（`M'`≡`x` 时保留 `x'`）；**多步累积整串不取反**（`x' z` 取反 `z' x` 会把 `B` 收成 `R`）。  
+色心 Δ 与陀螺表对照（L9）：`r/l/u/d/M/E` 族色心 ≡ **invert(陀螺)**（例：`r'` 陀螺 `x`、色心 `x'`；`M'` 陀螺 `x'`、色心 `x`）；`f/b/S` 与陀螺同向；`*2` 与陀螺一致。3D 跟 `setAbsoluteAlg` 公式色心，**禁止 poll 贴图**拧回黄上。  
+勿改回「只用 Last 陀螺」：`r' b'` 会丢掉 `r'` 色心，下一步 `R` 收成 `B`（#160）。手势匹配仍用陀螺表 / Last。  
+**层转后残留窗**：`beginLayerEchoQuiet` 可带 `liveQuat` 重采 home（首页公式空时有用）；游戏黄上 relative 基准是**公式姿态**，故残留未清时 **faceOrientCandidates 不叠 live relative**，只留公式 + 色心累积。否则 `S'` 的 `z'` 相对 `z2 y` 会吸附成 `x'`，`D`/`U` 误收成下一步 `L`（#159）。
 
 **转体 z2 / y**：双步转体用短稳定窗，且实况 relative 已满足即可确认（勿只等 hold committed，否则抖动反复重置，要猛晃才过）。画面：mesh 锁单位；公式 `startGuideStepGyroTrack` + `rotationGuideVisualProgress` scrub；到位 `finishGuideStepGyroTrack` 补间，禁止 `setAbsoluteAlg` 闪切。
-
-**层转后残留窗**：`beginLayerEchoQuiet` 可带 `liveQuat` 重采 home（首页公式空时有用）；游戏黄上 relative 基准是**公式姿态**，故残留未清时 **faceOrientCandidates 不叠 live relative**，只留公式 + Last 层转 Δ。否则 `S'` 的 `z'` 相对 `z2 y` 会吸附成 `x'`，`D`/`U` 误收成下一步 `L`（#159）。
 
 **层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀，整段进 Twisty.alg scrub；开轨道摘盒后须立刻 `rebindPendingMoveHint`。mesh 锁单位。
 
@@ -125,6 +125,7 @@ L0–L9 盖住**单步**宽层/中层识别。游戏页后置还有三套规则�
 | E14 | `r`（黄上 `z2` 后）       | `R`                   | ble 绝对 `L`（握持 `R`）              | accept（公式映面===期望；#158）                       |
 | E15 | `S'`（黄上 `z2 y` 后）    | `L`                   | ble 绝对 `F`（握持 `L`）              | accept（公式映面；#159）                              |
 | E16 | `S'`（黄上 `z2 y` 后）    | `L`                   | live 仍含本步 `z'` 倾斜、ble 绝对 `D` | **不得**收成 `L`（残留窗勿叠 relative→`x'`；#159）    |
+| E17 | `r' b'`（黄上 `z2` 后）   | `R`                   | ble 绝对 `D`（色心累积 `x' z`）       | accept；绝对 `B` 不得收成 `R`（#160）                 |
 
 ### 真机抽检清单（8–12 条）
 

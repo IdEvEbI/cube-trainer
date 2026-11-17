@@ -11,6 +11,7 @@ import {
   expectedGyroDeltaAlg,
   parseLayerGestureToken,
 } from "../bluetooth/moyu/moyuLayerGesture.ts";
+import { invertRotationGuideToken } from "../score/cubeOrientation.ts";
 import { absoluteFaceMoveToGrip } from "../score/solveAlgDisplay.ts";
 
 export type LayerDualParts = {
@@ -63,8 +64,8 @@ export function guideLayerGyroOrientationAlg(
 }
 
 /**
- * 最近一次已完成层转的期望 Δ（单步）。
- * 映面候选用这个，勿用全历史拼接——`S' S d'`→`z' z y'` 取反会误把 B' 收成 R'。
+ * 最近一次已完成层转的期望**陀螺** Δ（单步）。
+ * 手势匹配仍用陀螺表；映面勿只靠 Last——`r' b'` 会丢掉 `r'` 色心分量（#160）。
  */
 export function guideLayerGyroOrientationAlgLast(
   moves: readonly string[],
@@ -84,6 +85,68 @@ export function guideLayerGyroOrientationAlgLast(
     }
   }
   return "";
+}
+
+/**
+ * 层转在 Twisty 公式里的色心等价 Δ（与 {@link expectedGyroDeltaAlg} 对照）：
+ * - `r/l/u/d/M/E` 族：色心 ≡ invert(陀螺)（例：`r'` 陀螺 `x`、色心 `x'`；`M'` 陀螺 `x'`、色心 `x`）
+ * - `f/b/S` 族：与陀螺同向
+ * - 含 `2` 的双步：与陀螺一致（如 `r2`→`z2 y2`）
+ *
+ * 3D `setAbsoluteAlg` 跟公式色心；映面须用本函数累积，禁止 poll 贴图拧回黄上。
+ */
+export function expectedFormulaCenterDeltaAlg(token: string): string | null {
+  const gyro = expectedGyroDeltaAlg(token)?.trim() ?? "";
+  if (!gyro) {
+    return null;
+  }
+  const parsed = parseLayerGestureToken(token);
+  if (!parsed) {
+    return null;
+  }
+  const family = parsed.family;
+  // f/b/S：公式色心与陀螺同向
+  if (family === "f" || family === "b" || family === "S") {
+    return gyro;
+  }
+  // 双步（陀螺已是 z2 y2 / y2 / z2）：与色心一致
+  if (/2/.test(gyro)) {
+    return gyro;
+  }
+  // r/l/u/d/M/E 四分之一：色心 = 陀螺取反
+  return gyro
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => invertRotationGuideToken(part))
+    .join(" ");
+}
+
+/**
+ * 已完成层转的**公式色心** Δ 累积（对齐 Twisty 中心，供 BLE 映面）。
+ * 例：`z2 r' b'` → `x' z`（不是 Last 陀螺 `z`）。
+ */
+export function guideLayerCenterOrientationAlg(
+  moves: readonly string[],
+  count: number,
+): string {
+  const truncated = Math.trunc(count);
+  if (!Number.isFinite(truncated)) {
+    throw new Error(
+      "guideLayerCenterOrientationAlg: count must be a finite number",
+    );
+  }
+  const end = Math.max(0, Math.min(moves.length, truncated));
+  const parts: string[] = [];
+  for (let i = 0; i < end; i += 1) {
+    const delta = expectedFormulaCenterDeltaAlg(moves[i] ?? "");
+    if (!delta) {
+      continue;
+    }
+    for (const part of delta.split(/\s+/).filter(Boolean)) {
+      parts.push(part);
+    }
+  }
+  return parts.join(" ");
 }
 
 /**
