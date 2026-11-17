@@ -7,6 +7,7 @@
  */
 
 import type { LayerCaptureMoveSample } from "../bluetooth/moyu/layerCapture.ts";
+import { expectedBurstMovesForLayer } from "../bluetooth/moyu/moyuLayerGesture.ts";
 import { IDENTITY_QUAT, type MoyuQuat } from "../bluetooth/moyu/orientation.ts";
 import { relativeOrientationAlg } from "../game/guideOrientation.ts";
 import {
@@ -18,6 +19,7 @@ import {
   syncGuideFaceRemapHome,
   type GuideFaceRemapHomeState,
 } from "./guideBleFaceRemap.ts";
+import { invertGuideToken } from "./guided.ts";
 import { guideLayerGyroOrientationAlgLast } from "./layerGuideDualPaint.ts";
 import {
   appendGuideLayerGestureMoves,
@@ -27,6 +29,59 @@ import {
 
 /** 层转 / 手动步确认后吞残留对面色心包的静默窗。 */
 export const GUIDE_FOLLOW_MOVE_QUIET_MS = 550;
+
+/**
+ * 刚完成的宽层 / 中层，其固件对面包（及取逆）在静默窗 / 残留过滤中应丢弃。
+ * 例：`M'` → `L`/`R'`（及 `L'`/`R`）；勿整窗吞掉下一步真面转（如 `F'`）。
+ */
+export function layerEchoFaceMoves(layerToken: string): readonly string[] {
+  const burst = expectedBurstMovesForLayer(layerToken.trim());
+  if (!burst || burst.length === 0) {
+    return [];
+  }
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (token: string) => {
+    const t = token.trim();
+    if (!t || seen.has(t)) {
+      return;
+    }
+    seen.add(t);
+    out.push(t);
+  };
+  for (const move of burst) {
+    push(move);
+    try {
+      push(invertGuideToken(move));
+    } catch {
+      // 非面转对偶时忽略
+    }
+  }
+  return out;
+}
+
+/**
+ * 已完成层转的对偶色心包：属于该层转本身，不是下一步面转。
+ * - 色心原字母已是下一步期望（如 `S'` 后真拧 `F'`）：放行。
+ * - 对偶原包映面后才等于期望（如 `M'` 回声 `L'`→握持 `F'`）：仍丢弃。
+ */
+export function isResidualLayerDualFaceMove(
+  bleMove: string,
+  expectedOrCorrection: string | null | undefined,
+  _orientAlgs: readonly string[],
+  completedLayerToken: string,
+): boolean {
+  const raw = bleMove.trim();
+  const echo = layerEchoFaceMoves(completedLayerToken);
+  if (echo.length === 0 || !echo.includes(raw)) {
+    return false;
+  }
+  const expected = (expectedOrCorrection ?? "").trim();
+  if (expected && raw === expected) {
+    return false;
+  }
+  return true;
+}
 
 export type GuideFollowFaceOrientInput = {
   formulaOrients: readonly string[];
@@ -53,6 +108,8 @@ export type GuideFollowController = {
   readonly quietUntilMs: number;
   readonly rotationStepKey: string | null;
   readonly rotationFromQuat: MoyuQuat;
+  /** 进入当前转体步的 performance.now；无转体步为 0。 */
+  readonly rotationStepEnteredAtMs: number;
 
   reset(): void;
   captureFaceRemapHome(liveQuat: MoyuQuat, orientsKey?: string): void;
@@ -66,7 +123,34 @@ export type GuideFollowController = {
   faceOrientCandidates(input: GuideFollowFaceOrientInput): string[];
 
   beginQuiet(nowMs: number, durationMs?: number): void;
+  /**
+   * 层转确认后：登记对偶残留过滤器，并开短静默窗少播动画。
+   * 正确性靠 {@link shouldDiscardResidualLayerDual}，不靠窗长。
+   */
+  beginLayerEchoQuiet(
+    nowMs: number,
+    layerToken: string,
+    durationMs?: number,
+  ): void;
+  /** 下一步面转已推进：清对偶残留过滤。 */
+  clearResidualLayerDual(): void;
   isInQuiet(nowMs: number): boolean;
+  /** 无对偶表时整窗吞包；有对偶表时仅 {@link shouldSwallowGuideFaceMove}。 */
+  swallowsAllFaceMoves(nowMs: number): boolean;
+  /**
+   * 静默窗内是否应丢弃该色心面转（对面包回声）。
+   * `expectedOrCorrection` 与色心原包相同时不吞（`S'` 后立刻拧 `F'`）。
+   */
+  shouldSwallowGuideFaceMove(
+    bleMove: string,
+    nowMs: number,
+    expectedOrCorrection?: string | null,
+  ): boolean;
+  shouldDiscardResidualLayerDual(
+    bleMove: string,
+    expectedOrCorrection: string | null | undefined,
+    orientAlgs: readonly string[],
+  ): boolean;
 
   /**
    * 进入层转 / 手动步：登记对表基线与 tracker。
@@ -99,6 +183,7 @@ export type GuideFollowController = {
   beginOrContinueRotationStep(
     stepKey: string,
     liveQuat: MoyuQuat,
+    nowMs?: number,
   ): { relativeAlg: string; isNewStep: boolean };
   clearRotationStep(): void;
   relativeRotationAlg(liveQuat: MoyuQuat): string;
@@ -118,6 +203,9 @@ export function createGuideFollowController(): GuideFollowController {
   let layerMatchHold = false;
   let manualSyncKey: string | null = null;
   let manualSyncSetup: string | null = null;
+  let residualLayerToken: string | null = null;
+  let echoFaceMoves: ReadonlySet<string> | null = null;
+  let rotationStepEnteredAtMs = 0;
   let quietUntilMs = 0;
   let rotationStepKey: string | null = null;
   let rotationFromQuat: MoyuQuat = IDENTITY_QUAT;
@@ -156,6 +244,9 @@ export function createGuideFollowController(): GuideFollowController {
     get rotationFromQuat() {
       return rotationFromQuat;
     },
+    get rotationStepEnteredAtMs() {
+      return rotationStepEnteredAtMs;
+    },
 
     reset() {
       faceRemapHome = createGuideFaceRemapHomeState();
@@ -164,9 +255,12 @@ export function createGuideFollowController(): GuideFollowController {
       layerMatchHold = false;
       manualSyncKey = null;
       manualSyncSetup = null;
+      residualLayerToken = null;
+      echoFaceMoves = null;
       quietUntilMs = 0;
       rotationStepKey = null;
       rotationFromQuat = IDENTITY_QUAT;
+      rotationStepEnteredAtMs = 0;
     },
 
     captureFaceRemapHome(liveQuat, orientsKey = "") {
@@ -215,10 +309,61 @@ export function createGuideFollowController(): GuideFollowController {
 
     beginQuiet(nowMs, durationMs = GUIDE_FOLLOW_MOVE_QUIET_MS) {
       quietUntilMs = nowMs + durationMs;
+      echoFaceMoves = null;
+    },
+
+    beginLayerEchoQuiet(
+      nowMs,
+      layerToken,
+      durationMs = GUIDE_FOLLOW_MOVE_QUIET_MS,
+    ) {
+      quietUntilMs = nowMs + durationMs;
+      const trimmed = layerToken.trim();
+      residualLayerToken = trimmed || null;
+      const echo = layerEchoFaceMoves(trimmed);
+      echoFaceMoves = echo.length > 0 ? new Set(echo) : null;
+    },
+
+    clearResidualLayerDual() {
+      residualLayerToken = null;
+      echoFaceMoves = null;
+      quietUntilMs = 0;
     },
 
     isInQuiet(nowMs) {
       return nowMs < quietUntilMs;
+    },
+
+    swallowsAllFaceMoves(nowMs) {
+      return nowMs < quietUntilMs && echoFaceMoves === null;
+    },
+
+    shouldSwallowGuideFaceMove(bleMove, nowMs, expectedOrCorrection) {
+      const raw = bleMove.trim();
+      const expected = (expectedOrCorrection ?? "").trim();
+      if (expected && raw === expected) {
+        return false;
+      }
+      if (nowMs >= quietUntilMs) {
+        echoFaceMoves = null;
+        return false;
+      }
+      if (echoFaceMoves === null) {
+        return true;
+      }
+      return echoFaceMoves.has(raw);
+    },
+
+    shouldDiscardResidualLayerDual(bleMove, expectedOrCorrection, orientAlgs) {
+      if (!residualLayerToken) {
+        return false;
+      }
+      return isResidualLayerDualFaceMove(
+        bleMove,
+        expectedOrCorrection,
+        orientAlgs,
+        residualLayerToken,
+      );
     },
 
     ensureManualSync(options) {
@@ -267,11 +412,12 @@ export function createGuideFollowController(): GuideFollowController {
       layerMatchHold = false;
     },
 
-    beginOrContinueRotationStep(stepKey, liveQuat) {
+    beginOrContinueRotationStep(stepKey, liveQuat, nowMs = 0) {
       const isNewStep = rotationStepKey !== stepKey;
       if (isNewStep) {
         rotationStepKey = stepKey;
         rotationFromQuat = liveQuat;
+        rotationStepEnteredAtMs = nowMs;
       }
       return {
         relativeAlg: relativeOrientationAlg(rotationFromQuat, liveQuat),
@@ -282,6 +428,7 @@ export function createGuideFollowController(): GuideFollowController {
     clearRotationStep() {
       rotationStepKey = null;
       rotationFromQuat = IDENTITY_QUAT;
+      rotationStepEnteredAtMs = 0;
     },
 
     relativeRotationAlg(liveQuat) {

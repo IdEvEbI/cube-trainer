@@ -505,7 +505,55 @@ export function heldMatchesRotationProgress(
     return facingAfterAlg(target).up === facingAfterAlg(held).up;
   }
   const prev = orientationAlgThroughProgress(moves, progress - 1);
+  // 绝对累积对表用正向；相对步起点的正反由 {@link scrambleGuideRotationSatisfied} 负责。
   return orientationSatisfiesRotation(prev, held, token);
+}
+
+/**
+ * 引导转体步是否可确认（游戏页 / 打乱引导共用）。
+ *
+ * - `*2`：绝对朝上到位（勿单靠相对 Δ）。
+ * - 四分之一：须相对步起点 hold 已提交的 committed 满足（含正反）；
+ *   禁止「绝对已在目标」首帧跳过——宽层 `d'`/`u` 后陀螺常已是 `y'`；
+ *   仅当进入该步已满 hold 窗且绝对仍到位才延迟确认。
+ */
+export function guideRotationStepConfirmable(options: {
+  expectedMove: string;
+  relativeCommittedAlg: string;
+  heldAlg: string;
+  displayMoves: readonly string[];
+  progress: number;
+  msSinceStepEnter: number;
+  holdMs?: number;
+}): boolean {
+  const expected = options.expectedMove.trim();
+  if (!/^([xyz])(2'|2|')?$/.test(expected)) {
+    return false;
+  }
+  const holdMs = options.holdMs ?? orientationHoldStableMsForMove(expected);
+  if (/2/.test(expected)) {
+    return heldMatchesRotationProgress(
+      options.heldAlg,
+      options.displayMoves,
+      options.progress,
+    );
+  }
+  if (
+    scrambleGuideRotationSatisfied("", options.relativeCommittedAlg, expected)
+  ) {
+    return true;
+  }
+  if (
+    options.msSinceStepEnter >= holdMs &&
+    heldMatchesRotationProgress(
+      options.heldAlg,
+      options.displayMoves,
+      options.progress,
+    )
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**
