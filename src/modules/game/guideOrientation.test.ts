@@ -16,6 +16,7 @@ import {
   relativeOrientationAlg,
   relativeOrientationQuat,
   remapGripTokenToPuzzleHint,
+  rotationGuideVisualProgress,
   shouldUpdateGuideMeshHomeAfterAdvance,
 } from "./guideOrientation.ts";
 
@@ -113,6 +114,25 @@ describe("guideMeshFollow / mesh home", () => {
 });
 
 describe("relativeOrientationQuat", () => {
+  it("转体判定：步起点与 live 同为 z2 时相对 Δ 为单位（画面锁 mesh，仅判定用）", () => {
+    const heldYellow = quatFromOrientationAlg("z2");
+    assert.deepEqual(
+      relativeOrientationQuat(heldYellow, heldYellow),
+      IDENTITY_QUAT,
+    );
+  });
+
+  it("rotationGuideVisualProgress：静止为 0；z2 转满接近但低于 1", () => {
+    const start = IDENTITY_QUAT;
+    assert.equal(rotationGuideVisualProgress("z2", start, start), 0);
+    const half = quatFromOrientationAlg("z");
+    const mid = rotationGuideVisualProgress("z2", start, half);
+    assert.ok(mid > 0.4 && mid < 0.6);
+    const full = quatFromOrientationAlg("z2");
+    const end = rotationGuideVisualProgress("z2", start, full);
+    assert.ok(end >= 0.9 && end < 1);
+  });
+
   it("相对步起点：静止为单位，转 z' 后接近公式 z'", () => {
     const start = IDENTITY_QUAT;
     const live = quatFromOrientationAlg("z'");
