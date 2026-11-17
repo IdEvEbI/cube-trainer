@@ -67,6 +67,8 @@
 
 **转体 z2 / y**：双步转体用短稳定窗，且实况 relative 已满足即可确认（勿只等 hold committed，否则抖动反复重置，要猛晃才过）。画面：mesh 锁单位；公式 `startGuideStepGyroTrack` + `rotationGuideVisualProgress` scrub；到位 `finishGuideStepGyroTrack` 补间，禁止 `setAbsoluteAlg` 闪切。
 
+**层转后残留窗**：`beginLayerEchoQuiet` 可带 `liveQuat` 重采 home（首页公式空时有用）；游戏黄上 relative 基准是**公式姿态**，故残留未清时 **faceOrientCandidates 不叠 live relative**，只留公式 + Last 层转 Δ。否则 `S'` 的 `z'` 相对 `z2 y` 会吸附成 `x'`，`D`/`U` 误收成下一步 `L`（#159）。
+
 **层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀，整段进 Twisty.alg scrub；开轨道摘盒后须立刻 `rebindPendingMoveHint`。mesh 锁单位。
 
 L9（**通过 2026-11-13**）：层转一步 scrub 后保持该 alg；mesh 锁单位。BLE 面转：`resolveGuideBleFaceMove`——色心已对上期望则不映（避 live `y` 噪声 L→F）；否则按引导起点→live 朝向映回（未摆正 F'→U'）。字母偶发不符时 facelets 兜底。
@@ -105,22 +107,24 @@ L0–L9 盖住**单步**宽层/中层识别。游戏页后置还有三套规则�
 
 可增不可 silently 删。单测表驱动应对齐本表 `id`。
 
-| id  | completedLayer            | nextExpected          | input                                | want                                                  |
-| --- | ------------------------- | --------------------- | ------------------------------------ | ----------------------------------------------------- |
-| E1  | `f'`                      | `L'`                  | ble `B'`                             | reject（对偶）                                        |
-| E2  | `f'`                      | `L'`                  | ble `L'`                             | accept                                                |
-| E3  | `M'`                      | `F'`                  | ble `L'`                             | reject（回声映面假命中）                              |
-| E4  | `S'`                      | `F'`                  | ble `F'`                             | accept（原包即期望）                                  |
-| E5  | `S'`                      | `F'`                  | ble `B'`                             | reject                                                |
-| E6  | `d'`                      | `y'`                  | 绝对已 `… y'`、进入 0ms、无相对 hold | reject（勿首帧跳过）                                  |
-| E7  | `d'`                      | `y'`                  | 同上、进入 ≥ holdMs                  | accept（延迟确认）                                    |
-| E8  | `d'`                      | `y'`                  | 相对 committed `y'`                  | accept                                                |
-| E9  | `u`                       | `y`                   | 绝对已到位、进入 0ms                 | reject                                                |
-| E10 | `E`                       | `U`                   | ble `U`（`U`∈`E` echo）              | accept（原包即期望，同 E4）                           |
-| E11 | `r'`                      | `U`                   | ble `U`（`U`∉`r'` echo=`L` 系）      | accept（普通外面转 / 映面）                           |
-| E12 | `b`                       | `R'`                  | ble `F`                              | reject（对偶）；ble `R'` → accept                     |
-| E13 | OLL 末层转（如 `r'`/`M`） | PLL 首面转（如 `R'`） | ble 握持 `R'`（及映面后字母）        | accept；残留/映面不得永久吞或错面（#155，先红测再修） |
-| E14 | `r`（黄上 `z2` 后）       | `R`                   | ble 绝对 `L`（握持 `R`）             | accept（公式映面===期望；#158）                       |
+| id  | completedLayer            | nextExpected          | input                                 | want                                                  |
+| --- | ------------------------- | --------------------- | ------------------------------------- | ----------------------------------------------------- |
+| E1  | `f'`                      | `L'`                  | ble `B'`                              | reject（对偶）                                        |
+| E2  | `f'`                      | `L'`                  | ble `L'`                              | accept                                                |
+| E3  | `M'`                      | `F'`                  | ble `L'`                              | reject（回声映面假命中）                              |
+| E4  | `S'`                      | `F'`                  | ble `F'`                              | accept（原包即期望）                                  |
+| E5  | `S'`                      | `F'`                  | ble `B'`                              | reject                                                |
+| E6  | `d'`                      | `y'`                  | 绝对已 `… y'`、进入 0ms、无相对 hold  | reject（勿首帧跳过）                                  |
+| E7  | `d'`                      | `y'`                  | 同上、进入 ≥ holdMs                   | accept（延迟确认）                                    |
+| E8  | `d'`                      | `y'`                  | 相对 committed `y'`                   | accept                                                |
+| E9  | `u`                       | `y`                   | 绝对已到位、进入 0ms                  | reject                                                |
+| E10 | `E`                       | `U`                   | ble `U`（`U`∈`E` echo）               | accept（原包即期望，同 E4）                           |
+| E11 | `r'`                      | `U`                   | ble `U`（`U`∉`r'` echo=`L` 系）       | accept（普通外面转 / 映面）                           |
+| E12 | `b`                       | `R'`                  | ble `F`                               | reject（对偶）；ble `R'` → accept                     |
+| E13 | OLL 末层转（如 `r'`/`M`） | PLL 首面转（如 `R'`） | ble 握持 `R'`（及映面后字母）         | accept；残留/映面不得永久吞或错面（#155，先红测再修） |
+| E14 | `r`（黄上 `z2` 后）       | `R`                   | ble 绝对 `L`（握持 `R`）              | accept（公式映面===期望；#158）                       |
+| E15 | `S'`（黄上 `z2 y` 后）    | `L`                   | ble 绝对 `F`（握持 `L`）              | accept（公式映面；#159）                              |
+| E16 | `S'`（黄上 `z2 y` 后）    | `L`                   | live 仍含本步 `z'` 倾斜、ble 绝对 `D` | **不得**收成 `L`（残留窗勿叠 relative→`x'`；#159）    |
 
 ### 真机抽检清单（8–12 条）
 
@@ -129,6 +133,7 @@ L0–L9 盖住**单步**宽层/中层识别。游戏页后置还有三套规则�
 1. Cross/F2L 含 `f'` 后下一步 `L'`：对偶 `B'` 不记错步；真拧 `L'` 推进。
 2. 含 `M'` 后下一步 `F'`：残留 `L'`/`R` 不误推进；真拧握持 `F'` 推进。
 3. F2L3 `S'` 后 F2L4 `F'`：立刻拧 `F'` 能推进（#147）。
+   3b. F2L `S'` 后下一步握持 `L`（黄上已 `y`）：拧左侧（色心 `F`）推进，勿报「请转 U'」（#159）。
 4. 宽层 `d'` 后公式 `y'`：先出现转体提示，再确认（#146）。
 5. 宽层 `u` 后公式 `y`：同 4，勿首帧跳过。
 6. 中层 `E` 后外面转 `U`/`U'`：能推进、不错面。
