@@ -131,6 +131,35 @@ L0–L9 盖住**单步**识别；交接瓢出在组合空间。E1–E17 是真�
 
 单测：`src/modules/scramble/layerHandoffGenerated.test.ts`。
 
+### 离线回放（第 2 层安全网）
+
+第 1 层盖**单步**交接规则；真机瓢常是一整段（层转 → 下一步 → 朝向变化）。把色心包 + 陀螺快照写成 fixture，在 CI 里用 `GuideFollowController` + `GuidedScramble` 重放，不必再拧魔方。
+
+**不要**改 `layerCapture.ts`（那是单记号指纹采集）。回放入口：`src/modules/scramble/guideReplay.ts`；fixture 目录：`src/fixtures/guide-replay/`。
+
+**fixture 格式（JSON）**：
+
+| 字段              | 含义                                                                |
+| ----------------- | ------------------------------------------------------------------- |
+| `id`              | 稳定短名                                                            |
+| `displayMoves`    | 引导公式步（与游戏页展示一致）                                      |
+| `requireYellowUp` | 可选，默认 `true`（游戏黄上对表）                                   |
+| `events[]`        | 有序事件：`{ type:"orient", t, alg }` 或 `{ type:"face", t, move }` |
+| `expect`          | `{ progress, done, sawWrong }`                                      |
+
+- `orient.alg`：白上起算姿态串；层转用文档**陀螺** Δ（如 `r'`→`x`，`b'`→`z`），手写即可，不要求新采。
+- 非面转步：当 `orient.alg` 等于「完成当前步后」的期望串时自动 `confirm`（骨架；对应真机到位）。
+- `face.move`：色心绝对包；经静默 / 残留 / 映面后，仅当收成期望面转才 `applyGuidedMove`。
+
+**如何加新瓢**：
+
+1. 在矩阵或抽检记下现象（可先补 E 行）。
+2. 新增 `src/fixtures/guide-replay/<id>.json`：公式 + 最少 orient/face 事件 + `expect`。
+3. 在 `guideReplay.test.ts` 读 fixture 断言；先红后绿。
+4. **禁止**为单只瓢在跟拧生产路径加 `if`；先改生成矩阵 / 锚点 / 本回放，再改代码。
+
+首条：`e17-r-prime-b-prime-R.json`（E17 / #160：`z2 r' b' R`，绝对 `B` 不收成 `R`，`D` 推进）。
+
 ### 最小用例矩阵
 
 可增不可 silently 删。单测表驱动应对齐本表 `id`。
