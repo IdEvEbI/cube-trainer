@@ -1,0 +1,18 @@
+{
+  "id": "e17-r-prime-b-prime-R",
+  "description": "E17 / #160：黄上 z2 后 r' b'，色心累积映面；绝对 D→R，绝对 B 不得收成 R。姿态用文档陀螺 Δ（r'→x，b'→z）手写。",
+  "displayMoves": ["z2", "r'", "b'", "R"],
+  "requireYellowUp": true,
+  "events": [
+    { "t": 0, "type": "orient", "alg": "z2" },
+    { "t": 100, "type": "orient", "alg": "z2 x" },
+    { "t": 200, "type": "orient", "alg": "z2 x z" },
+    { "t": 300, "type": "face", "move": "B" },
+    { "t": 400, "type": "face", "move": "D" }
+  ],
+  "expect": {
+    "progress": 4,
+    "done": true,
+    "sawWrong": false
+  }
+}
