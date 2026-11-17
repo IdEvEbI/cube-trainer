@@ -196,9 +196,11 @@ export function resolveGuideBleFaceMove(
     }
     return remapped;
   }
-  // 双步：先比色心面字母（R2 半步只来色心 R/R'）。
+  // 双步：黄上必须先绝对→握持，勿用色心与公式同名字母原样当握持（L'≠握持 L'）。
+  // 白上：色心面字母已对上则原样（R2 半步只来色心 R/R'）。
   const expFace = expected[0]!.toUpperCase();
-  if (raw[0]!.toUpperCase() === expFace) {
+  const yellowUp = /\bz2'?\b/.test(orientationAlg);
+  if (!yellowUp && raw[0]!.toUpperCase() === expFace) {
     return raw;
   }
   if (remapped[0]!.toUpperCase() === expFace) {
