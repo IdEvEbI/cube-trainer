@@ -662,6 +662,20 @@ export function GamePage({
             const hintOrients = hintOrientationMovesForGuide(next);
             const stepView = guidedScrambleView(next);
             const expectOrUndo = stepView.correction ?? stepView.expectedMove;
+            const gripPreview = resolveGuidedBleAbsoluteGripMove(
+              next,
+              sample.move,
+              orientAlgs,
+            );
+            // #180 真机诊断：绝对包 / 候选链 / 映面 / 期望（禁 facelets 轮询）。
+            console.info("[guide-face]", {
+              absolute: sample.move,
+              expectedMove: expectOrUndo,
+              orientAlgs: [...orientAlgs],
+              resolved: gripPreview,
+              progress: next.progress,
+              token: next.displayMoves[next.progress] ?? null,
+            });
             if (
               guideFollow.shouldSwallowGuideFaceMove(
                 sample.move,
@@ -670,6 +684,7 @@ export function GamePage({
                 orientAlgs,
               )
             ) {
+              console.info("[guide-face] swallow", sample.move);
               continue;
             }
             if (
@@ -679,14 +694,11 @@ export function GamePage({
                 orientAlgs,
               )
             ) {
+              console.info("[guide-face] discard-residual", sample.move);
               continue;
             }
             // 3D 与记账同一握持四分之一（双步勿对 expected 正转字母单独 resolve）。
-            const forPlay = resolveGuidedBleAbsoluteGripMove(
-              next,
-              sample.move,
-              orientAlgs,
-            );
+            const forPlay = gripPreview;
             playSamples.push({ ...sample, move: forPlay });
             const before = next;
             const result = applyGuidedBleAbsoluteMoveWithOrientAlgs(
@@ -694,6 +706,12 @@ export function GamePage({
               sample.move,
               orientAlgs,
             );
+            console.info("[guide-face] apply", {
+              absolute: sample.move,
+              resolved: forPlay,
+              kind: result.kind,
+              wrongStack: result.guide.wrongStack,
+            });
             next = result.guide;
             if (result.kind === "need_manual") {
               statePollKickRef.current?.();

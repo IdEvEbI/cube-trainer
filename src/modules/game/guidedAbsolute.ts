@@ -7,7 +7,10 @@ import {
   type GuidedScramble,
 } from "../scramble/guided.ts";
 import { resolveGuideBleFaceMoveWithCandidates } from "../scramble/guideBleFaceRemap.ts";
-import { remapGripTokenToPuzzleHint } from "./guideOrientation.ts";
+import {
+  completedOrientationMoves,
+  remapGripTokenToPuzzleHint,
+} from "./guideOrientation.ts";
 
 /**
  * 按朝向候选串依次映面（match → hint → …），命中期望即停。
@@ -57,7 +60,20 @@ export function resolveGuidedBleAbsoluteGripMove(
   }
 
   const view = guidedScrambleView(guide);
-  const algs = orientAlgs.length > 0 ? orientAlgs : [""];
+  // 公式已含 z2 y/y' 时置前，避免脏首项 relative 抢映（#180）；裸 z2 不置前。
+  const formulaAlg = completedOrientationMoves(
+    guide.displayMoves,
+    guide.progress,
+  ).join(" ");
+  const prependFormulaYaw = formulaAlg === "z2 y" || formulaAlg === "z2 y'";
+  const algs =
+    orientAlgs.length > 0
+      ? prependFormulaYaw && !orientAlgs.includes(formulaAlg)
+        ? [formulaAlg, ...orientAlgs]
+        : [...orientAlgs]
+      : prependFormulaYaw
+        ? [formulaAlg]
+        : [""];
 
   if (view.correction) {
     return resolveWithOrientAlgs(absoluteMove, view.correction, algs);
