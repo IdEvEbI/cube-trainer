@@ -6,10 +6,14 @@
 
 ## 正在做的任务
 
-### 双步方向 E18 ← 本 PR
+### 游戏页双步 forPlay 同握持 ← 本 PR
 
-- [#176](https://github.com/IdEvEbI/cube-trainer/issues/176)：黄上 `L2` 用握持 `L'2` 时，3D play 与记账同一握持四分之一
-- 锚点：`bug-double-L2-prime-dir` / `guideDoubleMovePlayApply`；不改 `GuideFollowController` / `GamePage` / 指纹表
+- [#178](https://github.com/IdEvEbI/cube-trainer/issues/178)：`forPlay` 改走 `resolveGuidedBleAbsoluteGripMove`，与 apply 同一握持四分之一
+- 真机：黄上 `L2` 用 `L'2` 不错色，PLL 能还原
+
+### 双步方向 E18 已合入
+
+- [#176](https://github.com/IdEvEbI/cube-trainer/issues/176) / [PR #177](https://github.com/IdEvEbI/cube-trainer/pull/177)：黄上双步先绝对→握持；replay 首半正反可记账
 
 ### 三层安全网已全部合入
 
@@ -53,7 +57,7 @@
 - **状态**：本轮未单独开 Issue；G2 回归中已顺带观察。若需正式过门，再说「G1 通过」或另开验收。
 - **通过标准**：你回复「G1 通过」。
 
-**当前指针**：[#176](https://github.com/IdEvEbI/cube-trainer/issues/176) 双步方向 E18 ← 本 PR；合入后真机抽检 1–10。
+**当前指针**：[#178](https://github.com/IdEvEbI/cube-trainer/issues/178) 游戏页双步 forPlay 同握持 ← 本 PR；合入后真机抽检 1–10。
 
 **旁路（不插队）**：AI CFOP 调研笔记已合入（#121 / #122）；确认前不写接入代码。公式练习蓝牙（#127）延期。层转 L10 冻结。
 
@@ -90,7 +94,7 @@ L0–L9 真机通过并合入。交接组合态见 `docs/research-moyu-layer-cap
 1. ~~记录转动序列…~~（略，见 git 历史）
 2. ~~魔域层转 L0→L9~~（#123 / #124 已合入）
 3. ~~打乱计时恢复~~（#130 / #131 已合入）
-4. **游戏页收口** ← 当前：[#176](https://github.com/IdEvEbI/cube-trainer/issues/176) 双步方向 E18；合入后真机抽检 1–10
+4. **游戏页收口** ← 当前：[#178](https://github.com/IdEvEbI/cube-trainer/issues/178) 游戏页双步 forPlay；合入后真机抽检 1–10
 5. ~~公式练习蓝牙闭环~~（#127 延期）
 6. ~~AI CFOP 调研文档~~（#121 / #122 已合入）
 7. 其余后置项见 `docs/prd.md`

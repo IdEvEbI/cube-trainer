@@ -1,23 +1,22 @@
 /**
- * 双步 *2 方向 · E18 锚点（须绿）。
+ * 双步 *2 方向 · E18（须绿）。
  * 对齐 docs/research-moyu-layer-capture.md 与 fixture bug-double-L2-prime-dir。
  *
- * 游戏页：play 用 resolve(…, expectedMove|整步记号)，apply 用
- * applyGuidedBleAbsoluteMoveWithOrientAlgs；两路必须同一握持四分之一。
+ * 游戏页：forPlay 与 apply 共用 resolveGuidedBleAbsoluteGripMove；
+ * 真机候选链（公式 + relative）下也必须同串，勿对 expected 正转字母单独 resolve。
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { applyGuidedBleAbsoluteMoveWithOrientAlgs } from "../game/guidedAbsolute.ts";
+import {
+  applyGuidedBleAbsoluteMoveWithOrientAlgs,
+  resolveGuidedBleAbsoluteGripMove,
+} from "../game/guidedAbsolute.ts";
 import { remapGripTokenToPuzzleHint } from "../game/guideOrientation.ts";
 import { absoluteFaceMoveToGrip } from "../score/solveAlgDisplay.ts";
-import {
-  createGuidedMoves,
-  guidedScrambleView,
-  parseFaceTurn,
-} from "./guided.ts";
+import { createGuidedMoves, guidedScrambleView } from "./guided.ts";
 import { resolveGuideBleFaceMoveWithCandidates } from "./guideBleFaceRemap.ts";
 import { resolveGuideBleFaceMove } from "./layerGuideDualPaint.ts";
 import { replayGuideSession, type GuideReplayFixture } from "./guideReplay.ts";
@@ -33,53 +32,15 @@ function loadFixture(name: string): GuideReplayFixture {
   ) as GuideReplayFixture;
 }
 
-/** 镜像 GamePage：forPlay 字母（不改生产）。 */
-function gamePageForPlayMove(
-  guide: ReturnType<typeof createGuidedMoves>,
-  absoluteMove: string,
-  orientAlgs: readonly string[],
-): string {
-  const view = guidedScrambleView(guide);
-  return resolveGuideBleFaceMoveWithCandidates(
-    absoluteMove,
-    view.correction ?? view.expectedMove,
-    orientAlgs,
-  );
-}
-
-/** 镜像 apply 路得到的握持四分之一（双步首半走绝对面匹配）。 */
-function applyPathGripQuarter(
-  guide: ReturnType<typeof createGuidedMoves>,
-  absoluteMove: string,
-  orientAlgs: readonly string[],
-): string {
-  const token = guide.displayMoves[guide.progress] ?? "";
-  const view = guidedScrambleView(guide);
-  if (view.currentIsDouble && !view.partial) {
-    const { face } = parseFaceTurn(token);
-    for (const alg of orientAlgs) {
-      const parts = alg.split(/\s+/).filter(Boolean);
-      const absCw = remapGripTokenToPuzzleHint(face, parts);
-      const absCcw = remapGripTokenToPuzzleHint(`${face}'`, parts);
-      if (absoluteMove === absCw) {
-        return face;
-      }
-      if (absoluteMove === absCcw) {
-        return `${face}'`;
-      }
-    }
-  }
-  const expected = view.correction ?? view.expectedMove;
-  return resolveGuideBleFaceMoveWithCandidates(
-    absoluteMove,
-    expected,
-    orientAlgs,
-  );
-}
+/**
+ * 真机式候选链：公式 z2 优先，后接 live relative（与 guideBleFaceOrientCandidates 同形）。
+ * 脏首项链用于证明「对 expected 正转 resolve」会与记账分叉。
+ */
+const DEVICE_ORIENT_CHAIN = ["z2", "z2 y", "z2 y'"] as const;
+const DIRTY_FIRST_ORIENT_CHAIN = ["z2 y", "z2"] as const;
 
 describe("双步 *2 方向 · bug-double-L2-prime-dir", () => {
   const fixture = loadFixture("bug-double-L2-prime-dir.json");
-  const orients = ["z2"] as const;
   /** 黄上握持 L' → 色心绝对 R' */
   const absPrime = remapGripTokenToPuzzleHint("L'", ["z2"]);
 
@@ -90,13 +51,13 @@ describe("双步 *2 方向 · bug-double-L2-prime-dir", () => {
     guide = applyGuidedBleAbsoluteMoveWithOrientAlgs(
       guide,
       absPrime,
-      orients,
+      DEVICE_ORIENT_CHAIN,
     ).guide;
     assert.equal(guide.halfDir, "'");
     guide = applyGuidedBleAbsoluteMoveWithOrientAlgs(
       guide,
       absPrime,
-      orients,
+      DEVICE_ORIENT_CHAIN,
     ).guide;
     assert.equal(guide.progress, fixture.expect.progress);
     assert.equal(guide.phase === "done", fixture.expect.done);
@@ -112,40 +73,95 @@ describe("双步 *2 方向 · bug-double-L2-prime-dir", () => {
     );
   });
 
-  it("GamePage forPlay 与 apply 两路四分之一须同为 L'", () => {
+  it("真机候选链：forPlay 与 apply 同为 L'（勿对 expected L 单独 resolve）", () => {
     let guide = createGuidedMoves(fixture.displayMoves);
     guide = { ...guide, progress: 1 };
+    const view0 = guidedScrambleView(guide);
+    assert.equal(view0.expectedMove, "L");
+    assert.equal(view0.currentIsDouble, true);
+
+    // 旧路：对 expected 正转字母 resolve，脏首项会与记账分叉。
+    const legacyPlay = resolveGuideBleFaceMoveWithCandidates(
+      absPrime,
+      view0.expectedMove,
+      DIRTY_FIRST_ORIENT_CHAIN,
+    );
+    assert.notEqual(
+      legacyPlay,
+      "L'",
+      `旧 forPlay 在脏首项链下应为分叉（got=${legacyPlay}）`,
+    );
+
     const playQuarters: string[] = [];
     const applyQuarters: string[] = [];
 
-    for (let i = 0; i < 2; i += 1) {
-      const forPlay = gamePageForPlayMove(guide, absPrime, orients);
-      const applied = applyPathGripQuarter(guide, absPrime, orients);
-      playQuarters.push(forPlay);
-      applyQuarters.push(applied);
-      assert.equal(
-        forPlay,
-        applied,
-        `第 ${i + 1} 下 forPlay=${forPlay} 与 apply=${applied} 必须同串`,
-      );
-      assert.equal(
-        forPlay,
-        "L'",
-        `第 ${i + 1} 下 3D 字母须为 L'，不得为 L 或绝对面`,
-      );
-      const next = applyGuidedBleAbsoluteMoveWithOrientAlgs(
-        guide,
-        absPrime,
-        orients,
-      );
-      guide = next.guide;
-      if (i === 0) {
-        assert.equal(guide.halfDir, "'");
+    for (const chain of [DEVICE_ORIENT_CHAIN, DIRTY_FIRST_ORIENT_CHAIN]) {
+      guide = { ...createGuidedMoves(fixture.displayMoves), progress: 1 };
+      playQuarters.length = 0;
+      applyQuarters.length = 0;
+      for (let i = 0; i < 2; i += 1) {
+        const forPlay = resolveGuidedBleAbsoluteGripMove(
+          guide,
+          absPrime,
+          chain,
+        );
+        const applied = resolveGuidedBleAbsoluteGripMove(
+          guide,
+          absPrime,
+          chain,
+        );
+        playQuarters.push(forPlay);
+        applyQuarters.push(applied);
+        assert.equal(
+          forPlay,
+          applied,
+          `链 ${JSON.stringify(chain)} 第 ${i + 1} 下 forPlay=${forPlay} 与 apply=${applied}`,
+        );
+        assert.equal(
+          forPlay,
+          "L'",
+          `链 ${JSON.stringify(chain)} 第 ${i + 1} 下须为 L'，不得为 L/绝对面/脏映面`,
+        );
+        guide = applyGuidedBleAbsoluteMoveWithOrientAlgs(
+          guide,
+          absPrime,
+          chain,
+        ).guide;
+        if (i === 0) {
+          assert.equal(guide.halfDir, "'");
+        }
       }
+      assert.deepEqual(playQuarters, ["L'", "L'"]);
+      assert.deepEqual(applyQuarters, ["L'", "L'"]);
+      assert.equal(guide.progress, 2);
     }
-    assert.deepEqual(playQuarters, ["L'", "L'"]);
-    assert.deepEqual(applyQuarters, ["L'", "L'"]);
-    assert.equal(guide.progress, 2);
+  });
+
+  it("真机候选链：R2 用 R'2 时 forPlay 与 apply 同为 R'", () => {
+    const absRPrime = remapGripTokenToPuzzleHint("R'", ["z2"]);
+    assert.equal(absRPrime, "L'");
+    let guide = {
+      ...createGuidedMoves(["z2", "R2", "U"]),
+      progress: 1,
+    };
+    for (const chain of [DEVICE_ORIENT_CHAIN, DIRTY_FIRST_ORIENT_CHAIN]) {
+      guide = { ...createGuidedMoves(["z2", "R2", "U"]), progress: 1 };
+      for (let i = 0; i < 2; i += 1) {
+        const forPlay = resolveGuidedBleAbsoluteGripMove(
+          guide,
+          absRPrime,
+          chain,
+        );
+        assert.equal(forPlay, "R'");
+        guide = applyGuidedBleAbsoluteMoveWithOrientAlgs(
+          guide,
+          absRPrime,
+          chain,
+        ).guide;
+      }
+      assert.equal(guide.progress, 2);
+      assert.equal(guide.halfDir, null);
+    }
   });
 
   it("整步记号 L2 映面：绝对 L' 须映成握持 R'（勿原样）", () => {
