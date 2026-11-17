@@ -6,11 +6,13 @@
 
 ## 正在做的任务
 
-**[#148](https://github.com/IdEvEbI/cube-trainer/issues/148) · 层转后交接决策表与用例矩阵**（文档，进行中）
+**[#150](https://github.com/IdEvEbI/cube-trainer/issues/150) · 层转后交接矩阵表驱动单测**（进行中）
 
-- `docs/research-moyu-layer-capture.md`：决策规则 + 最小矩阵 E1–E12 + 真机抽检清单。
-- `AGENTS.md`：先补矩阵行再改残留/转体/映面。
-- 指针：本 Issue 合入 → 表驱动单测 Issue → 再分 PR 合 #147 / #146 → 再开 PLL `R'`。
+- 纯函数：`layerEchoFaceMoves` / 残留过滤 / `guideRotationStepConfirmable`。
+- `layerHandoffMatrix.test.ts` 对齐文档 E1–E12。
+- 合入后分 PR 接线 #147 / #146（`GamePage` / `App`）。
+
+~~[#148](https://github.com/IdEvEbI/cube-trainer/issues/148) · 交接决策表~~（已合入）
 
 ### 已定位、矩阵后再合（分 PR，不混 WIP）
 
