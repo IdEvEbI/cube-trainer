@@ -19,6 +19,7 @@ import {
   isRotationGuideToken,
   isSliceGuideToken,
   isWideGuideToken,
+  scrambleGuideEchoAcceptedMoves,
   type GuidedScramble,
 } from "./guided.ts";
 import {
@@ -197,12 +198,23 @@ function handleFaceEvent(
     expected,
     cands,
   );
-  if (resolved !== expected) {
+  // 双步首半：正反均可（L2≡L'2）；须按握持四分之一记账，不能只收 expected 正转字母。
+  const stepToken = guide.displayMoves[guide.progress] ?? "";
+  let matches = resolved === expected;
+  if (!view.correction && view.currentIsDouble && isFaceGuideToken(stepToken)) {
+    const quarters = scrambleGuideEchoAcceptedMoves(
+      stepToken,
+      guide.halfDone,
+      guide.halfDir,
+    );
+    matches = quarters?.includes(resolved) ?? false;
+  }
+  if (!matches) {
     rejected.push(event.move);
     return { guide, sawWrong };
   }
 
-  const result = applyGuidedMove(guide, expected);
+  const result = applyGuidedMove(guide, resolved);
   if (result.kind === "wrong") {
     sawWrong = true;
     rejected.push(event.move);

@@ -6,18 +6,16 @@
 
 ## 正在做的任务
 
-### 离线回放黄金路径（第 3 层安全网）← 本 PR
+### 双步方向 E18 ← 本 PR
 
-- [#174](https://github.com/IdEvEbI/cube-trainer/issues/174)：`golden-z2-r-R` / `golden-z2-S-prime-F-prime` / `golden-z2-d-prime-y-U`；合入门禁
-- 不改跟拧逻辑
+- [#176](https://github.com/IdEvEbI/cube-trainer/issues/176)：黄上 `L2` 用握持 `L'2` 时，3D play 与记账同一握持四分之一
+- 锚点：`bug-double-L2-prime-dir` / `guideDoubleMovePlayApply`；不改 `GuideFollowController` / `GamePage` / 指纹表
 
-### 已合入：离线回放骨架（第 2 层）
+### 三层安全网已全部合入
 
-- [#172](https://github.com/IdEvEbI/cube-trainer/issues/172) / [PR #173](https://github.com/IdEvEbI/cube-trainer/pull/173)：`guideReplay.ts` + E17 fixture
-
-### 已合入：层转交接生成矩阵（第 1 层）
-
-- [#170](https://github.com/IdEvEbI/cube-trainer/issues/170) / [PR #171](https://github.com/IdEvEbI/cube-trainer/pull/171)：约 10584 条；E 锚点保留
+- 第 1 层生成矩阵：[#170](https://github.com/IdEvEbI/cube-trainer/issues/170) / [PR #171](https://github.com/IdEvEbI/cube-trainer/pull/171)（约 10584 条；E 锚点保留）
+- 第 2 层离线回放骨架：[#172](https://github.com/IdEvEbI/cube-trainer/issues/172) / [PR #173](https://github.com/IdEvEbI/cube-trainer/pull/173)（`guideReplay.ts` + E17 fixture）
+- 第 3 层黄金路径（合入门禁）：[#174](https://github.com/IdEvEbI/cube-trainer/issues/174) / [PR #175](https://github.com/IdEvEbI/cube-trainer/pull/175)（`golden-z2-r-R` / `golden-z2-S-prime-F-prime` / `golden-z2-d-prime-y-U`）
 
 ### 拆 PR 已全部合入（#157 → #160）
 
@@ -55,7 +53,7 @@
 - **状态**：本轮未单独开 Issue；G2 回归中已顺带观察。若需正式过门，再说「G1 通过」或另开验收。
 - **通过标准**：你回复「G1 通过」。
 
-**当前指针**：[#174](https://github.com/IdEvEbI/cube-trainer/issues/174) 黄金路径（第 3 层）← 本 PR；合入后真机抽检 1–10，或重开 PLL `R'`。
+**当前指针**：[#176](https://github.com/IdEvEbI/cube-trainer/issues/176) 双步方向 E18 ← 本 PR；合入后真机抽检 1–10。
 
 **旁路（不插队）**：AI CFOP 调研笔记已合入（#121 / #122）；确认前不写接入代码。公式练习蓝牙（#127）延期。层转 L10 冻结。
 
@@ -92,7 +90,7 @@ L0–L9 真机通过并合入。交接组合态见 `docs/research-moyu-layer-cap
 1. ~~记录转动序列…~~（略，见 git 历史）
 2. ~~魔域层转 L0→L9~~（#123 / #124 已合入）
 3. ~~打乱计时恢复~~（#130 / #131 已合入）
-4. **游戏页收口** ← 当前：[#174](https://github.com/IdEvEbI/cube-trainer/issues/174) 黄金路径门禁；合入后真机抽检 1–10，或重开 PLL `R'`
+4. **游戏页收口** ← 当前：[#176](https://github.com/IdEvEbI/cube-trainer/issues/176) 双步方向 E18；合入后真机抽检 1–10
 5. ~~公式练习蓝牙闭环~~（#127 延期）
 6. ~~AI CFOP 调研文档~~（#121 / #122 已合入）
 7. 其余后置项见 `docs/prd.md`

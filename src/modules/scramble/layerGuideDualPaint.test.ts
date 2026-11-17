@@ -131,6 +131,11 @@ describe("resolveGuideBleFaceMove", () => {
     assert.equal(resolveGuideBleFaceMove("R'", "R'", "z2"), "L'");
     assert.equal(resolveGuideBleFaceMove("L'", "R'", "z2"), "R'");
   });
+
+  it("黄上双步 L2：绝对 L' 映成握持 R'（勿因同名字母原样）", () => {
+    assert.equal(resolveGuideBleFaceMove("L'", "L2", "z2"), "R'");
+    assert.equal(resolveGuideBleFaceMove("R'", "L2", "z2"), "L'");
+  });
 });
 
 describe("remapBleFaceMoveAfterLayerGyro", () => {
