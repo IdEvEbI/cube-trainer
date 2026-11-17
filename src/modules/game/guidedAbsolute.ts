@@ -39,6 +39,54 @@ function resolveWithOrientAlgs(
 }
 
 /**
+ * 蓝牙绝对面转 → 引导握持四分之一（与 {@link applyGuidedBleAbsoluteMoveWithOrientAlgs} 记账同一串）。
+ * 双步首半：按候选朝向把绝对面匹配到正/反握持，勿用 expected 正转字母单独 resolve。
+ */
+export function resolveGuidedBleAbsoluteGripMove(
+  guide: GuidedScramble,
+  absoluteMove: string,
+  orientAlgs: readonly string[],
+): string {
+  const token =
+    guide.phase === "done" || guide.progress >= guide.displayMoves.length
+      ? null
+      : (guide.displayMoves[guide.progress] ?? null);
+
+  if (!token || !isFaceGuideToken(token)) {
+    return absoluteMove.trim();
+  }
+
+  const view = guidedScrambleView(guide);
+  const algs = orientAlgs.length > 0 ? orientAlgs : [""];
+
+  if (view.correction) {
+    return resolveWithOrientAlgs(absoluteMove, view.correction, algs);
+  }
+
+  if (view.currentIsDouble && !view.partial) {
+    const { face } = parseFaceTurn(token);
+    for (const alg of algs) {
+      const orients = alg.split(/\s+/).filter(Boolean);
+      const absCw = remapGripTokenToPuzzleHint(face, orients);
+      const absCcw = remapGripTokenToPuzzleHint(`${face}'`, orients);
+      if (absoluteMove === absCw) {
+        return face;
+      }
+      if (absoluteMove === absCcw) {
+        return `${face}'`;
+      }
+    }
+    return resolveWithOrientAlgs(absoluteMove, face, algs);
+  }
+
+  if (view.expectedMove) {
+    return resolveWithOrientAlgs(absoluteMove, view.expectedMove, algs);
+  }
+
+  return resolveWithOrientAlgs(absoluteMove, null, algs);
+}
+
+/**
  * 用蓝牙绝对面转推进引导（朝向候选串，与 {@link resolveGuideBleFaceMoveWithCandidates} 一致）。
  */
 export function applyGuidedBleAbsoluteMoveWithOrientAlgs(
@@ -55,45 +103,9 @@ export function applyGuidedBleAbsoluteMoveWithOrientAlgs(
     return { guide, kind: "need_manual" };
   }
 
-  const view = guidedScrambleView(guide);
-  const algs = orientAlgs.length > 0 ? orientAlgs : [""];
-
-  if (view.correction) {
-    return applyGuidedMove(
-      guide,
-      resolveWithOrientAlgs(absoluteMove, view.correction, algs),
-    );
-  }
-
-  if (view.currentIsDouble && !view.partial) {
-    const { face } = parseFaceTurn(token);
-    for (const alg of algs) {
-      const orients = alg.split(/\s+/).filter(Boolean);
-      const absCw = remapGripTokenToPuzzleHint(face, orients);
-      const absCcw = remapGripTokenToPuzzleHint(`${face}'`, orients);
-      if (absoluteMove === absCw) {
-        return applyGuidedMove(guide, face);
-      }
-      if (absoluteMove === absCcw) {
-        return applyGuidedMove(guide, `${face}'`);
-      }
-    }
-    return applyGuidedMove(
-      guide,
-      resolveWithOrientAlgs(absoluteMove, face, algs),
-    );
-  }
-
-  if (view.expectedMove) {
-    return applyGuidedMove(
-      guide,
-      resolveWithOrientAlgs(absoluteMove, view.expectedMove, algs),
-    );
-  }
-
   return applyGuidedMove(
     guide,
-    resolveWithOrientAlgs(absoluteMove, null, algs),
+    resolveGuidedBleAbsoluteGripMove(guide, absoluteMove, orientAlgs),
   );
 }
 

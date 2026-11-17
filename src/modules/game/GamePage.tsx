@@ -40,14 +40,16 @@ import {
 } from "./algStateMatch.ts";
 import { tokenizeAlg, type CfopPhaseSolution } from "./cfopSolve.ts";
 import { solveCfopGame } from "./cfopSolve.ts";
-import { resolveGuideBleFaceMoveWithCandidates } from "../scramble/guideBleFaceRemap.ts";
 import { createGuideFollowController } from "../scramble/guideFollowController.ts";
 import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
   rotationGuideVisualProgress,
 } from "./guideOrientation.ts";
-import { applyGuidedBleAbsoluteMoveWithOrientAlgs } from "./guidedAbsolute.ts";
+import {
+  applyGuidedBleAbsoluteMoveWithOrientAlgs,
+  resolveGuidedBleAbsoluteGripMove,
+} from "./guidedAbsolute.ts";
 import { manualStepReachedOnCube } from "./manualStepSync.ts";
 import {
   buildGameSolveOverview,
@@ -679,10 +681,10 @@ export function GamePage({
             ) {
               continue;
             }
-            // 3D 播公式帧字母（与高亮一致）；匹配走共用候选链。
-            const forPlay = resolveGuideBleFaceMoveWithCandidates(
+            // 3D 与记账同一握持四分之一（双步勿对 expected 正转字母单独 resolve）。
+            const forPlay = resolveGuidedBleAbsoluteGripMove(
+              next,
               sample.move,
-              expectOrUndo,
               orientAlgs,
             );
             playSamples.push({ ...sample, move: forPlay });
