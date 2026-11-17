@@ -21,7 +21,7 @@ import {
 } from "./guideBleFaceRemap.ts";
 import { invertGuideToken } from "./guided.ts";
 import {
-  guideLayerGyroOrientationAlgLast,
+  guideLayerCenterOrientationAlg,
   resolveGuideBleFaceMove,
 } from "./layerGuideDualPaint.ts";
 import {
@@ -325,19 +325,20 @@ export function createGuideFollowController(): GuideFollowController {
       if (input.liveQuat) {
         api.applyFaceRemapHomeLive(input.liveQuat);
       }
-      const layerGyroAlg = guideLayerGyroOrientationAlgLast(
+      // 映面用公式色心 Δ 累积（r'≡x' 非陀螺 x）；勿只用 Last 陀螺（r' b' 会丢 r'）。
+      const layerCenterAlg = guideLayerCenterOrientationAlg(
         input.displayMoves,
         input.progress,
       );
-      // 游戏黄上 relative 基准是公式姿态。层转后 live 仍含本步 Δ（S'→z'），
-      // 相对 z2 y 会吸附成 x'，D/U 误收成 L。残留未清时勿叠 live relative（#159）。
+      // 游戏黄上 relative 基准是公式姿态（非 captured home）。层转后 live 仍含本步
+      // Δ（S'→z'），相对 z2 y 会吸附成 x'，D/U 误收成 L。残留未清时勿叠 live relative。
       const liveForRelative =
         residualLayerToken !== null ? null : input.liveQuat;
       return guideBleFaceOrientCandidates({
         formulaOrients: formula,
         homeQuat: faceRemapHome.homeQuat,
         liveQuat: liveForRelative,
-        layerGyroAlg,
+        layerGyroAlg: layerCenterAlg,
       });
     },
 
@@ -357,6 +358,8 @@ export function createGuideFollowController(): GuideFollowController {
       residualLayerToken = trimmed || null;
       const echo = layerEchoFaceMoves(trimmed);
       echoFaceMoves = echo.length > 0 ? new Set(echo) : null;
+      // 层转倾斜已写入 live；若不重采 home，relative(basis→live) 会把本步 Δ
+      // 再叠进候选（`z2 y z'` 吸附成 `x y'` → relative `x'`），S' 后 D/U 误收成 L。
       if (liveQuat) {
         faceRemapHome = captureGuideFaceRemapHome(
           liveQuat,

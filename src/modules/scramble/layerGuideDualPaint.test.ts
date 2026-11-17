@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { cube3x3x3 } from "cubing/puzzles";
 import {
+  expectedFormulaCenterDeltaAlg,
+  guideLayerCenterOrientationAlg,
   guideLayerGyroOrientationAlg,
   guideLayerGyroOrientationAlgLast,
   layerTokenDualParts,
@@ -65,6 +67,29 @@ describe("guideLayerGyroOrientationAlgLast", () => {
     assert.equal(
       guideLayerGyroOrientationAlgLast(["z2", "U'", "M'", "U'"], 3),
       "x'",
+    );
+  });
+});
+
+describe("expectedFormulaCenterDeltaAlg / guideLayerCenterOrientationAlg", () => {
+  it("r/l/u/d/M/E 色心 ≡ invert(陀螺)；f/b/S 与陀螺同向", () => {
+    assert.equal(expectedFormulaCenterDeltaAlg("r'"), "x'");
+    assert.equal(expectedFormulaCenterDeltaAlg("r"), "x");
+    assert.equal(expectedFormulaCenterDeltaAlg("M'"), "x");
+    assert.equal(expectedFormulaCenterDeltaAlg("b'"), "z");
+    assert.equal(expectedFormulaCenterDeltaAlg("S'"), "z'");
+    assert.equal(expectedFormulaCenterDeltaAlg("d'"), "y");
+  });
+
+  it("r' b' 色心累积 x' z（对齐 Twisty z2 r' b'）", () => {
+    assert.equal(
+      guideLayerCenterOrientationAlg(["z2", "r'", "b'", "R"], 3),
+      "x' z",
+    );
+    // Last 陀螺只有 b'→z，会丢掉 r'
+    assert.equal(
+      guideLayerGyroOrientationAlgLast(["z2", "r'", "b'", "R"], 3),
+      "z",
     );
   });
 });
