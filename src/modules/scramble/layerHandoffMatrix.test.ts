@@ -1,5 +1,5 @@
 /**
- * 对齐 docs/research-moyu-layer-capture.md「层转后交接」最小矩阵 E1–E12。
+ * 对齐 docs/research-moyu-layer-capture.md「层转后交接」最小矩阵。
  * 改残留 / 静默 / 转体确认行为前须先改本表（或文档），禁止只修真机。
  */
 import assert from "node:assert/strict";
@@ -61,6 +61,17 @@ describe("层转后交接矩阵 · 对偶残留 / 静默", () => {
   it("E12: b → R'，ble F reject；ble R' accept", () => {
     assert.equal(isResidualLayerDualFaceMove("F", "R'", CANDS, "b"), true);
     assert.equal(isResidualLayerDualFaceMove("R'", "R'", CANDS, "b"), false);
+  });
+
+  it("E14: r → R（黄上）：绝对 L 经公式映面为 R 则放行", () => {
+    const z2 = ["z2"] as const;
+    assert.equal(isResidualLayerDualFaceMove("L", "R", z2, "r"), false);
+    assert.equal(isResidualLayerDualFaceMove("L'", "R", z2, "r"), true);
+    const ctrl = createGuideFollowController();
+    const t0 = 80_000;
+    ctrl.beginLayerEchoQuiet(t0, "r");
+    assert.equal(ctrl.shouldSwallowGuideFaceMove("L", t0 + 1, "R", z2), false);
+    assert.equal(ctrl.shouldDiscardResidualLayerDual("L", "R", z2), false);
   });
 
   it("静默窗超时后对偶残留仍丢；推进后清空", () => {
