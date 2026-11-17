@@ -7,7 +7,9 @@ import { describe, it } from "node:test";
 import {
   guideRotationStepConfirmable,
   orientationHoldStableMsForMove,
+  quatFromOrientationAlg,
 } from "../score/cubeOrientation.ts";
+import { resolveGuideBleFaceMoveWithCandidates } from "./guideBleFaceRemap.ts";
 import {
   createGuideFollowController,
   GUIDE_FOLLOW_MOVE_QUIET_MS,
@@ -72,6 +74,69 @@ describe("层转后交接矩阵 · 对偶残留 / 静默", () => {
     ctrl.beginLayerEchoQuiet(t0, "r");
     assert.equal(ctrl.shouldSwallowGuideFaceMove("L", t0 + 1, "R", z2), false);
     assert.equal(ctrl.shouldDiscardResidualLayerDual("L", "R", z2), false);
+  });
+
+  it("E15: S' → L（黄上 z2 y）：绝对 F 经公式映面为 L 则放行", () => {
+    const zy = ["z2 y"] as const;
+    assert.equal(isResidualLayerDualFaceMove("F", "L", zy, "S'"), false);
+    const ctrl = createGuideFollowController();
+    const t0 = 90_000;
+    ctrl.beginLayerEchoQuiet(t0, "S'");
+    assert.equal(ctrl.shouldSwallowGuideFaceMove("F", t0 + 1, "L", zy), false);
+    assert.equal(ctrl.shouldDiscardResidualLayerDual("F", "L", zy), false);
+  });
+
+  it("E16: S' → L：残留窗内勿叠 live relative，D 不得收成 L", () => {
+    const formula = ["z2", "y"] as const;
+    const beforeSlice = quatFromOrientationAlg("z2 y");
+    const afterSlice = quatFromOrientationAlg("z2 y z'");
+    const moves = ["z2", "y", "L", "U", "L'", "U", "S'", "L", "S"] as const;
+    const progress = 7; // 指向 L
+
+    const poisoned = createGuideFollowController();
+    poisoned.syncFaceRemapHome({
+      orientsKey: "z2 y",
+      active: true,
+      liveQuat: beforeSlice,
+    });
+    // 无残留标记时：relative 把 z' 读成 x'，D 误命中 L
+    const bad = poisoned.faceOrientCandidates({
+      formulaOrients: formula,
+      displayMoves: moves,
+      progress,
+      liveQuat: afterSlice,
+      requireYellowUp: true,
+    });
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("D", "L", bad),
+      "L",
+      "无残留抑制时应能复现误命中",
+    );
+
+    const fixed = createGuideFollowController();
+    fixed.syncFaceRemapHome({
+      orientsKey: "z2 y",
+      active: true,
+      liveQuat: beforeSlice,
+    });
+    fixed.beginLayerEchoQuiet(100_000, "S'", undefined, afterSlice);
+    const good = fixed.faceOrientCandidates({
+      formulaOrients: formula,
+      displayMoves: moves,
+      progress,
+      liveQuat: afterSlice,
+      requireYellowUp: true,
+    });
+    assert.ok(
+      !good.some((alg) => /(^|\s)x'?(\s|$)/.test(alg)),
+      `残留窗内不应含 relative x: ${good.join(" | ")}`,
+    );
+    assert.notEqual(resolveGuideBleFaceMoveWithCandidates("D", "L", good), "L");
+    assert.equal(
+      resolveGuideBleFaceMoveWithCandidates("F", "L", good),
+      "L",
+      "握持 L 的色心 F 仍应命中",
+    );
   });
 
   it("静默窗超时后对偶残留仍丢；推进后清空", () => {

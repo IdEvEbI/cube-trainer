@@ -151,7 +151,10 @@ export type GuideFollowController = {
    * 层转确认后：登记对偶残留过滤器，并开短静默窗少播动画。
    * 正确性靠 {@link shouldDiscardResidualLayerDual}，不靠窗长。
    */
-  /** `@param liveQuat` 预留（#159 重采 home）；本 PR 可忽略。 */
+  /**
+   * @param liveQuat 层转刚确认时的手持姿态；有则重采 faceRemap home，
+   *   避免把本步陀螺 Δ（如 `S'`→`z'`）再读进 relative 变成 `x'` 脏候选（#159）。
+   */
   beginLayerEchoQuiet(
     nowMs: number,
     layerToken: string,
@@ -326,10 +329,14 @@ export function createGuideFollowController(): GuideFollowController {
         input.displayMoves,
         input.progress,
       );
+      // 游戏黄上 relative 基准是公式姿态。层转后 live 仍含本步 Δ（S'→z'），
+      // 相对 z2 y 会吸附成 x'，D/U 误收成 L。残留未清时勿叠 live relative（#159）。
+      const liveForRelative =
+        residualLayerToken !== null ? null : input.liveQuat;
       return guideBleFaceOrientCandidates({
         formulaOrients: formula,
         homeQuat: faceRemapHome.homeQuat,
-        liveQuat: input.liveQuat,
+        liveQuat: liveForRelative,
         layerGyroAlg,
       });
     },
@@ -343,13 +350,19 @@ export function createGuideFollowController(): GuideFollowController {
       nowMs,
       layerToken,
       durationMs = GUIDE_FOLLOW_MOVE_QUIET_MS,
-      _liveQuat = null,
+      liveQuat = null,
     ) {
       quietUntilMs = nowMs + durationMs;
       const trimmed = layerToken.trim();
       residualLayerToken = trimmed || null;
       const echo = layerEchoFaceMoves(trimmed);
       echoFaceMoves = echo.length > 0 ? new Set(echo) : null;
+      if (liveQuat) {
+        faceRemapHome = captureGuideFaceRemapHome(
+          liveQuat,
+          faceRemapHome.orientsKey,
+        );
+      }
     },
 
     clearResidualLayerDual() {
