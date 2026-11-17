@@ -1,0 +1,16 @@
+{
+  "id": "golden-z2-r-R",
+  "description": "黄金路径：黄上 z2 + 宽层 r → 握持 R（绝对 L）。合入门禁。",
+  "displayMoves": ["z2", "r", "R"],
+  "requireYellowUp": true,
+  "events": [
+    { "t": 0, "type": "orient", "alg": "z2" },
+    { "t": 100, "type": "orient", "alg": "z2 x'" },
+    { "t": 200, "type": "face", "move": "L" }
+  ],
+  "expect": {
+    "progress": 3,
+    "done": true,
+    "sawWrong": false
+  }
+}

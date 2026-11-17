@@ -43,3 +43,23 @@ describe("guideReplay · fixture E17", () => {
     assert.deepEqual(result.acceptedFaceMoves, ["D"]);
   });
 });
+
+const GOLDEN_PATHS = [
+  "golden-z2-r-R.json",
+  "golden-z2-S-prime-F-prime.json",
+  "golden-z2-d-prime-y-U.json",
+] as const;
+
+describe("guideReplay · 黄金路径（合入门禁）", () => {
+  for (const name of GOLDEN_PATHS) {
+    it(name, () => {
+      const fixture = loadFixture(name);
+      const result = replayGuideSession(fixture);
+      assert.equal(result.progress, fixture.expect.progress, name);
+      assert.equal(result.done, true, name);
+      assert.equal(result.sawWrong, false, name);
+      assert.equal(result.done, fixture.expect.done, name);
+      assert.equal(result.sawWrong, fixture.expect.sawWrong, name);
+    });
+  }
+});
