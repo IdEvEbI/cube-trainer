@@ -65,7 +65,7 @@
 **映面候选**：公式转体优先，再 live relative / 取反，再**最近一次**层转期望 Δ / 取反（`guideLayerGyroOrientationAlgLast`）。  
 `M'` 公式色心 ≡ `x`（期望陀螺 Δ=`x'` 的取反）：跟 3D 拧顶面常报绝对 `F'`，无此项会收成「请转 F」。勿拼全历史 Δ（`S' S d'`→`z' z y'` 放大别名面）；Last 单步仍可能含 `y'` 取反的 B'→R' 别名，但少得多。回落仍用公式。
 
-**转体 z2**：双步转体用短稳定窗，且实况 relative 已满足即可确认（勿只等 hold committed，否则抖动反复重置，要猛晃才过）。
+**转体 z2 / y**：双步转体用短稳定窗，且实况 relative 已满足即可确认（勿只等 hold committed，否则抖动反复重置，要猛晃才过）。画面：mesh 锁单位；公式 `startGuideStepGyroTrack` + `rotationGuideVisualProgress` scrub；到位 `finishGuideStepGyroTrack` 补间，禁止 `setAbsoluteAlg` 闪切。
 
 **层转动画**：进度 = 陀螺为主、包作下限；包收齐后视觉不满格（防双包同帧闪切），`finishGuideStepGyroTrack` 补间到终点。`startGuideStepGyroTrack(move, baseAlg)` 须带已完成前缀，整段进 Twisty.alg scrub；开轨道摘盒后须立刻 `rebindPendingMoveHint`。mesh 锁单位。
 

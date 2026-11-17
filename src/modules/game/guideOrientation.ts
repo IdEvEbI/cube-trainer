@@ -1,3 +1,4 @@
+import { gyroDeltaQuarterTurns } from "../bluetooth/moyu/moyuLayerGesture.ts";
 import {
   IDENTITY_QUAT,
   quatInvert,
@@ -50,6 +51,36 @@ export function relativeOrientationQuat(
   liveQuat: MoyuQuat,
 ): MoyuQuat {
   return quatNormalize(quatMultiply(liveQuat, quatInvert(fromQuat)));
+}
+
+/** 转体步期望相对四分之一圈：`y`→1，`z2`→2。 */
+export function rotationGuideExpectedQuarterTurns(token: string): number {
+  const trimmed = token.trim();
+  if (!isRotationGuideToken(trimmed)) {
+    return 1;
+  }
+  return /2/.test(trimmed) ? 2 : 1;
+}
+
+/**
+ * 转体公式 scrub 进度 ∈ [0,1)。
+ * mesh 锁单位；画面走 {@link startGuideStepGyroTrack}，陀螺只推进度。
+ * 上限低于 1，终点由 `finishGuideStepGyroTrack` 补间（避免闪切）。
+ */
+export function rotationGuideVisualProgress(
+  expectedToken: string,
+  fromQuat: MoyuQuat,
+  liveQuat: MoyuQuat,
+): number {
+  const expect = rotationGuideExpectedQuarterTurns(expectedToken);
+  if (expect <= 0) {
+    return 0;
+  }
+  const turns = gyroDeltaQuarterTurns(fromQuat, liveQuat);
+  if (!Number.isFinite(turns) || turns <= 0) {
+    return 0;
+  }
+  return Math.min(0.92, turns / expect);
 }
 
 /**

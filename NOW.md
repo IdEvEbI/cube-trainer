@@ -6,10 +6,16 @@
 
 ## 正在做的任务
 
-**[#155](https://github.com/IdEvEbI/cube-trainer/issues/155) · OLL 后 PLL 首步 `R'` 检测不到**（排队；矩阵行 E13 已记）
+### 拆 PR 中（#157 → #160）
 
-- 纪律：先补红测再改映面/残留；不与短解 WIP 混 PR。
-- 真机：抽检清单第 10 条。
+- [#157](https://github.com/IdEvEbI/cube-trainer/issues/157) 转体 scrub ← 本 PR
+- [#158](https://github.com/IdEvEbI/cube-trainer/issues/158) `r`→`R` 残留放行（E14）
+- [#159](https://github.com/IdEvEbI/cube-trainer/issues/159) `S'` 后勿叠 relative `x'`
+- [#160](https://github.com/IdEvEbI/cube-trainer/issues/160) 层转公式色心 Δ 累积映面（`r' b'`→`R`）
+
+**排队**：y' 无动画跳过 → `U+d'`→`y` 另 Issue → [#155](https://github.com/IdEvEbI/cube-trainer/issues/155) PLL `R'`
+
+**另记（未开 Issue）**：`z2` 转体动画偏快、像快切；与实体不同步。不与 #158 混修。
 
 ### 本轮已合入（层转后稳定回归）
 

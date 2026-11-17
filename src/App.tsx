@@ -103,7 +103,6 @@ import {
   isSolvedFromSetup,
   joinAlgParts,
 } from "./modules/scramble/bluetoothSolve.ts";
-import { relativeOrientationQuat } from "./modules/game/guideOrientation.ts";
 import {
   applyGuidedMove,
   confirmGuidedFaceletsStep,
@@ -131,6 +130,7 @@ import {
   guideTokenToCubingAlg,
   nonRotationAlgPrefix,
 } from "./modules/game/algStateMatch.ts";
+import { rotationGuideVisualProgress } from "./modules/game/guideOrientation.ts";
 import { nextHomeScrambleMoves } from "./modules/scramble/scramble.ts";
 import {
   SCRAMBLE_PLAYBACK_STEP_MS,
@@ -931,12 +931,29 @@ export default function App() {
       scrambleGuideFollow.clearRotationStep();
       return;
     }
+    if (scrambleGuideFollow.layerMatchHold) {
+      return;
+    }
     const now = performance.now();
     const stepKey = `${guide.progress}:${manual}`;
     const { relativeAlg, isNewStep } =
       scrambleGuideFollow.beginOrContinueRotationStep(stepKey, liveQuat, now);
     if (isNewStep) {
       scrambleGuideOrientHoldRef.current = createOrientationHoldState("");
+      scrambleGuideFollow.layerGuideAnimKey = `${guide.progress}:rot`;
+      void cube.current?.startGuideStepGyroTrack(
+        guideTokenToCubingAlg(manual),
+        scrambleGuidePaintAlg(guide),
+      );
+    }
+    if (scrambleGuideFollow.layerGuideAnimKey === `${guide.progress}:rot`) {
+      cube.current?.setGuideStepGyroProgress(
+        rotationGuideVisualProgress(
+          manual,
+          scrambleGuideFollow.rotationFromQuat,
+          liveQuat,
+        ),
+      );
     }
     const holdMs = orientationHoldStableMsForMove(manual);
     const tick = tickOrientationHold(
@@ -959,19 +976,31 @@ export default function App() {
     if (!heldOk) {
       return;
     }
-    const result = confirmGuidedManualStep(guide);
-    if (result.kind === "need_manual") {
-      return;
-    }
+    scrambleGuideFollow.layerMatchHold = true;
+    scrambleGuideFollow.layerGuideAnimKey = null;
     scrambleGuideFollow.clearRotationStep();
-    scrambleGuideRef.current = result.guide;
-    flushSync(() => {
-      setScrambleGuide(guidedScrambleView(result.guide));
-    });
-    void paintScrambleGuideCube(result.guide);
-    if (result.guide.phase === "done") {
-      beginBluetoothInspect();
-    }
+    void (async () => {
+      try {
+        await cube.current?.finishGuideStepGyroTrack();
+      } catch {
+        scrambleGuideFollow.layerMatchHold = false;
+        return;
+      }
+      const result = confirmGuidedManualStep(guide);
+      if (result.kind === "need_manual") {
+        scrambleGuideFollow.layerMatchHold = false;
+        return;
+      }
+      scrambleGuideFollow.layerMatchHold = false;
+      scrambleGuideRef.current = result.guide;
+      flushSync(() => {
+        setScrambleGuide(guidedScrambleView(result.guide));
+      });
+      void paintScrambleGuideCube(result.guide);
+      if (result.guide.phase === "done") {
+        beginBluetoothInspect();
+      }
+    })();
   }
 
   /**
@@ -1079,6 +1108,8 @@ export default function App() {
       scrambleGuideFollow.beginLayerEchoQuiet(
         performance.now(),
         completedToken,
+        undefined,
+        currentBluetoothRelativeQuat(),
       );
     } else {
       scrambleGuideFollow.beginQuiet(performance.now());
@@ -1324,11 +1355,13 @@ export default function App() {
       for (; sampleIndex < samples.length; sampleIndex += 1) {
         const sample = samples[sampleIndex]!;
         const expectedToken = next.displayMoves[next.progress] ?? null;
+        const orientAlgs = scrambleGuideFaceOrientCandidates();
         if (
           scrambleGuideFollow.shouldSwallowGuideFaceMove(
             sample.move,
             performance.now(),
             expectedToken,
+            orientAlgs,
           )
         ) {
           continue;
@@ -1337,7 +1370,7 @@ export default function App() {
           scrambleGuideFollow.shouldDiscardResidualLayerDual(
             sample.move,
             expectedToken,
-            scrambleGuideFaceOrientCandidates(),
+            orientAlgs,
           )
         ) {
           continue;
@@ -1610,6 +1643,8 @@ export default function App() {
               scrambleGuideFollow.beginLayerEchoQuiet(
                 performance.now(),
                 doneToken,
+                undefined,
+                currentBluetoothRelativeQuat(),
               );
             } else {
               scrambleGuideFollow.beginQuiet(performance.now());
@@ -2233,27 +2268,14 @@ export default function App() {
   const modeEntry = modeSwitchPresentation(mode);
 
   /**
-   * 打乱引导 3D 朝向：
-   * - 面转 / 宽层 / 中层：mesh 锁单位（贴纸含层转记号；非 live 跟手）。
-   * - 转体步：相对步起点增量跟手；确认后烘焙贴纸。
+   * 打乱引导 3D 朝向：全程 mesh 锁单位（含 x/y/z）。
+   * 转体只写进公式 alg；陀螺仅作到位判定，不驱动画面。
    */
   function syncScrambleGuideDisplayOrientation(
     guide: GuidedScramble | null = scrambleGuideRef.current,
-    liveQuat: MoyuQuat | null = null,
+    _liveQuat: MoyuQuat | null = null,
   ): void {
     if (!guide || guide.phase === "done") {
-      return;
-    }
-    const token = guide.displayMoves[guide.progress] ?? "";
-    if (liveQuat && isRotationGuideToken(token)) {
-      const stepKey = `${guide.progress}:${token}`;
-      if (scrambleGuideFollow.rotationStepKey !== stepKey) {
-        cube.current?.setOrientation(IDENTITY_QUAT);
-        return;
-      }
-      cube.current?.setOrientation(
-        relativeOrientationQuat(scrambleGuideFollow.rotationFromQuat, liveQuat),
-      );
       return;
     }
     cube.current?.setOrientation(IDENTITY_QUAT);

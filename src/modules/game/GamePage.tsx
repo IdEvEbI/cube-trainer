@@ -45,6 +45,7 @@ import { createGuideFollowController } from "../scramble/guideFollowController.t
 import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
+  rotationGuideVisualProgress,
 } from "./guideOrientation.ts";
 import { applyGuidedBleAbsoluteMoveWithOrientAlgs } from "./guidedAbsolute.ts";
 import { manualStepReachedOnCube } from "./manualStepSync.ts";
@@ -320,24 +321,13 @@ export function GamePage({
   }
 
   /**
-   * 3D 朝向（与首页打乱引导一致）：
-   * - 转体步：跟手持，用户能看见 z2 翻转；
-   * - 其余：mesh 锁单位，黄上/转体只写在公式 alg 里（避免 alg⊕mesh 双计仍白上）。
+   * 3D 朝向：引导全程 mesh 锁单位（含 x/y/z）。
+   * 黄上/转体只写在公式 alg；陀螺仅作转体到位判定，不驱动画面（避免抖动与 alg⊕mesh 双计白顶）。
    */
   function syncGuideDisplayOrientation(
-    guide: GuidedScramble,
-    liveQuat: MoyuQuat | null = lastLiveOrientRef.current,
+    _guide: GuidedScramble,
+    _liveQuat: MoyuQuat | null = lastLiveOrientRef.current,
   ) {
-    const view = guidedScrambleView(guide);
-    const onRotation = Boolean(
-      view.manualMove &&
-        isRotationGuideToken(view.manualMove) &&
-        !view.correction,
-    );
-    if (onRotation && liveQuat) {
-      cube.current?.setOrientation(liveQuat);
-      return;
-    }
     cube.current?.setOrientation(IDENTITY_QUAT);
   }
 
@@ -415,7 +405,12 @@ export function GamePage({
     const kind = resolveLayerFollowKind(completedToken);
     if (kind === "wide" || kind === "slice") {
       // 对偶残留过滤；原包===下一步期望时放行（S'→F'）。
-      guideFollow.beginLayerEchoQuiet(performance.now(), completedToken);
+      guideFollow.beginLayerEchoQuiet(
+        performance.now(),
+        completedToken,
+        undefined,
+        lastLiveOrientRef.current,
+      );
       return;
     }
     guideFollow.beginQuiet(performance.now());
@@ -670,6 +665,7 @@ export function GamePage({
                 sample.move,
                 performance.now(),
                 expectOrUndo,
+                orientAlgs,
               )
             ) {
               continue;
@@ -737,6 +733,33 @@ export function GamePage({
       const base = cursorRef.current;
       const view = guide ? guidedScrambleView(guide) : null;
       const manual = view?.manualMove;
+      const onRotationStep = Boolean(
+        guide &&
+          base &&
+          manual &&
+          isRotationGuideToken(manual) &&
+          !view?.correction,
+      );
+      // 转体：登记步起点 + 公式 scrub（mesh 锁单位）；到位判定仍用相对陀螺。
+      const nowMs = performance.now();
+      if (onRotationStep && guide && manual && !guideFollow.layerMatchHold) {
+        const stepKey = `${guide.progress}:${manual}`;
+        const step = guideFollow.beginOrContinueRotationStep(
+          stepKey,
+          quat,
+          nowMs,
+        );
+        if (step.isNewStep) {
+          orientHoldRef.current = createOrientationHoldState("");
+          const animKey = `${guide.progress}:rot`;
+          guideFollow.layerGuideAnimKey = animKey;
+          const baseAlg = formulaPaintAlg(guide);
+          void cube.current?.startGuideStepGyroTrack(
+            guideTokenToCubingAlg(manual),
+            baseAlg,
+          );
+        }
+      }
       if (guide) {
         syncGuideDisplayOrientation(guide, quat);
         // Cross：朝向吸附结果变了才重画高亮，避免陀螺仪每帧重建箭头抖动。
@@ -787,30 +810,34 @@ export function GamePage({
             }
           }
         }
+        // 转体 x/y/z：公式 scrub 进度跟相对转角（mesh 仍锁单位）。
+        if (
+          onRotationStep &&
+          manual &&
+          guideFollow.layerGuideAnimKey === `${guide.progress}:rot`
+        ) {
+          cube.current?.setGuideStepGyroProgress(
+            rotationGuideVisualProgress(
+              manual,
+              guideFollow.rotationFromQuat,
+              quat,
+            ),
+          );
+        }
       } else {
         cube.current?.setOrientation(quat);
       }
-      if (
-        !manual ||
-        !isRotationGuideToken(manual) ||
-        view?.correction ||
-        !base ||
-        !guide
-      ) {
+      if (!onRotationStep || !guide || !manual) {
         guideFollow.clearRotationStep();
         orientHoldRef.current = createOrientationHoldState(
           nearestCubeOrientationAlg(quat),
         );
         return;
       }
-      // 相对进入该步的手持 Δ；四分之一勿首帧绝对到位跳过（宽层 d' 后常已是 y'）。
-      const nowMs = performance.now();
-      const stepKey = `${guide.progress}:${manual}`;
-      const { relativeAlg, isNewStep } =
-        guideFollow.beginOrContinueRotationStep(stepKey, quat, nowMs);
-      if (isNewStep) {
-        orientHoldRef.current = createOrientationHoldState("");
+      if (guideFollow.layerMatchHold) {
+        return;
       }
+      const relativeAlg = guideFollow.relativeRotationAlg(quat);
       const holdMs = orientationHoldStableMsForMove(manual);
       const tick = tickOrientationHold(
         orientHoldRef.current,
@@ -830,8 +857,18 @@ export function GamePage({
         holdMs,
       });
       if (heldOk) {
+        // 与宽层一致：hold 防重入；先补间终点再确认（tryConfirm 内再 finish 无轨道则空转）。
+        guideFollow.layerMatchHold = true;
+        guideFollow.layerGuideAnimKey = null;
         guideFollow.clearRotationStep();
-        tryConfirmManualFromGuide();
+        void (async () => {
+          try {
+            await cube.current?.finishGuideStepGyroTrack();
+            tryConfirmManualFromGuide();
+          } catch {
+            guideFollow.layerMatchHold = false;
+          }
+        })();
       }
     });
 
