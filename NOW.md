@@ -6,16 +6,16 @@
 
 ## 正在做的任务
 
-### 拆 PR 中（#157 → #160）
+### 拆 PR 已开出（合入顺序 #157 → #160）
 
-- [#157](https://github.com/IdEvEbI/cube-trainer/issues/157) 转体 scrub（PR 开出）
-- [#158](https://github.com/IdEvEbI/cube-trainer/issues/158) `r`→`R` 残留放行（E14）（PR 开出）
-- [#159](https://github.com/IdEvEbI/cube-trainer/issues/159) `S'` 后勿叠 relative `x'` ← 本 PR
-- [#160](https://github.com/IdEvEbI/cube-trainer/issues/160) 层转公式色心 Δ 累积映面（`r' b'`→`R`）
+- [#157](https://github.com/IdEvEbI/cube-trainer/issues/157) 转体 scrub → [PR #161](https://github.com/IdEvEbI/cube-trainer/pull/161)
+- [#158](https://github.com/IdEvEbI/cube-trainer/issues/158) `r`→`R` 残留放行（E14）→ [PR #162](https://github.com/IdEvEbI/cube-trainer/pull/162)（base：#161）
+- [#159](https://github.com/IdEvEbI/cube-trainer/issues/159) `S'` 后勿叠 relative → [PR #163](https://github.com/IdEvEbI/cube-trainer/pull/163)（base：#162）
+- [#160](https://github.com/IdEvEbI/cube-trainer/issues/160) 层转公式色心 Δ 累积（E17）→ 本 PR
 
 **排队**：y' 无动画跳过 → `U+d'`→`y` 另 Issue → [#155](https://github.com/IdEvEbI/cube-trainer/issues/155) PLL `R'`
 
-**另记（未开 Issue）**：`z2` 转体动画偏快、像快切；与实体不同步。不与 #158 混修。
+**另记（未开 Issue）**：`z2` 转体动画偏快、像快切；与实体不同步。不与本串混修。
 
 ### 本轮已合入（层转后稳定回归）
 
@@ -42,7 +42,7 @@
 - **状态**：本轮未单独开 Issue；G2 回归中已顺带观察。若需正式过门，再说「G1 通过」或另开验收。
 - **通过标准**：你回复「G1 通过」。
 
-**当前指针**：合入 E13 文档行 → 真机抽检清单 1–10（可选）→ 再开 #155 红测/修复 PR。
+**当前指针**：按序合入 #157–#160 四 PR → 再开 #155 红测/修复。
 
 **旁路（不插队）**：AI CFOP 调研笔记已合入（#121 / #122）；确认前不写接入代码。公式练习蓝牙（#127）延期。层转 L10 冻结。
 
@@ -79,7 +79,7 @@ L0–L9 真机通过并合入。交接组合态见 `docs/research-moyu-layer-cap
 1. ~~记录转动序列…~~（略，见 git 历史）
 2. ~~魔域层转 L0→L9~~（#123 / #124 已合入）
 3. ~~打乱计时恢复~~（#130 / #131 已合入）
-4. **游戏页收口** ← 当前：#155 PLL `R'`
+4. **游戏页收口** ← 当前：合入 #157–#160 后接 #155
 5. ~~公式练习蓝牙闭环~~（#127 延期）
 6. ~~AI CFOP 调研文档~~（#121 / #122 已合入）
 7. 其余后置项见 `docs/prd.md`

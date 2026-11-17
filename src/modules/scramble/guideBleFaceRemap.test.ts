@@ -124,33 +124,33 @@ describe("guideBleFaceOrientCandidates / r' 后 U", () => {
     );
   });
 
-  it("层转 Δ 只用最近一步：摆正 L' 进 R'；勿传全历史脏串", () => {
-    // 全历史 z' z y' 取反含 y，B' 会误命中 R'——调用方须传 Last
-    const dirty = guideBleFaceOrientCandidates({
+  it("多步层转 Δ 不整串取反；单步仍取反", () => {
+    // 多步累积（色心 x' z 或脏 z' z y'）整串取反曾把 B' 收成 R'；现不取反。
+    const multi = guideBleFaceOrientCandidates({
       formulaOrients: ["z2"],
       homeQuat: quatFromOrientationAlg("z2"),
       liveQuat: quatFromOrientationAlg("z2"),
       layerGyroAlg: "z' z y'",
     });
-    assert.equal(
-      resolveGuideBleFaceMoveWithCandidates("B'", "R'", dirty),
+    assert.ok(multi.includes("z2 z' z y'"));
+    assert.equal(multi.includes("z2 y z' z"), false, "多步不应再推整串取反");
+    assert.notEqual(
+      resolveGuideBleFaceMoveWithCandidates("B'", "R'", multi),
       "R'",
-      "全历史仍会误命中",
     );
-    const lastOnly = guideBleFaceOrientCandidates({
+    const single = guideBleFaceOrientCandidates({
       formulaOrients: ["z2"],
       homeQuat: quatFromOrientationAlg("z2"),
       liveQuat: quatFromOrientationAlg("z2"),
       layerGyroAlg: "y'",
     });
-    assert.equal(lastOnly[0], "z2");
-    // 摆正正确拧法：黄上公式 R = 绝对 L
+    assert.equal(single[0], "z2");
     assert.equal(
-      resolveGuideBleFaceMoveWithCandidates("L'", "R'", lastOnly),
+      resolveGuideBleFaceMoveWithCandidates("L'", "R'", single),
       "R'",
     );
-    // Last 的 y' 取反仍是 y，B'→R' 别名还在；Last 只去掉 S'S 等更脏组合
-    assert.ok(lastOnly.includes("z2 y'") || lastOnly.includes("z2 y"));
+    // 单步 y' 仍取反为 y
+    assert.ok(single.includes("z2 y'") || single.includes("z2 y"));
   });
 
   it("截图：M' 后跟公式拧顶面（绝对 F'）应推进 U'，勿报请转 F", () => {
