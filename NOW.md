@@ -11,7 +11,7 @@
 - [#157](https://github.com/IdEvEbI/cube-trainer/issues/157) 转体 scrub → [PR #161](https://github.com/IdEvEbI/cube-trainer/pull/161)
 - [#158](https://github.com/IdEvEbI/cube-trainer/issues/158) `r`→`R` 残留放行（E14）→ [PR #162](https://github.com/IdEvEbI/cube-trainer/pull/162)（base：#161）
 - [#159](https://github.com/IdEvEbI/cube-trainer/issues/159) `S'` 后勿叠 relative → [PR #163](https://github.com/IdEvEbI/cube-trainer/pull/163)（base：#162）
-- [#160](https://github.com/IdEvEbI/cube-trainer/issues/160) 层转公式色心 Δ 累积（E17）→ 本 PR
+- [#160](https://github.com/IdEvEbI/cube-trainer/issues/160) 层转公式色心 Δ 累积（E17）→ [PR #164](https://github.com/IdEvEbI/cube-trainer/pull/164)（base：#163）
 
 **排队**：y' 无动画跳过 → `U+d'`→`y` 另 Issue → [#155](https://github.com/IdEvEbI/cube-trainer/issues/155) PLL `R'`
 
