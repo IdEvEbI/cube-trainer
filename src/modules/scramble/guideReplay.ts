@@ -209,7 +209,36 @@ function handleFaceEvent(
     );
     matches = quarters?.includes(resolved) ?? false;
   }
+  // #181 / E20：同面反转走 apply（×3≡期望步 / absorb）；异面仍静默丢（保 E17）。
   if (!matches) {
+    const expectFace = expected[0]?.toUpperCase() ?? "";
+    const resolvedFace = resolved[0]?.toUpperCase() ?? "";
+    const sameFaceQuarter =
+      Boolean(expectFace) &&
+      expectFace === resolvedFace &&
+      /^[UDLRFB](?:')?$/.test(resolved);
+    if (!sameFaceQuarter) {
+      rejected.push(event.move);
+      return { guide, sawWrong };
+    }
+    const inverseResult = applyGuidedMove(guide, resolved);
+    if (inverseResult.kind === "progress" || inverseResult.kind === "done") {
+      accepted.push(event.move);
+      ctrl.clearResidualLayerDual();
+      return { guide: inverseResult.guide, sawWrong };
+    }
+    if (inverseResult.kind === "absorb" || inverseResult.kind === "partial") {
+      return { guide: inverseResult.guide, sawWrong };
+    }
+    if (inverseResult.kind === "wrong") {
+      sawWrong = true;
+      rejected.push(event.move);
+      return { guide: inverseResult.guide, sawWrong };
+    }
+    if (inverseResult.kind === "recover") {
+      rejected.push(event.move);
+      return { guide: inverseResult.guide, sawWrong };
+    }
     rejected.push(event.move);
     return { guide, sawWrong };
   }

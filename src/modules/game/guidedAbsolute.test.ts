@@ -140,7 +140,7 @@ describe("applyGuidedBleAbsoluteMove", () => {
     // 正确：黄上握持 R' = 色心 L'
     const ok = applyGuidedBleAbsoluteMove(guide, "L'", ["z2"], ["z2"]);
     assert.equal(ok.kind, "progress");
-    // 黄上禁止 raw===expected 原样：色心 R' 不得当成握持 R'
+    // 黄上禁止 raw===expected 原样：色心 R' 映成握持 L'（异面 → 仍 wrong）
     const absR = applyGuidedBleAbsoluteMove(guide, "R'", ["z2"], ["z2"]);
     assert.equal(absR.kind, "wrong");
     assert.deepEqual(absR.guide.wrongStack, ["L'"]);
