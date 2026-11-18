@@ -147,6 +147,8 @@ import {
 import { ScrambleControls } from "./modules/scramble/ScrambleControls.tsx";
 import { ScramblePanel } from "./modules/scramble/ScramblePanel.tsx";
 import { GamePage, type GamePageBluetooth } from "./modules/game/GamePage.tsx";
+import { gateGamePageEntry } from "./modules/game/gameEntryGate.ts";
+import { isSetupRestoredIgnoringCenters } from "./modules/game/cfopSolve.ts";
 import { shouldClearGameOnLeaveGame } from "./modules/game/gameNav.ts";
 import {
   createPendingSolve,
@@ -1829,7 +1831,41 @@ export default function App() {
 
   function openGamePage() {
     stopScramblePlay();
-    setFocus(showGame());
+    const connected = Boolean(moyuSessionRef.current);
+    if (!connected) {
+      const gate = gateGamePageEntry({
+        bluetoothConnected: false,
+        cubeRestored: false,
+      });
+      if (gate.toast) {
+        setToastMessage(gate.toast);
+      }
+      if (gate.allow) {
+        setFocus(showGame());
+      }
+      return;
+    }
+    void (async () => {
+      let restored: boolean | null = null;
+      try {
+        const status = await moyuSessionRef.current?.requestStatus();
+        if (status) {
+          restored = await isSetupRestoredIgnoringCenters(status.setupAlg);
+        }
+      } catch {
+        restored = null;
+      }
+      const gate = gateGamePageEntry({
+        bluetoothConnected: true,
+        cubeRestored: restored,
+      });
+      if (gate.toast) {
+        setToastMessage(gate.toast);
+      }
+      if (gate.allow) {
+        setFocus(showGame());
+      }
+    })();
   }
 
   function openLayerCapturePage() {

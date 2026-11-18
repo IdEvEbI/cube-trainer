@@ -2,7 +2,11 @@ import { Alg } from "cubing/alg";
 import { KPattern } from "cubing/kpuzzle";
 import { cube3x3x3 } from "cubing/puzzles";
 import { joinAlgParts } from "../scramble/bluetoothSolve.ts";
-import { isRotationGuideToken } from "../scramble/guided.ts";
+import {
+  isRotationGuideToken,
+  isSliceGuideToken,
+  isWideGuideToken,
+} from "../scramble/guided.ts";
 import {
   CUBE_ORIENTATION_ALGS,
   invertRotationGuideToken,
@@ -251,9 +255,9 @@ export function guidePaintAlgPrefix(
  * 游戏页跟拧 3D 公式前缀（{@link setAbsoluteAlg}，勿钉贴图 / 勿 facelets 重刷）。
  *
  * - `setupAlg` 空：`flatMoves[0..progress]`（含打乱，从复原起绝对）。
- * - `setupAlg` 非空：已是连接时打乱态，**只叠还原段**（`flatMoves` 去掉前
- *   `scrambleLen` 步后再按 progress 截）。若再拼打乱段会与 setup 双计，
- *   宽层 `f'` 确认后顶心/侧面配色错乱。
+ * - `setupAlg` 非空：进页贴纸 F0；画面 = **F0 ⊕ flatMoves[0..progress]**
+ *   （打乱段与还原段都叠；打乱跟完 = F0·打乱，与实体一致）。
+ * - `scrambleLen` 供调用方区分打乱/还原边界，本函数不裁掉打乱段。
  */
 export function gameGuidePaintAlg(
   setupAlg: string,
@@ -265,23 +269,15 @@ export function gameGuidePaintAlg(
   if (!Number.isFinite(truncated)) {
     throw new Error("gameGuidePaintAlg: progress must be a finite number");
   }
-  const scrambleEnd = Math.max(
-    0,
-    Math.min(flatMoves.length, Math.trunc(scrambleLen)),
-  );
-  if (!Number.isFinite(scrambleEnd)) {
+  if (!Number.isFinite(Math.trunc(scrambleLen))) {
     throw new Error("gameGuidePaintAlg: scrambleLen must be a finite number");
   }
+  const prefix = guidePaintAlgPrefix(flatMoves, truncated);
   const setup = setupAlg.trim();
   if (!setup) {
-    return guidePaintAlgPrefix(flatMoves, truncated);
+    return prefix;
   }
-  const solveMoves = flatMoves.slice(scrambleEnd);
-  const solveProgress = Math.max(0, truncated - scrambleEnd);
-  return joinAlgParts(
-    setup,
-    guidePaintAlgPrefix(solveMoves, solveProgress).split(/\s+/).filter(Boolean),
-  );
+  return joinAlgParts(setup, prefix.split(/\s+/).filter(Boolean));
 }
 
 /**
@@ -332,4 +328,27 @@ export async function guideProgressMatchesCube(
     .filter(Boolean)
     .join(" ");
   return algStatesMatch(prefix, bleSetupAlg.trim());
+}
+
+/**
+ * Cross 手动确认后，状态对表失败时是否回滚进度。
+ * 转体 / 宽边 / 中层靠朝向或 facelets 确认；未还原 F0 时 flat 对表易误杀，
+ * 拧对后不得 seek（M/E/S 同一规则，不为某一记号单开分支）。
+ */
+export function shouldSeekBackAfterCrossManualConfirm(
+  completedToken: string,
+  stateMatches: boolean,
+): boolean {
+  if (stateMatches) {
+    return false;
+  }
+  const token = completedToken.trim();
+  if (
+    isRotationGuideToken(token) ||
+    isWideGuideToken(token) ||
+    isSliceGuideToken(token)
+  ) {
+    return false;
+  }
+  return true;
 }

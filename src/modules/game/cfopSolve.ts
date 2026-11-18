@@ -1,21 +1,32 @@
 /**
  * 游戏页：CFOP 分步解公式。
  *
- * 思路（与产品朝向一致）：
- * 1. 打乱在白上绿前；
- * 2. 还原先 z2 → 黄上白下绿前，并入 Cross 段公式前缀；
- * 3. 把原打乱经 z2 共轭，得到「白底下的等价打乱」，再 @moishy/cfop fixed 求解
- *    （输出在黄上握持帧，不是白上绿前）；
- * 4. Cross 保留宽层 / 中层（蓝牙跟拧已支持），按 HTM 计步（R2 / r2 / M2 各 1）；
- * 5. 展示：打乱 + Cross（含 z2）+ F2L1–4 + OLL + PLL。
+ * 复原进入（F0 空）：
+ * 1. 求解输入 = 打乱；白上共轭后 fixed 求解，Cross 前补 z2。
+ * 2. 进页算一次；打乱跟完不重算。
+ * 验证：打乱 · z2 · rest ≡ z2（黄上复原）。
  *
- * 验证：scramble · z2 · rest ≡ z2（黄上复原）。
+ * 未还原进入（只求解）：
+ * 1. 求解输入 = 当前贴纸 F0；不叠打乱、不引导 z2。
+ * 2. 内部按黄上绿前 CFOP 求解，Cross 内不补 z2；再映回进页色心朝向。
+ * 3. 剪掉已还原后的多余段（避免只拧 U 却拆出多段 F2L）。
+ * 验证：F0 · 解 ≡ 黄上/白上还原（自检忽略色心）。
  */
 
 import { Alg } from "cubing/alg";
 import { cfop } from "@moishy/cfop";
+import { cube3x3x3 } from "cubing/puzzles";
+import { joinAlgParts } from "../scramble/bluetoothSolve.ts";
 import { isRotationGuideToken } from "../scramble/guided.ts";
+import {
+  orientationAlgFromCenterPieces,
+  orientationRotationPath,
+  warmOrientationCenterPieceMap,
+  YELLOW_UP_GREEN_FRONT_ALG,
+} from "../score/cubeOrientation.ts";
+import { patternsMatchIgnoringCenters } from "./algStateMatch.ts";
 import { coalesceWideMoves } from "./coalesceWideMoves.ts";
+import { remapGripTokenToPuzzleHint } from "./guideOrientation.ts";
 
 export const CFOP_PHASE_IDS = [
   "Cross",
@@ -247,32 +258,329 @@ export function countPhaseHtm(moves: readonly string[]): number {
   return n;
 }
 
-/**
- * 游戏还原公式：对「白底等价打乱」的 CFOP 解；z2 并入 Cross。
- * Cross 保留宽层 / 中层（不再展开成面转）。
- */
-export async function solveCfopGame(
+/** 进页 F0 与打乱串拼成求解输入。 */
+export function composeSetupScramble(
+  setupAlg: string,
   scramble: string,
-): Promise<CfopPhaseSolution[]> {
-  const trimmed = scramble.trim();
+): string {
+  return joinAlgParts(setupAlg.trim(), tokenizeAlg(scramble));
+}
+
+/** 进页贴纸是否已还原（只比棱角；空串视为复原进入）。 */
+export async function isSetupRestoredIgnoringCenters(
+  setupAlg: string,
+): Promise<boolean> {
+  const trimmed = setupAlg.trim();
   if (trimmed === "") {
-    throw new Error("打乱是空的");
+    return true;
   }
-  const yellowUpScramble = conjugateScrambleForYellowUp(trimmed);
+  const puzzle = await cube3x3x3.kpuzzle();
+  const identity = puzzle.defaultPattern();
+  try {
+    const pat = identity.applyAlg(trimmed);
+    return (
+      patternsMatchIgnoringCenters(pat, identity) ||
+      patternsMatchIgnoringCenters(pat, identity.applyAlg("z2"))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function stripLeadingZ2FromCross(
+  phases: readonly CfopPhaseSolution[],
+): CfopPhaseSolution[] {
+  return phases.map((phase) => {
+    if (phase.id !== "Cross" || phase.moves[0] !== "z2") {
+      return { id: phase.id, moves: [...phase.moves] };
+    }
+    return { id: phase.id, moves: phase.moves.slice(1) };
+  });
+}
+
+export type CfopGameSolveOk = {
+  ok: true;
+  phases: CfopPhaseSolution[];
+  /** F0 · 打乱（进页求解输入）。 */
+  solveInput: string;
+  prependedZ2: boolean;
+};
+
+export type CfopGameSolveFail = {
+  ok: false;
+  phases: [];
+  solveInput: string;
+  reason: string;
+};
+
+/**
+ * 复原进入求解：输入 F0 · 打乱（F0 通常为空）；成功则分段公式固定，打乱跟完不重算。
+ */
+export async function trySolveCfopGame(
+  scramble: string,
+  setupAlg = "",
+): Promise<CfopGameSolveOk | CfopGameSolveFail> {
+  const trimmed = scramble.trim();
+  const solveInput = composeSetupScramble(setupAlg, trimmed);
+  if (trimmed === "") {
+    return { ok: false, phases: [], solveInput, reason: "打乱是空的" };
+  }
+
+  const puzzle = await cube3x3x3.kpuzzle();
+  const identity = puzzle.defaultPattern();
+  const yellowUpSolved = identity.applyAlg("z2");
+  let scrambledPat;
+  try {
+    scrambledPat = identity.applyAlg(solveInput);
+  } catch {
+    return {
+      ok: false,
+      phases: [],
+      solveInput,
+      reason: "无法解析 F0 · 打乱",
+    };
+  }
+
+  const alreadyYellowUp =
+    scrambledPat.patternData.CENTERS.pieces[0] ===
+    yellowUpSolved.patternData.CENTERS.pieces[0];
+
+  const yellowUpScramble = conjugateScrambleForYellowUp(solveInput);
   if (yellowUpScramble === "") {
-    throw new Error("打乱是空的");
+    return { ok: false, phases: [], solveInput, reason: "打乱是空的" };
   }
+
   const result = await cfop.solve(yellowUpScramble, {
     colorNeutrality: "fixed",
   });
   if (!result.solved) {
-    throw new Error("CFOP 求解未完成");
+    return { ok: false, phases: [], solveInput, reason: "CFOP 求解未完成" };
   }
-  const solvePhases = phasesFromCfopSegments(
+  let solvePhases = phasesFromCfopSegments(
     result.segments as readonly MoishySegment[],
   );
   if (solvePhases.length === 0) {
-    throw new Error("CFOP 求解无分段");
+    return { ok: false, phases: [], solveInput, reason: "CFOP 求解无分段" };
   }
-  return mergeZ2IntoCross(solvePhases);
+
+  const prependedZ2 = !alreadyYellowUp;
+  solvePhases = prependedZ2
+    ? mergeZ2IntoCross(solvePhases)
+    : stripLeadingZ2FromCross(solvePhases);
+
+  const solution = solvePhases.flatMap((phase) => phase.moves).join(" ");
+  let after;
+  try {
+    after =
+      solution.trim() === "" ? scrambledPat : scrambledPat.applyAlg(solution);
+  } catch {
+    return {
+      ok: false,
+      phases: [],
+      solveInput,
+      reason: "还原公式无法应用",
+    };
+  }
+
+  // 中层/宽层在 cubing 模型里会带走色心；实体固定色心，自检忽略中心整机转。
+  const restored =
+    patternsMatchIgnoringCenters(after, yellowUpSolved) ||
+    patternsMatchIgnoringCenters(after, identity);
+  if (!restored) {
+    return {
+      ok: false,
+      phases: [],
+      solveInput,
+      reason: "解法跑完未到还原态",
+    };
+  }
+
+  return {
+    ok: true,
+    phases: solvePhases,
+    solveInput,
+    prependedZ2,
+  };
+}
+
+export type CfopGameUnsolvedOk = {
+  ok: true;
+  phases: CfopPhaseSolution[];
+  /** 当前贴纸 F0（不叠打乱）。 */
+  solveInput: string;
+  /** 未还原路径不跟打乱。 */
+  scrambleMoves: [];
+  /** 未还原不引导整机转体（勿输出 z2 朝向步）。 */
+  orientationMoves: [];
+};
+
+export type CfopGameUnsolvedFail = {
+  ok: false;
+  phases: [];
+  solveInput: string;
+  scrambleMoves: [];
+  orientationMoves: [];
+  reason: string;
+};
+
+/**
+ * 黄上 CFOP 解映回进页色心朝向（用「当前→黄上绿前」桥接转体共轭），
+ * 这样不用引导 z2，公式可直接叠在 F0 上。
+ */
+export function mapYellowUpPhasesToSetupOrientation(
+  phases: readonly CfopPhaseSolution[],
+  fromOrientAlg: string,
+): CfopPhaseSolution[] {
+  const bridge = orientationRotationPath(
+    fromOrientAlg,
+    YELLOW_UP_GREEN_FRONT_ALG,
+  );
+  if (bridge.length === 0) {
+    return phases.map((phase) => ({
+      id: phase.id,
+      moves: [...phase.moves],
+    }));
+  }
+  return phases.map((phase) => ({
+    id: phase.id,
+    moves: phase.moves.map((token) =>
+      remapGripTokenToPuzzleHint(token, bridge),
+    ),
+  }));
+}
+
+type PatternLike = {
+  applyAlg: (alg: string) => PatternLike;
+};
+
+/**
+ * 只保留应用到 setup 后首次还原所需的段；丢掉多余空段 / 多余 F2L。
+ */
+export function prunePhasesUntilRestored(
+  setupPat: PatternLike,
+  phases: readonly CfopPhaseSolution[],
+  isRestored: (pat: PatternLike) => boolean,
+): CfopPhaseSolution[] {
+  let pat = setupPat;
+  const kept: CfopPhaseSolution[] = [];
+  for (const phase of phases) {
+    if (phase.moves.length === 0) {
+      continue;
+    }
+    kept.push({ id: phase.id, moves: [...phase.moves] });
+    const chunk = phase.moves.join(" ").trim();
+    if (chunk !== "") {
+      pat = pat.applyAlg(chunk);
+    }
+    if (isRestored(pat)) {
+      return kept;
+    }
+  }
+  return kept;
+}
+
+/**
+ * 未还原进入：只对当前贴纸 F0 求解；无打乱段；不引导 z2；
+ * 黄上求解后映回当前朝向，并剪掉已还原后的多余段。
+ */
+export async function trySolveCfopGameUnsolved(
+  setupAlg: string,
+): Promise<CfopGameUnsolvedOk | CfopGameUnsolvedFail> {
+  const solveInput = setupAlg.trim();
+  const fail = (reason: string): CfopGameUnsolvedFail => ({
+    ok: false,
+    phases: [],
+    solveInput,
+    scrambleMoves: [],
+    orientationMoves: [],
+    reason,
+  });
+  if (solveInput === "") {
+    return fail("进页态为空");
+  }
+
+  const puzzle = await cube3x3x3.kpuzzle();
+  const identity = puzzle.defaultPattern();
+  warmOrientationCenterPieceMap((alg) => {
+    const pat = alg.trim() === "" ? identity : identity.applyAlg(alg);
+    return pat.patternData.CENTERS.pieces;
+  });
+  const yellowUpSolved = identity.applyAlg(YELLOW_UP_GREEN_FRONT_ALG);
+  let scrambledPat;
+  try {
+    scrambledPat = identity.applyAlg(solveInput);
+  } catch {
+    return fail("无法解析进页贴纸");
+  }
+
+  const yellowUpScramble = conjugateScrambleForYellowUp(solveInput);
+  if (yellowUpScramble === "") {
+    return fail("进页态为空");
+  }
+
+  const result = await cfop.solve(yellowUpScramble, {
+    colorNeutrality: "fixed",
+  });
+  if (!result.solved) {
+    return fail("CFOP 求解未完成");
+  }
+  let solvePhases = phasesFromCfopSegments(
+    result.segments as readonly MoishySegment[],
+  );
+  if (solvePhases.length === 0) {
+    return fail("CFOP 求解无分段");
+  }
+  // 未还原：Cross 从黄上绿前起，禁止把 z2 并进 Cross。
+  solvePhases = stripLeadingZ2FromCross(solvePhases);
+
+  const fromOrient = orientationAlgFromCenterPieces(
+    scrambledPat.patternData.CENTERS.pieces,
+  );
+  solvePhases = mapYellowUpPhasesToSetupOrientation(solvePhases, fromOrient);
+
+  const isRestored = (pat: PatternLike): boolean => {
+    const p = pat as typeof scrambledPat;
+    return (
+      patternsMatchIgnoringCenters(p, yellowUpSolved) ||
+      patternsMatchIgnoringCenters(p, identity)
+    );
+  };
+  solvePhases = prunePhasesUntilRestored(scrambledPat, solvePhases, isRestored);
+
+  const solution = solvePhases
+    .flatMap((p) => p.moves)
+    .join(" ")
+    .trim();
+  let after;
+  try {
+    after = solution === "" ? scrambledPat : scrambledPat.applyAlg(solution);
+  } catch {
+    return fail("还原公式无法应用");
+  }
+  if (!isRestored(after)) {
+    return fail("解法跑完未到还原态");
+  }
+
+  return {
+    ok: true,
+    phases: solvePhases,
+    solveInput,
+    scrambleMoves: [],
+    orientationMoves: [],
+  };
+}
+
+/**
+ * 游戏还原公式（默认 F0 空 = 从复原进入）。
+ * Cross 保留宽层 / 中层（不再展开成面转）。
+ */
+export async function solveCfopGame(
+  scramble: string,
+  setupAlg = "",
+): Promise<CfopPhaseSolution[]> {
+  const result = await trySolveCfopGame(scramble, setupAlg);
+  if (!result.ok) {
+    throw new Error(result.reason);
+  }
+  return result.phases;
 }

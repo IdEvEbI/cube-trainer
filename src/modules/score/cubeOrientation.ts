@@ -103,6 +103,46 @@ for (const alg of CUBE_ORIENTATION_ALGS) {
   FACING_TO_ALG.set(`${facing.up}|${facing.front}`, alg);
 }
 
+/** 黄上绿前（还原引导起点朝向）。 */
+export const YELLOW_UP_GREEN_FRONT_ALG = "z2";
+
+/**
+ * 色心排列对应的 24 朝向公式（相对白上绿前）。
+ * 未命中时回落空串（白上绿前）。
+ */
+export function orientationAlgFromCenterPieces(
+  centerPieces: readonly number[],
+): string {
+  const want = centerPieces.join(",");
+  // 懒建：避免在模块加载时拉 cubing。
+  if (CENTER_PIECES_TO_ORIENT_ALG.size === 0) {
+    // 由 {@link warmOrientationCenterPieceMap} 填充；未暖时仅认单位与 z2 字面。
+    if (want === "0,1,2,3,4,5") {
+      return "";
+    }
+    if (want === "5,3,2,1,4,0") {
+      return YELLOW_UP_GREEN_FRONT_ALG;
+    }
+    return "";
+  }
+  return CENTER_PIECES_TO_ORIENT_ALG.get(want) ?? "";
+}
+
+const CENTER_PIECES_TO_ORIENT_ALG = new Map<string, string>();
+
+/** 用 24 朝向暖色心→公式表（调用方在已有 kpuzzle 时调用）。 */
+export function warmOrientationCenterPieceMap(
+  centerPiecesForAlg: (alg: string) => readonly number[],
+): void {
+  if (CENTER_PIECES_TO_ORIENT_ALG.size > 0) {
+    return;
+  }
+  for (const alg of CUBE_ORIENTATION_ALGS) {
+    const pieces = centerPiecesForAlg(alg);
+    CENTER_PIECES_TO_ORIENT_ALG.set(pieces.join(","), alg);
+  }
+}
+
 function facingKey(facing: Facing): string {
   return `${facing.up}|${facing.front}`;
 }
@@ -512,10 +552,10 @@ export function heldMatchesRotationProgress(
 /**
  * 引导转体步是否可确认（游戏页 / 打乱引导共用）。
  *
- * - `*2`：绝对朝上到位（勿单靠相对 Δ）。
- * - 四分之一：须相对步起点 hold 已提交的 committed 满足（含正反）；
- *   禁止「绝对已在目标」首帧跳过——宽层 `d'`/`u` 后陀螺常已是 `y'`；
- *   仅当进入该步已满 hold 窗且绝对仍到位才延迟确认。
+ * - 四分之一与双步 `*2`：须相对步起点 hold 已提交的 committed 满足（含正反）；
+ *   禁止「绝对已在目标」首帧跳过——复原进页后 `z2` 常已像黄上，宽层后 `y'` 亦然。
+ * - 仅四分之一：进入该步已满 hold 窗且绝对仍到位才延迟确认。
+ * - 双步 `*2`：无相对 Δ 时一律不可确认（不为某一轴单开分支）。
  */
 export function guideRotationStepConfirmable(options: {
   expectedMove: string;
@@ -531,17 +571,13 @@ export function guideRotationStepConfirmable(options: {
     return false;
   }
   const holdMs = options.holdMs ?? orientationHoldStableMsForMove(expected);
-  if (/2/.test(expected)) {
-    return heldMatchesRotationProgress(
-      options.heldAlg,
-      options.displayMoves,
-      options.progress,
-    );
-  }
   if (
     scrambleGuideRotationSatisfied("", options.relativeCommittedAlg, expected)
   ) {
     return true;
+  }
+  if (/2/.test(expected)) {
+    return false;
   }
   if (
     options.msSinceStepEnter >= holdMs &&

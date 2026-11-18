@@ -26,6 +26,7 @@ import {
   isRotationGuideToken,
   isSliceGuideToken,
   isWideGuideToken,
+  isWideOrSliceQuarterGuideToken,
   resolveGuideExpectedHintPaint,
   layerAbsorbVisualBaseAlg,
   seekGuidedProgress,
@@ -43,14 +44,24 @@ import { evaluateGuideLayerGesture } from "../scramble/scrambleGuideLayerGesture
 import {
   gameGuidePaintAlg,
   guideProgressMatchesCube,
+  shouldSeekBackAfterCrossManualConfirm,
   guideTokenToCubingAlg,
 } from "./algStateMatch.ts";
-import { tokenizeAlg, type CfopPhaseSolution } from "./cfopSolve.ts";
-import { solveCfopGame } from "./cfopSolve.ts";
+import {
+  layerGuideGyroAnimKey,
+  shouldRestartLayerGuideGyroTrack,
+} from "./layerGuideAnimKey.ts";
+import {
+  tokenizeAlg,
+  trySolveCfopGame,
+  type CfopPhaseSolution,
+} from "./cfopSolve.ts";
 import { createGuideFollowController } from "../scramble/guideFollowController.ts";
 import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
+  gripLayerMoveFromBleAbsolute,
+  layerGestureAbsoluteToken,
   rotationGuideVisualProgress,
 } from "./guideOrientation.ts";
 import { stepGamePageBleAbsoluteFace } from "./guidedAbsolute.ts";
@@ -108,7 +119,7 @@ export type GamePageBluetooth = {
 function phaseTone(
   id: GameSegmentId,
 ): "scramble" | "cross" | "f2l" | "oll" | "pll" {
-  if (id === "scramble") {
+  if (id === "scramble" || id === "orient") {
     return "scramble";
   }
   if (id === "Cross") {
@@ -244,8 +255,10 @@ export function GamePage({
    * 贴纸白名单：过程中禁止用 BLE setup 重刷 3D。
    */
   const bleAbsSetupRef = useRef("");
-  /** 进游戏时的连接 setup（通常 "" 或当前实体态）；钉公式前缀时作前缀。 */
+  /** 进页贴纸 F0（连接 setup）；画面串 = F0 ⊕ flat 已跟进度。 */
   const gameGuidePaintBaseRef = useRef("");
+  /** 本把已锁定 F0，避免 ready 后再 requestSetupAlg 冲掉。 */
+  const gameGuideF0LockedRef = useRef(false);
   /** Cross 活朝向映射变化时才重画高亮，避免每帧重建箭头抖动。 */
   const crossHintOrientKeyRef = useRef("");
   /** 与首页打乱共用：映面 home / 层转 tracker / 静默窗 / 转体 Δ 起点。 */
@@ -260,6 +273,8 @@ export function GamePage({
     "loading",
   );
   const [error, setError] = useState<string | null>(null);
+  /** 进页求解失败或不还原：只跟打乱，不开还原引导。 */
+  const [solveBlockReason, setSolveBlockReason] = useState<string | null>(null);
   const [phases, setPhases] = useState<CfopPhaseSolution[]>([]);
   const [overview, setOverview] = useState<GameSolveOverview>({
     moves: 0,
@@ -316,7 +331,7 @@ export function GamePage({
 
   /**
    * 公式已完成前缀（不含当前步），作层转对表基线与 3D `setAbsoluteAlg`。
-   * 有连接 setup 时勿再拼打乱段（见 {@link gameGuidePaintAlg}）。
+   * 蓝牙进页 F0 记在 {@link gameGuidePaintBaseRef}；画面 = F0 ⊕ 已跟 flat 进度。
    */
   function formulaPaintAlg(guide: GuidedScramble): string {
     const base = cursorRef.current;
@@ -482,7 +497,10 @@ export function GamePage({
         result.guide.progress,
         bleAbsSetupRef.current,
       ).then((ok) => {
-        if (ok || !guideRef.current) {
+        if (
+          !guideRef.current ||
+          !shouldSeekBackAfterCrossManualConfirm(completedToken, ok)
+        ) {
           return;
         }
         publishGuide(seekGuidedProgress(guideRef.current, beforeProgress));
@@ -532,6 +550,7 @@ export function GamePage({
     setScramble(nextScramble);
     setPhases([]);
     setOverview({ moves: 0, rotations: 0 });
+    setSolveBlockReason(null);
     cursorRef.current = null;
     setCursor(null);
     guideRef.current = null;
@@ -540,32 +559,62 @@ export function GamePage({
     cube.current?.setMoveHint(null);
     setStatus("loading");
     setError(null);
-    void cube.current?.showMoves("");
-    void solveCfopGame(nextScramble)
-      .then(async (solved) => {
-        if (requestGen.current !== requestId) {
-          return;
-        }
-        const next = createGamePageCursor(tokens, solved);
-        setPhases(solved);
-        setOverview(buildGameSolveOverview(solved));
-        setStatus("ready");
-        cursorRef.current = next;
-        setCursor(next);
+    gameGuideF0LockedRef.current = false;
+    // 复原进入：F0 固定为空；只 trySolveCfopGame(打乱)。未还原求解已停用。
+    void (async () => {
+      try {
         const bt = bluetoothRef.current;
+        gameGuidePaintBaseRef.current = "";
+        bleAbsSetupRef.current = "";
+        gameGuideF0LockedRef.current = true;
         if (bt) {
-          const setupAlg = await bt.requestSetupAlg();
+          // 仍读一次贴纸只为把 3D 钉到实体；不入求解、不叠进 paint。
+          const raw = await bt.requestSetupAlg();
           if (requestGen.current !== requestId) {
             return;
           }
-          // 连接态可贴一次；之后跟转只钉公式前缀 / 播转动包。
-          gameGuidePaintBaseRef.current = setupAlg ?? "";
-          bleAbsSetupRef.current = gameGuidePaintBaseRef.current;
-          if (setupAlg !== null) {
-            cube.current?.setAbsoluteAlg(setupAlg);
+          if (raw !== null) {
+            cube.current?.setAbsoluteAlg(raw);
           } else {
             void cube.current?.showMoves("");
           }
+        } else {
+          void cube.current?.showMoves("");
+        }
+
+        const solved = await trySolveCfopGame(nextScramble, "");
+        if (requestGen.current !== requestId) {
+          return;
+        }
+
+        if (!solved.ok) {
+          setSolveBlockReason(solved.reason);
+          setPhases([]);
+          setOverview({ moves: 0, rotations: 0 });
+          const scrambleOnly = createGamePageCursor(tokens, []);
+          setStatus("ready");
+          cursorRef.current = scrambleOnly;
+          setCursor(scrambleOnly);
+          if (bt) {
+            // 只开打乱引导，不开还原段。
+            resetGuideFromCursor(scrambleOnly, 0);
+          } else {
+            applyCursorToCube(cube.current, scrambleOnly);
+            guideRef.current = null;
+            setGuideView(null);
+            cube.current?.setMoveHint(null);
+          }
+          return;
+        }
+
+        setSolveBlockReason(null);
+        const next = createGamePageCursor(tokens, solved.phases);
+        setPhases(solved.phases);
+        setOverview(buildGameSolveOverview(solved.phases));
+        setStatus("ready");
+        cursorRef.current = next;
+        setCursor(next);
+        if (bt) {
           resetGuideFromCursor(next, 0);
         } else {
           applyCursorToCube(cube.current, next);
@@ -573,14 +622,14 @@ export function GamePage({
           setGuideView(null);
           cube.current?.setMoveHint(null);
         }
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (requestGen.current !== requestId) {
           return;
         }
         setStatus("error");
         setError(err instanceof Error ? err.message : "CFOP 求解失败");
-      });
+      }
+    })();
   }
 
   useEffect(() => {
@@ -624,13 +673,19 @@ export function GamePage({
         }
         if (!shouldPlayBluetoothMoveAnim(layerKind)) {
           const token = view.manualMove!;
+          const layerOrients = hintOrientationMovesForGuide(guide);
+          // BLE 色心包按绝对面；z2 后握持 M'≡绝对 M，手势须对绝对记号。
+          const gestureExpected = layerGestureAbsoluteToken(
+            token,
+            layerOrients,
+          );
           const baseAlg = ensureManualSyncSetup(
             `${guide.progress}:${token}`,
             guide,
           );
           guideFollow.syncLayerTracker({
             progress: guide.progress,
-            expectedToken: token,
+            expectedToken: gestureExpected,
             gyroBefore:
               guideFollow.layerGestureTracker?.gyroBefore ??
               lastLiveOrientRef.current,
@@ -645,8 +700,9 @@ export function GamePage({
             return;
           }
           const inverseCount = guide.sameFaceInverseCount ?? 0;
+          // 宽边 / 中层共用：反转计数后跟还差双步；不为某一中层记号单开。
           const remainForTrack =
-            inverseCount > 0 && isWideGuideToken(token)
+            inverseCount > 0 && isWideOrSliceQuarterGuideToken(token)
               ? guidedScrambleView(guide).expectedMove
               : null;
           const trackMove = remainForTrack ?? token;
@@ -657,8 +713,13 @@ export function GamePage({
                 inverseCount,
               )
             : baseAlg;
-          const animKey = `${guide.progress}:gyro:${trackMove}`;
-          if (guideFollow.layerGuideAnimKey !== animKey) {
+          const animKey = layerGuideGyroAnimKey(guide.progress, trackMove);
+          if (
+            shouldRestartLayerGuideGyroTrack(
+              guideFollow.layerGuideAnimKey,
+              animKey,
+            )
+          ) {
             // 宽边反转后：等下一次实体转动再开还差 f2 轨道（catch-up 内不开）。
             guideFollow.layerGuideAnimKey = animKey;
             void cube.current?.startGuideStepGyroTrack(
@@ -760,12 +821,34 @@ export function GamePage({
             })();
             return;
           }
-          if (
-            ev.status === "other" &&
-            ev.classified &&
-            isInverseLayerGestureLabel(token, ev.classified)
-          ) {
-            const step = applyGuidedMove(guide, ev.classified);
+          if (ev.status === "other" && ev.classified) {
+            const gripMove = gripLayerMoveFromBleAbsolute(
+              ev.classified,
+              token,
+              layerOrients,
+            );
+            if (!gripMove) {
+              statePollKickRef.current?.();
+              return;
+            }
+            if (gripMove === token) {
+              // 绝对分类映回握持期望：按到位确认，勿当成反转。
+              guideFollow.layerMatchHold = true;
+              void (async () => {
+                try {
+                  await cube.current?.finishGuideStepGyroTrack();
+                  tryConfirmManualFromGuide();
+                } catch {
+                  guideFollow.layerMatchHold = false;
+                }
+              })();
+              return;
+            }
+            if (!isInverseLayerGestureLabel(token, gripMove)) {
+              statePollKickRef.current?.();
+              return;
+            }
+            const step = applyGuidedMove(guide, gripMove);
             guideRef.current = step.guide;
             if (step.kind === "progress" || step.kind === "done") {
               // 反转×3 ≡ 期望步：apply 已推进，只钉前缀+挂下一步高亮（勿再 confirm）。
@@ -787,7 +870,7 @@ export function GamePage({
             }
             publishGuide(step.guide);
             if (isWideGuideToken(token)) {
-              playWideInverseCatchUp(step.guide, ev.classified);
+              playWideInverseCatchUp(step.guide, gripMove);
             }
             return;
           }
@@ -1143,13 +1226,20 @@ export function GamePage({
       return;
     }
     if (bluetooth) {
+      // F0 已在 loadScramble 锁定：勿再 requestSetupAlg 冲掉（否则易记成复原/空）。
+      if (gameGuideF0LockedRef.current) {
+        const progress = cursorRef.current.index;
+        resetGuideFromCursor(cursorRef.current, progress);
+        return;
+      }
       void bluetooth.requestSetupAlg().then((setupAlg) => {
         if (!bluetoothRef.current || !cursorRef.current) {
           return;
         }
-        // 仅中途连上时贴一次连接态；跟转中不再用 facelets 刷盘。
-        gameGuidePaintBaseRef.current = setupAlg ?? "";
-        bleAbsSetupRef.current = gameGuidePaintBaseRef.current;
+        // 复原路径：paint/F0 保持空；中途连上只钉实体贴纸，不叠进求解。
+        gameGuidePaintBaseRef.current = "";
+        bleAbsSetupRef.current = "";
+        gameGuideF0LockedRef.current = true;
         if (setupAlg !== null) {
           cube.current?.setAbsoluteAlg(setupAlg);
         }
@@ -1487,7 +1577,14 @@ export function GamePage({
                   );
                 })}
               </ul>
-              {status === "ready" && phases.length === 0 ? (
+              {status === "ready" && solveBlockReason ? (
+                <p className="game-page-status is-error" role="status">
+                  无法开启还原引导：{solveBlockReason}
+                </p>
+              ) : null}
+              {status === "ready" &&
+              !solveBlockReason &&
+              phases.length === 0 ? (
                 <p className="game-page-status">暂无分段</p>
               ) : null}
             </section>

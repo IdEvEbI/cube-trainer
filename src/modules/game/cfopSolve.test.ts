@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { cube3x3x3 } from "cubing/puzzles";
 import {
+  composeSetupScramble,
   conjugateScrambleForYellowUp,
   conjugateTokenByZ2,
   countPhaseHtm,
@@ -11,6 +12,7 @@ import {
   phasesFromCfopSegments,
   solveCfopGame,
   tokenizeAlg,
+  trySolveCfopGame,
 } from "./cfopSolve.ts";
 
 describe("moveToToken / tokenizeAlg / normalize", () => {
@@ -154,5 +156,77 @@ describe("solveCfopGame", () => {
         scramble,
       );
     }
+  });
+
+  it("F0=U2：求解输入是 U2·打乱；解完到还原；进页公式固定", async () => {
+    const scramble = FIXED_SCRAMBLES[0]!;
+    const f0 = "U2";
+    assert.equal(composeSetupScramble(f0, scramble), `U2 ${scramble}`);
+
+    const first = await trySolveCfopGame(scramble, f0);
+    assert.equal(first.ok, true);
+    if (!first.ok) {
+      return;
+    }
+    assert.equal(first.solveInput, `U2 ${scramble}`);
+    assert.equal(first.prependedZ2, true);
+    assert.equal(first.phases[0]?.moves[0], "z2");
+
+    const puzzle = await cube3x3x3.kpuzzle();
+    const identity = puzzle.defaultPattern();
+    const yellowUpSolved = identity.applyAlg("z2");
+    const solution = first.phases.flatMap((phase) => phase.moves).join(" ");
+    assert.equal(
+      identity
+        .applyAlg(first.solveInput)
+        .applyAlg(solution)
+        .isIdentical(yellowUpSolved),
+      true,
+      "解完应用到 F0·打乱 得还原态",
+    );
+
+    const second = await trySolveCfopGame(scramble, f0);
+    assert.equal(second.ok, true);
+    if (!second.ok) {
+      return;
+    }
+    assert.deepEqual(
+      second.phases,
+      first.phases,
+      "打乱跟完后公式不变（同输入再求一次仍同）",
+    );
+    assert.equal(second.solveInput, first.solveInput);
+  });
+
+  it("F0=U：含中层解自检忽略色心，仍可开还原引导", async () => {
+    const scramble = "F D2 L' B2 U2 D' B2 D' R' D' F' D L' F D2 L' B F L' U'";
+    const result = await trySolveCfopGame(scramble, "U");
+    assert.equal(result.ok, true, result.ok ? "" : result.reason);
+    if (!result.ok) {
+      return;
+    }
+    assert.equal(result.solveInput, `U ${scramble}`);
+    assert.equal(result.phases[0]?.id, "Cross");
+  });
+
+  it("F0 已黄上：Cross 前不补 z2", async () => {
+    const scramble = FIXED_SCRAMBLES[1]!;
+    const f0 = "z2";
+    const result = await trySolveCfopGame(scramble, f0);
+    assert.equal(result.ok, true);
+    if (!result.ok) {
+      return;
+    }
+    assert.equal(result.prependedZ2, false);
+    assert.notEqual(result.phases[0]?.moves[0], "z2");
+    const puzzle = await cube3x3x3.kpuzzle();
+    const identity = puzzle.defaultPattern();
+    const yellowUpSolved = identity.applyAlg("z2");
+    const solution = result.phases.flatMap((phase) => phase.moves).join(" ");
+    const after = identity.applyAlg(result.solveInput).applyAlg(solution);
+    assert.equal(
+      after.isIdentical(yellowUpSolved) || after.isIdentical(identity),
+      true,
+    );
   });
 });

@@ -10,6 +10,7 @@ import {
   absoluteMoveToGripGuide,
   completedOrientationMoves,
   crossBleRemapOrientations,
+  gripLayerMoveFromBleAbsolute,
   guideDisplayOrientationQuat,
   guideMeshFollowQuat,
   hintTokenInSolveView,
@@ -200,6 +201,18 @@ describe("remapGripTokenToPuzzleHint", () => {
 
   it("无转体时保持原样", () => {
     assert.equal(remapGripTokenToPuzzleHint("U'", []), "U'");
+  });
+
+  it("z2 后握持 M' ≡ 绝对 M（手势须对绝对）", () => {
+    assert.equal(remapGripTokenToPuzzleHint("M'", ["z2"]), "M");
+    assert.equal(remapGripTokenToPuzzleHint("M", ["z2"]), "M'");
+  });
+});
+
+describe("gripLayerMoveFromBleAbsolute", () => {
+  it("z2 后绝对 M 映回握持 M'，不得当握持 M 去 absorb", () => {
+    assert.equal(gripLayerMoveFromBleAbsolute("M", "M'", ["z2"]), "M'");
+    assert.equal(gripLayerMoveFromBleAbsolute("M'", "M'", ["z2"]), "M");
   });
 });
 
