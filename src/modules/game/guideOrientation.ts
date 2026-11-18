@@ -6,7 +6,7 @@ import {
   quatNormalize,
   type MoyuQuat,
 } from "../bluetooth/moyu/orientation.ts";
-import { isRotationGuideToken } from "../scramble/guided.ts";
+import { invertGuideToken, isRotationGuideToken } from "../scramble/guided.ts";
 import {
   isYellowTopOrientation,
   nearestCubeOrientationAlg,
@@ -200,6 +200,48 @@ export function hintTokenInSolveView(
   }
   // 打乱段：白上记号 → 黄上视图
   return remapGripTokenToPuzzleHint(raw, ["z2"]);
+}
+
+/**
+ * 层转手势对 BLE 绝对包：用朝向把握持期望映成绝对记号。
+ * 例：z2 后握持 M' ≡ 绝对 M；手势表按色心包，须对绝对面。
+ */
+export function layerGestureAbsoluteToken(
+  gripToken: string,
+  orientationMoves: readonly string[],
+): string {
+  return remapGripTokenToPuzzleHint(gripToken, orientationMoves);
+}
+
+/**
+ * BLE 层转分类（绝对）→ 握持记号。对不上期望或其逆则 null。
+ * 避免 z2 后把绝对 M 当成握持 M 去 absorb（期望 M' 时会收成 M2）。
+ */
+export function gripLayerMoveFromBleAbsolute(
+  absoluteClassified: string,
+  gripExpected: string,
+  orientationMoves: readonly string[],
+): string | null {
+  const classified = absoluteClassified.trim();
+  const expected = gripExpected.trim();
+  if (!classified || !expected) {
+    return null;
+  }
+  const absExpected = remapGripTokenToPuzzleHint(expected, orientationMoves);
+  if (classified === absExpected) {
+    return expected;
+  }
+  let inverse: string;
+  try {
+    inverse = invertGuideToken(expected);
+  } catch {
+    return null;
+  }
+  const absInverse = remapGripTokenToPuzzleHint(inverse, orientationMoves);
+  if (classified === absInverse) {
+    return inverse;
+  }
+  return null;
 }
 
 /**

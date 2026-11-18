@@ -51,14 +51,42 @@ function resolveWithOrientAlgs(
 }
 
 /**
+ * 双步外面转：两半共用同一张握持→绝对映面。
+ * 命中返回握持四分之一；未命中返回 null（勿回落成异面纠错）。
+ */
+export function matchDoubleFaceAbsoluteGripMove(
+  absoluteMove: string,
+  face: string,
+  dirs: ReadonlyArray<"" | "'">,
+  orientAlgs: readonly string[],
+): string | null {
+  const absolute = absoluteMove.trim();
+  if (!absolute || !face) {
+    return null;
+  }
+  const algs = orientAlgs.length > 0 ? orientAlgs : [""];
+  for (const alg of algs) {
+    const orients = alg.split(/\s+/).filter(Boolean);
+    for (const dir of dirs) {
+      const grip = `${face}${dir}`;
+      if (absolute === remapGripTokenToPuzzleHint(grip, orients)) {
+        return grip;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * 蓝牙绝对面转 → 引导握持四分之一（与 {@link applyGuidedBleAbsoluteMoveWithOrientAlgs} 记账同一串）。
- * 双步首半：按候选朝向把绝对面匹配到正/反握持，勿用 expected 正转字母单独 resolve。
+ * 双步两半：按候选朝向把绝对面匹配到正/反握持，勿用 expected 正转字母单独 resolve。
+ * 未命中双步绝对映面时返回 null（调用方须 need_manual，禁止异面进 wrongStack）。
  */
 export function resolveGuidedBleAbsoluteGripMove(
   guide: GuidedScramble,
   absoluteMove: string,
   orientAlgs: readonly string[],
-): string {
+): string | null {
   const token =
     guide.phase === "done" || guide.progress >= guide.displayMoves.length
       ? null
@@ -88,20 +116,16 @@ export function resolveGuidedBleAbsoluteGripMove(
     return resolveWithOrientAlgs(absoluteMove, view.correction, algs);
   }
 
-  if (view.currentIsDouble && !view.partial) {
+  if (view.currentIsDouble) {
     const { face } = parseFaceTurn(token);
-    for (const alg of algs) {
-      const orients = alg.split(/\s+/).filter(Boolean);
-      const absCw = remapGripTokenToPuzzleHint(face, orients);
-      const absCcw = remapGripTokenToPuzzleHint(`${face}'`, orients);
-      if (absoluteMove === absCw) {
-        return face;
-      }
-      if (absoluteMove === absCcw) {
-        return `${face}'`;
-      }
-    }
-    return resolveWithOrientAlgs(absoluteMove, face, algs);
+    const dirs: Array<"" | "'"> = view.partial
+      ? [guide.halfDir ?? ""]
+      : ["", "'"];
+    // 公式朝向优先，再试其余候选；两半同一匹配，不为某一双步记号单开。
+    const ordered = formulaAlg
+      ? [formulaAlg, ...algs.filter((alg) => alg.trim() !== formulaAlg)]
+      : algs;
+    return matchDoubleFaceAbsoluteGripMove(absoluteMove, face, dirs, ordered);
   }
 
   // 映面须用公式期望（U），勿用 UI「还差」文案（U2），以免干扰中层/宽边。
@@ -135,7 +159,6 @@ export function resolveGuidedBleAbsoluteGripMove(
 
   return resolveWithOrientAlgs(absoluteMove, null, algs);
 }
-
 /**
  * 用蓝牙绝对面转推进引导（朝向候选串，与 {@link resolveGuideBleFaceMoveWithCandidates} 一致）。
  */
@@ -153,12 +176,17 @@ export function applyGuidedBleAbsoluteMoveWithOrientAlgs(
     return { guide, kind: "need_manual" };
   }
 
-  return applyGuidedMove(
+  const resolved = resolveGuidedBleAbsoluteGripMove(
     guide,
-    resolveGuidedBleAbsoluteGripMove(guide, absoluteMove, orientAlgs),
+    absoluteMove,
+    orientAlgs,
   );
-}
+  if (resolved === null) {
+    return { guide, kind: "need_manual" };
+  }
 
+  return applyGuidedMove(guide, resolved);
+}
 export type GamePageBleFaceStep = {
   absolute: string;
   resolved: string;
@@ -179,11 +207,8 @@ export function stepGamePageBleAbsoluteFace(
   orientAlgs: readonly string[],
 ): GamePageBleFaceStep {
   const absolute = absoluteMove.trim();
-  const resolved = resolveGuidedBleAbsoluteGripMove(
-    guide,
-    absolute,
-    orientAlgs,
-  );
+  const resolved =
+    resolveGuidedBleAbsoluteGripMove(guide, absolute, orientAlgs) ?? absolute;
   const result = applyGuidedBleAbsoluteMoveWithOrientAlgs(
     guide,
     absolute,
@@ -192,17 +217,16 @@ export function stepGamePageBleAbsoluteFace(
   const view = guidedScrambleView(result.guide);
   return {
     absolute,
-    resolved,
+    resolved: result.kind === "need_manual" ? absolute : resolved,
     kind: result.kind,
     guide: result.guide,
     correction: view.correction,
     enteredCorrection:
       result.kind === "wrong" ||
       (result.guide.wrongStack.length > 0 && Boolean(view.correction)),
-    playMove: resolved,
+    playMove: result.kind === "need_manual" ? absolute : resolved,
   };
 }
-
 /**
  * 用蓝牙绝对面转推进引导：match + hint（及可选额外朝向串）。
  */

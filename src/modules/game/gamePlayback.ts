@@ -1,7 +1,7 @@
 import type { CfopPhaseId, CfopPhaseSolution } from "./cfopSolve.ts";
 
-/** 游戏页分段：打乱 + CFOP 各段。 */
-export type GameSegmentId = "scramble" | CfopPhaseId;
+/** 游戏页分段：打乱 / 朝向（未还原）+ CFOP 各段。 */
+export type GameSegmentId = "scramble" | "orient" | CfopPhaseId;
 
 export type GameSegmentRange = {
   id: GameSegmentId;
@@ -11,6 +11,16 @@ export type GameSegmentRange = {
   start: number;
   end: number;
 };
+
+export type CreateGamePageCursorOptions = {
+  /** @deprecated 未还原不再引导朝向步；保留参数以免旧调用报错。 */
+  orientationMoves?: readonly string[];
+};
+
+/** 未还原进入不显示顶栏打乱条；复原进入显示。 */
+export function shouldShowGamePageScrambleBar(unsolvedEntry: boolean): boolean {
+  return !unsolvedEntry;
+}
 
 /**
  * 游戏页回放游标。
@@ -27,19 +37,38 @@ export type GamePageCursor = {
 export function createGamePageCursor(
   scrambleMoves: readonly string[],
   phases: readonly CfopPhaseSolution[],
+  options?: CreateGamePageCursorOptions,
 ): GamePageCursor {
   const scramble = [...scrambleMoves];
+  const orientation = [...(options?.orientationMoves ?? [])]
+    .map((m) => m.trim())
+    .filter(Boolean);
   const flatMoves: string[] = [];
   const segments: GameSegmentRange[] = [];
 
-  segments.push({
-    id: "scramble",
-    label: "打乱",
-    moves: scramble,
-    start: 0,
-    end: scramble.length,
-  });
-  flatMoves.push(...scramble);
+  // 复原进入：有打乱段。未还原：scramble 为空，不建打乱段。
+  if (scramble.length > 0) {
+    segments.push({
+      id: "scramble",
+      label: "打乱",
+      moves: scramble,
+      start: 0,
+      end: scramble.length,
+    });
+    flatMoves.push(...scramble);
+  }
+
+  if (orientation.length > 0) {
+    const start = flatMoves.length;
+    flatMoves.push(...orientation);
+    segments.push({
+      id: "orient",
+      label: "转到黄上绿前",
+      moves: orientation,
+      start,
+      end: flatMoves.length,
+    });
+  }
 
   for (const phase of phases) {
     const start = flatMoves.length;
@@ -65,7 +94,6 @@ export function createGamePageCursor(
     index: 0,
   };
 }
-
 export function isGamePageAtStart(cursor: GamePageCursor): boolean {
   return cursor.index <= 0;
 }
