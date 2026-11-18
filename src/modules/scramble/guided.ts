@@ -12,6 +12,11 @@ export type GuidedScramble = {
   halfDone: boolean;
   /** 双步前半锁定的方向："" 正转、"'" 逆转；未锁定为 null。 */
   halfDir: "" | "'" | null;
+  /**
+   * 当前步同面反转累计（#181）：如期望 R 时连续 R'。
+   * 满 3 等价完成期望步；不满不推进、不进 wrongStack。
+   */
+  sameFaceInverseCount: number;
   /** 转错后待撤销的步（后进先出，存实际转过的步）。 */
   wrongStack: string[];
   phase: "guiding" | "done";
@@ -42,8 +47,66 @@ export type GuidedScrambleView = {
 
 export type ApplyGuidedMoveResult = {
   guide: GuidedScramble;
-  kind: "progress" | "partial" | "wrong" | "recover" | "done" | "need_manual";
+  kind:
+    | "progress"
+    | "partial"
+    | "absorb"
+    | "wrong"
+    | "recover"
+    | "done"
+    | "need_manual";
 };
+
+/** 同面反转四分之一（期望 R、实转 R'）。 */
+export function isSameFaceInverseQuarter(
+  move: string,
+  expected: string,
+): boolean {
+  const got = move.trim();
+  const want = expected.trim();
+  if (!FACE_QUARTER.test(got) || !FACE_QUARTER.test(want)) {
+    return false;
+  }
+  if (got[0]!.toUpperCase() !== want[0]!.toUpperCase()) {
+    return false;
+  }
+  return got !== want;
+}
+
+/** 宽边 / 中层四分之一（不含 *2）；可与外面转共用同面反转计数。 */
+export function isWideOrSliceQuarterGuideToken(token: string): boolean {
+  const t = token.trim();
+  if (!t || /2/.test(t)) {
+    return false;
+  }
+  return isWideGuideToken(t) || isSliceGuideToken(t);
+}
+
+/** 同面反转：外面转或宽边/中层四分之一（l↔l'、M'↔M）。 */
+export function isSameFaceInverseGuideToken(
+  move: string,
+  expected: string,
+): boolean {
+  const got = move.trim();
+  const want = expected.trim();
+  if (!got || !want || /2/.test(got) || /2/.test(want)) {
+    return false;
+  }
+  if (FACE_QUARTER.test(got) && FACE_QUARTER.test(want)) {
+    return isSameFaceInverseQuarter(got, want);
+  }
+  if (
+    isWideOrSliceQuarterGuideToken(got) &&
+    isWideOrSliceQuarterGuideToken(want)
+  ) {
+    try {
+      return invertGuideToken(want) === got;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
 
 /** 可走蓝牙四分之一转引导的面转（含 R2）；转体 / 宽层 / 中层需手动确认。 */
 export function isFaceGuideToken(token: string): boolean {
@@ -184,6 +247,7 @@ export function createGuidedMoves(
     progress: 0,
     halfDone: false,
     halfDir: null,
+    sameFaceInverseCount: 0,
     wrongStack: [],
     phase: moves.length === 0 ? "done" : "guiding",
   };
@@ -207,6 +271,7 @@ export function seekGuidedProgress(
     progress: next,
     halfDone: false,
     halfDir: null,
+    sameFaceInverseCount: 0,
     wrongStack: [],
     phase: next >= guide.displayMoves.length ? "done" : "guiding",
   };
@@ -219,9 +284,58 @@ function currentToken(guide: GuidedScramble): string | null {
   return guide.displayMoves[guide.progress] ?? null;
 }
 
-function preferredExpectedMove(guide: GuidedScramble): string | null {
+/**
+ * 还差步 → 高亮 paint 参数。外面转 `B2` 须拆成面字母 + double（moveHint 不认 `B2` 字面量）。
+ */
+export function resolveGuideExpectedHintPaint(
+  expectedMove: string,
+  currentIsDouble = false,
+): { token: string; double: boolean } {
+  const raw = expectedMove.trim();
+  const outerDouble = /^([UDLRFB])2$/.exec(raw);
+  if (outerDouble) {
+    return { token: outerDouble[1]!, double: true };
+  }
+  return { token: raw, double: currentIsDouble || /2/.test(raw) };
+}
+
+/**
+ * 同面反转累计中的「还差」提示（#181）：
+ * count=1 → base2（U2 / l2 / M2）；count=2 → 期望的逆（U' / l' / M）。
+ * 适用于外面转四分之一、宽边、中层；不含已是双步的记号。
+ */
+export function remainingAfterSameFaceInverse(
+  expectedToken: string,
+  inverseCount: number,
+): string | null {
+  const count = Math.trunc(inverseCount);
+  const t = expectedToken.trim();
+  if (count <= 0 || !t || /2/.test(t)) {
+    return null;
+  }
+  const baseMatch = /^([UDLRFB]|[udlrfb]|[MES])(')?$/.exec(t);
+  if (!baseMatch) {
+    return null;
+  }
+  const base = baseMatch[1]!;
+  if (count === 1) {
+    return `${base}2`;
+  }
+  if (count === 2) {
+    return invertGuideToken(t);
+  }
+  return null;
+}
+
+/**
+ * 公式步本身的期望四分之一（不含同面反转「还差」提示）。
+ * 映面 / apply 必须用这个，不能用 UI 的 U2/U' 还差文案。
+ */
+export function formulaExpectedFaceQuarter(
+  guide: GuidedScramble,
+): string | null {
   const token = currentToken(guide);
-  if (!token) {
+  if (!token || !isFaceGuideToken(token)) {
     return null;
   }
   const { face, suffix } = parseFaceTurn(token);
@@ -232,23 +346,168 @@ function preferredExpectedMove(guide: GuidedScramble): string | null {
   return `${face}${suffix}`;
 }
 
+/** 外面转四分之一（U/R/F/D/L/B 及逆）；不含双步、中层、宽边。 */
+export function isOuterFaceQuarterGuideToken(token: string): boolean {
+  return FACE_QUARTER.test(token.trim());
+}
+
+function preferredExpectedMove(guide: GuidedScramble): string | null {
+  const token = currentToken(guide);
+  if (!token) {
+    return null;
+  }
+  const { face, suffix } = parseFaceTurn(token);
+  if (suffix === "2" || suffix === "2'") {
+    const dir = guide.halfDir ?? "";
+    return `${face}${dir}`;
+  }
+  const expected = `${face}${suffix}`;
+  const inverseCount = guide.sameFaceInverseCount ?? 0;
+  if (inverseCount > 0) {
+    return remainingAfterSameFaceInverse(expected, inverseCount) ?? expected;
+  }
+  return expected;
+}
+
 export function guidedScrambleView(guide: GuidedScramble): GuidedScrambleView {
   const topWrong = guide.wrongStack[guide.wrongStack.length - 1];
   const done = guide.phase === "done";
   const token = currentToken(guide);
   const faceToken = Boolean(token && isFaceGuideToken(token));
+  const manualMove = done || faceToken || !token ? null : token;
+  const inverseCount = guide.sameFaceInverseCount ?? 0;
+  let expectedMove: string | null = null;
+  if (!done && faceToken) {
+    expectedMove = preferredExpectedMove(guide);
+  } else if (
+    !done &&
+    manualMove &&
+    !isRotationGuideToken(manualMove) &&
+    inverseCount > 0
+  ) {
+    // 宽边 / 中层反转累计中：还差 l2 / M2 等（供高亮与文案）。
+    expectedMove = remainingAfterSameFaceInverse(manualMove, inverseCount);
+  }
   return {
     displayMoves: guide.displayMoves,
     completedCount: guide.progress,
     currentIndex: done ? null : guide.progress,
     partial: !done && guide.halfDone,
     currentIsDouble: faceToken && token ? isDoubleMove(token) : false,
-    expectedMove: done || !faceToken ? null : preferredExpectedMove(guide),
+    expectedMove,
     /** 当前为转体 / 宽层等时，需手动确认的记号。 */
-    manualMove: done || faceToken || !token ? null : token,
+    manualMove,
     correction: topWrong ? invertGuideToken(topWrong) : null,
     done,
   };
+}
+
+/**
+ * 同面反转累计时，已拧进画面的反转步（期望 f、count=2 → `f' f'`）。
+ * 供 3D 跟手前缀，避免还差 f2 时闪回旧姿态。
+ */
+export function sameFaceInverseVisualMoves(
+  expectedToken: string,
+  inverseCount: number,
+): string[] {
+  const count = Math.trunc(inverseCount);
+  const token = expectedToken.trim();
+  if (count <= 0 || !token) {
+    return [];
+  }
+  const inv = invertGuideToken(token);
+  return Array.from({ length: count }, () => inv);
+}
+
+/**
+ * 宽边/中层反转跟手底：公式已完成前缀 + 已拧的反转步。
+ * 不得等于「仅公式前缀」（否则会从旧姿态硬开还差轨道，顶心错色）。
+ */
+export function layerAbsorbVisualBaseAlg(
+  formulaPrefix: string,
+  expectedToken: string,
+  inverseCount: number,
+): string {
+  const prefix = formulaPrefix.trim();
+  const applied = sameFaceInverseVisualMoves(expectedToken, inverseCount);
+  if (applied.length === 0) {
+    return prefix;
+  }
+  return [prefix, ...applied].filter(Boolean).join(" ");
+}
+
+/**
+ * 当前跟转高亮应画的记号（纠错 / 还差 / 手动步）。
+ * 中层确认后须是下一步记号，不得沿用上一步层。
+ */
+export function guideViewHintPaintToken(
+  view: GuidedScrambleView,
+): string | null {
+  if (view.correction) {
+    return view.correction.trim();
+  }
+  if (view.done) {
+    return null;
+  }
+  if (view.expectedMove) {
+    return resolveGuideExpectedHintPaint(
+      view.expectedMove,
+      view.currentIsDouble,
+    ).token;
+  }
+  if (view.manualMove) {
+    return view.manualMove.trim();
+  }
+  return null;
+}
+
+/** 中层高亮族（M/E/S）；非中层返回 null。 */
+export function guideHintSliceFamily(
+  token: string | null | undefined,
+): "M" | "E" | "S" | null {
+  const m = /^([MES])/i.exec((token ?? "").trim());
+  if (!m) {
+    return null;
+  }
+  return m[1]!.toUpperCase() as "M" | "E" | "S";
+}
+
+/**
+ * 跟转右侧状态文案合约（与 GamePage 展示一致；单测锁文案用）。
+ * 纠错优先；宽边 / 中层 / 转体 / 外面转：正常「下一步」；宽边反转还差「继续拧 f2」；
+ * 中层反转还差仍「下一步 M2」。双步半程不缀「再转半步」。
+ */
+export function guideStepHintText(view: GuidedScrambleView): string | null {
+  if (view.correction) {
+    return `转错了，请转 ${view.correction}`;
+  }
+  if (view.done) {
+    return null;
+  }
+  if (view.manualMove) {
+    const token = view.manualMove;
+    if (isSliceGuideToken(token) || isRotationGuideToken(token)) {
+      return `下一步 ${view.expectedMove ?? token}`;
+    }
+    if (isWideGuideToken(token)) {
+      // 正常「下一步 f」；反转累计「继续拧 f2」。
+      if (view.expectedMove) {
+        return `继续拧 ${view.expectedMove}`;
+      }
+      return `下一步 ${token}`;
+    }
+    return `请完成：${token}`;
+  }
+  if (view.expectedMove) {
+    return `下一步 ${view.expectedMove}`;
+  }
+  return null;
+}
+
+/** 外面转 / 宽边 / 中层 / 转体均不显示「跳过此步」。 */
+export function guideStepShowsSkipButton(view: GuidedScrambleView): boolean {
+  void view;
+  return false;
 }
 
 /**
@@ -275,6 +534,7 @@ export function confirmGuidedManualStep(
       progress,
       halfDone: false,
       halfDir: null,
+      sameFaceInverseCount: 0,
       phase: finished ? "done" : "guiding",
     },
     kind: finished ? "done" : "progress",
@@ -303,6 +563,7 @@ export function confirmGuidedFaceletsStep(
       progress,
       halfDone: false,
       halfDir: null,
+      sameFaceInverseCount: 0,
       wrongStack: [],
       phase: finished ? "done" : "guiding",
     },
@@ -310,47 +571,115 @@ export function confirmGuidedFaceletsStep(
   };
 }
 
+function advanceFaceProgress(guide: GuidedScramble): ApplyGuidedMoveResult {
+  const progress = guide.progress + 1;
+  const finished = progress >= guide.displayMoves.length;
+  return {
+    guide: {
+      ...guide,
+      progress,
+      halfDone: false,
+      halfDir: null,
+      sameFaceInverseCount: 0,
+      wrongStack: [],
+      phase: finished ? "done" : "guiding",
+    },
+    kind: finished ? "done" : "progress",
+  };
+}
+
+/**
+ * #181：同面反转累计（外面转 / 宽边 / 中层四分之一共用）。
+ * 1 → 还差 *2；2 → 还差逆；3 → 推进；正转抵消不推进。
+ */
+function absorbSameFaceInverse(
+  guide: GuidedScramble,
+  move: string,
+  expected: string,
+): ApplyGuidedMoveResult | null {
+  const inverseCount = guide.sameFaceInverseCount ?? 0;
+  if (move === expected) {
+    if (inverseCount > 0) {
+      return {
+        guide: { ...guide, sameFaceInverseCount: inverseCount - 1 },
+        kind: "absorb",
+      };
+    }
+    return advanceFaceProgress(guide);
+  }
+  if (isSameFaceInverseGuideToken(move, expected)) {
+    const count = inverseCount + 1;
+    if (count >= 3) {
+      return advanceFaceProgress(guide);
+    }
+    return {
+      guide: { ...guide, sameFaceInverseCount: count },
+      kind: "absorb",
+    };
+  }
+  return null;
+}
+
 export function applyGuidedMove(
   guide: GuidedScramble,
   move: string,
 ): ApplyGuidedMoveResult {
-  if (!FACE_QUARTER.test(move)) {
-    throw new Error(`无法匹配蓝牙步：${move}`);
-  }
+  const rawMove = move.trim();
   if (guide.phase === "done") {
     return { guide, kind: "done" };
-  }
-
-  if (guide.wrongStack.length > 0) {
-    const lastWrong = guide.wrongStack[guide.wrongStack.length - 1]!;
-    const expectedUndo = invertFaceMove(lastWrong);
-    if (move === expectedUndo) {
-      const wrongStack = guide.wrongStack.slice(0, -1);
-      const next: GuidedScramble = { ...guide, wrongStack };
-      return { guide: next, kind: "recover" };
-    }
-    return {
-      guide: { ...guide, wrongStack: [...guide.wrongStack, move] },
-      kind: "wrong",
-    };
   }
 
   const token = currentToken(guide);
   if (!token) {
     return { guide: { ...guide, phase: "done" }, kind: "done" };
   }
+
+  // 宽边 / 中层：只接受同记号族的四分之一做反转计数；色心外层包不进 absorb。
+  if (isWideOrSliceQuarterGuideToken(token)) {
+    if (isWideOrSliceQuarterGuideToken(rawMove)) {
+      const absorbed = absorbSameFaceInverse(guide, rawMove, token);
+      if (absorbed) {
+        return absorbed;
+      }
+    }
+    return { guide, kind: "need_manual" };
+  }
+
+  // 转体等非面转：不走反转计数。
   if (!isFaceGuideToken(token)) {
     return { guide, kind: "need_manual" };
   }
 
+  if (!FACE_QUARTER.test(rawMove)) {
+    throw new Error(`无法匹配蓝牙步：${rawMove}`);
+  }
+
+  if (guide.wrongStack.length > 0) {
+    const lastWrong = guide.wrongStack[guide.wrongStack.length - 1]!;
+    const expectedUndo = invertFaceMove(lastWrong);
+    if (rawMove === expectedUndo) {
+      const wrongStack = guide.wrongStack.slice(0, -1);
+      const next: GuidedScramble = { ...guide, wrongStack };
+      return { guide: next, kind: "recover" };
+    }
+    return {
+      guide: { ...guide, wrongStack: [...guide.wrongStack, rawMove] },
+      kind: "wrong",
+    };
+  }
+
   const { face, suffix } = parseFaceTurn(token);
-  const moveFace = move[0]!;
-  const moveDir = move.endsWith("'") ? "'" : "";
+  const moveFace = rawMove[0]!;
+  const moveDir = rawMove.endsWith("'") ? "'" : "";
 
   if (suffix === "2" || suffix === "2'") {
     if (moveFace !== face) {
       return {
-        guide: { ...guide, wrongStack: [...guide.wrongStack, move] },
+        guide: {
+          ...guide,
+          sameFaceInverseCount: 0,
+          wrongStack: [...guide.wrongStack, rawMove],
+        },
         kind: "wrong",
       };
     }
@@ -361,6 +690,7 @@ export function applyGuidedMove(
           ...guide,
           halfDone: true,
           halfDir: moveDir,
+          sameFaceInverseCount: 0,
         },
         kind: "partial",
       };
@@ -368,42 +698,37 @@ export function applyGuidedMove(
     // 后半必须与前半同向，才能凑满 180°
     if (moveDir !== guide.halfDir) {
       return {
-        guide: { ...guide, wrongStack: [...guide.wrongStack, move] },
+        guide: {
+          ...guide,
+          sameFaceInverseCount: 0,
+          wrongStack: [...guide.wrongStack, rawMove],
+        },
         kind: "wrong",
       };
     }
-    const progress = guide.progress + 1;
-    const finished = progress >= guide.displayMoves.length;
-    return {
-      guide: {
-        ...guide,
-        progress,
-        halfDone: false,
-        halfDir: null,
-        phase: finished ? "done" : "guiding",
-      },
-      kind: finished ? "done" : "progress",
-    };
+    return advanceFaceProgress(guide);
   }
 
   const expected = `${face}${suffix}`;
-  if (move !== expected) {
-    return {
-      guide: { ...guide, wrongStack: [...guide.wrongStack, move] },
-      kind: "wrong",
-    };
+  // #181：外面转四分之一同面反转；双步已在上方处理。
+  if (
+    isOuterFaceQuarterGuideToken(expected) &&
+    isOuterFaceQuarterGuideToken(rawMove)
+  ) {
+    const absorbed = absorbSameFaceInverse(guide, rawMove, expected);
+    if (absorbed) {
+      return absorbed;
+    }
   }
-
-  const progress = guide.progress + 1;
-  const finished = progress >= guide.displayMoves.length;
+  if (rawMove === expected) {
+    return advanceFaceProgress(guide);
+  }
   return {
     guide: {
       ...guide,
-      progress,
-      halfDone: false,
-      halfDir: null,
-      phase: finished ? "done" : "guiding",
+      sameFaceInverseCount: 0,
+      wrongStack: [...guide.wrongStack, rawMove],
     },
-    kind: finished ? "done" : "progress",
+    kind: "wrong",
   };
 }

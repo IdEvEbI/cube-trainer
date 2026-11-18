@@ -16,18 +16,25 @@ import {
   applyGuidedMove,
   confirmGuidedManualStep,
   createGuidedMoves,
+  guideStepHintText,
+  guideStepShowsSkipButton,
   guidedScrambleView,
+  invertGuideToken,
+  isFaceGuideToken,
   isHintableManualToken,
+  isOuterFaceQuarterGuideToken,
   isRotationGuideToken,
   isSliceGuideToken,
   isWideGuideToken,
+  resolveGuideExpectedHintPaint,
+  layerAbsorbVisualBaseAlg,
   seekGuidedProgress,
   type GuidedScramble,
   type GuidedScrambleView,
 } from "../scramble/guided.ts";
 import { layerGuideVisualProgress } from "../scramble/layerGuideGyroFollow.ts";
 import { SCRAMBLE_PLAYBACK_STEP_MS } from "../scramble/playback.ts";
-import { randomScramble3x3 } from "../scramble/scramble.ts";
+import { nextHomeScrambleMoves } from "../scramble/scramble.ts";
 import {
   resolveLayerFollowKind,
   shouldPlayBluetoothMoveAnim,
@@ -46,10 +53,7 @@ import {
   completedOrientationMoves,
   rotationGuideVisualProgress,
 } from "./guideOrientation.ts";
-import {
-  applyGuidedBleAbsoluteMoveWithOrientAlgs,
-  resolveGuidedBleAbsoluteGripMove,
-} from "./guidedAbsolute.ts";
+import { stepGamePageBleAbsoluteFace } from "./guidedAbsolute.ts";
 import { manualStepReachedOnCube } from "./manualStepSync.ts";
 import {
   buildGameSolveOverview,
@@ -149,10 +153,14 @@ function applyMoveHint(
     return;
   }
   if (view.expectedMove) {
-    handle.setMoveHint(toPuzzle(view.expectedMove), {
+    const paint = resolveGuideExpectedHintPaint(
+      view.expectedMove,
+      view.currentIsDouble,
+    );
+    handle.setMoveHint(toPuzzle(paint.token), {
       tone: "guide",
-      double: view.currentIsDouble,
-      half: view.partial,
+      double: paint.double,
+      half: view.partial && !paint.double,
     });
     return;
   }
@@ -165,17 +173,16 @@ function applyMoveHint(
   handle.setMoveHint(null);
 }
 
-function manualStepHintText(token: string): string {
-  if (isRotationGuideToken(token)) {
-    return `下一步 ${token}（整机转体，到位后自动继续）`;
+/** 层转手势分类是否为当前期望的同面反转（l↔l'、M'↔M）。 */
+function isInverseLayerGestureLabel(
+  expectedToken: string,
+  classified: string,
+): boolean {
+  try {
+    return invertGuideToken(expectedToken.trim()) === classified.trim();
+  } catch {
+    return false;
   }
-  if (isWideGuideToken(token)) {
-    return `请完成宽层：${token}（到位后自动继续）`;
-  }
-  if (isSliceGuideToken(token)) {
-    return `请完成中层：${token}（到位后自动继续）`;
-  }
-  return `请完成：${token}`;
 }
 
 function renderPhaseMoves(
@@ -245,6 +252,8 @@ export function GamePage({
   const guideFollow = useRef(createGuideFollowController()).current;
   const statePollBusyRef = useRef(false);
   const statePollKickRef = useRef<(() => void) | null>(null);
+  /** 串行化面转跟转，避免并发 async 互相覆盖 guideRef / 只播 3D 不记账。 */
+  const bleFaceMovesChainRef = useRef(Promise.resolve());
 
   const [scramble, setScramble] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
@@ -336,13 +345,19 @@ export function GamePage({
   /**
    * 步到位后写公式前缀：`setAbsoluteAlg` 旋转（含宽层/中层），勿改 pattern 贴图。
    * 例：z2…f' 后顶心为橙（公式语义）。mesh 单位；过程中禁止 facelets 重刷。
+   * `force`：中层确认后重钉前缀，避免与 finish 同串被缓存跳过。
    */
-  function paintGameGuideCube(guide: GuidedScramble): Promise<void> {
+  function paintGameGuideCube(
+    guide: GuidedScramble,
+    options?: { force?: boolean },
+  ): Promise<void> {
     const paintAlg = formulaPaintAlg(guide);
     bleAbsSetupRef.current = paintAlg;
     cube.current?.setOrientation(IDENTITY_QUAT);
-    cube.current?.setAbsoluteAlg(paintAlg);
-    return Promise.resolve();
+    return (
+      cube.current?.setAbsoluteAlg(paintAlg, { force: options?.force }) ??
+      Promise.resolve()
+    );
   }
 
   function publishGuide(guide: GuidedScramble) {
@@ -403,9 +418,21 @@ export function GamePage({
     return applyGuidedMove(before, gripWrong).guide;
   }
 
-  function beginPostManualQuiet(completedToken: string) {
+  function beginPostManualQuiet(
+    completedToken: string,
+    nextGuide: GuidedScramble,
+  ) {
     const kind = resolveLayerFollowKind(completedToken);
+    const nextToken = nextGuide.displayMoves[nextGuide.progress] ?? "";
     if (kind === "wide" || kind === "slice") {
+      // 下一步已是外面转：清层转窗，避免残留门挡 live relative / 吞包（E→R'）。
+      if (
+        nextToken &&
+        (isOuterFaceQuarterGuideToken(nextToken) || isFaceGuideToken(nextToken))
+      ) {
+        guideFollow.clearResidualLayerDual();
+        return;
+      }
       // 对偶残留过滤；原包===下一步期望时放行（S'→F'）。
       guideFollow.beginLayerEchoQuiet(
         performance.now(),
@@ -418,6 +445,11 @@ export function GamePage({
     guideFollow.beginQuiet(performance.now());
   }
 
+  /**
+   * 中层 / 宽边 / 转体确认到位（与宽边反转 catch-up 分开）。
+   * 顺序：finish 旧轨道 → 钉公式前缀 → 再挂下一步高亮（S' 必须是 S 族）。
+   * 勿 cancelAnimation / 先摘高亮：会与 f' 摆正抢队列，把 S' 盒画成 M 族。
+   */
   function tryConfirmManualFromGuide() {
     const guide = guideRef.current;
     if (!guide || !bluetoothRef.current) {
@@ -431,7 +463,7 @@ export function GamePage({
     // 下一步手动对表基线待进入时重采。
     guideFollow.clearManualSync();
     guideFollow.clearLayerGesture();
-    beginPostManualQuiet(completedToken);
+    beginPostManualQuiet(completedToken, result.guide);
     const beforeProgress = guide.progress;
     void (async () => {
       try {
@@ -439,8 +471,7 @@ export function GamePage({
       } catch {
         // 无轨道时忽略
       }
-      // 钉公式前缀（含 S'/f），勿用 facelets 对偶重贴；须 await 以免丢贴。
-      await paintGameGuideCube(result.guide);
+      await paintGameGuideCube(result.guide, { force: true });
       publishGuide(result.guide);
       const base = cursorRef.current;
       if (!base || !isCrossGuideProgress(base, result.guide.progress)) {
@@ -554,7 +585,7 @@ export function GamePage({
 
   useEffect(() => {
     const fromHome = initialScramble?.trim() ?? "";
-    loadScramble(fromHome === "" ? randomScramble3x3().moves : fromHome);
+    loadScramble(fromHome === "" ? nextHomeScrambleMoves() : fromHome);
     return () => {
       requestGen.current += 1;
       playRun.current += 1;
@@ -613,25 +644,111 @@ export function GamePage({
           if (!tracker) {
             return;
           }
-          const animKey = `${guide.progress}:gyro`;
+          const inverseCount = guide.sameFaceInverseCount ?? 0;
+          const remainForTrack =
+            inverseCount > 0 && isWideGuideToken(token)
+              ? guidedScrambleView(guide).expectedMove
+              : null;
+          const trackMove = remainForTrack ?? token;
+          const trackBase = remainForTrack
+            ? layerAbsorbVisualBaseAlg(
+                formulaPaintAlg(guide),
+                token,
+                inverseCount,
+              )
+            : baseAlg;
+          const animKey = `${guide.progress}:gyro:${trackMove}`;
           if (guideFollow.layerGuideAnimKey !== animKey) {
+            // 宽边反转后：等下一次实体转动再开还差 f2 轨道（catch-up 内不开）。
             guideFollow.layerGuideAnimKey = animKey;
             void cube.current?.startGuideStepGyroTrack(
-              guideTokenToCubingAlg(token),
-              baseAlg,
+              guideTokenToCubingAlg(trackMove),
+              trackBase,
             );
           }
           const live = lastLiveOrientRef.current;
           cube.current?.setGuideStepGyroProgress(
             layerGuideVisualProgress(
-              token,
+              trackMove,
               tracker.samples.length,
               tracker.gyroBefore,
               live,
             ),
           );
           const ev = evaluateGuideLayerGesture(tracker, live);
+          const lastIntervalMs = samples[samples.length - 1]?.intervalMs ?? 160;
+          const quarterMs = Math.max(
+            90,
+            Math.min(360, lastIntervalMs > 0 ? lastIntervalMs : 160),
+          );
+          /**
+           * 仅宽边反转：播完 f' 后摆正为正方体；不开 f2 轨道（留给下一次实体转动）。
+           * 与中层确认 tryConfirmManualFromGuide 完全分开。
+           */
+          const playWideInverseCatchUp = (
+            next: GuidedScramble,
+            appliedMove: string,
+          ) => {
+            const count = next.sameFaceInverseCount ?? 0;
+            void (async () => {
+              try {
+                const formula = formulaPaintAlg(next);
+                const baseBefore = layerAbsorbVisualBaseAlg(
+                  formula,
+                  token,
+                  Math.max(0, count - 1),
+                );
+                cube.current?.setOrientation(IDENTITY_QUAT);
+                await cube.current?.setAbsoluteAlg(baseBefore, { force: true });
+                await cube.current?.animateGuideStep(
+                  guideTokenToCubingAlg(appliedMove),
+                  quarterMs,
+                );
+                const baseAfter = layerAbsorbVisualBaseAlg(
+                  formula,
+                  token,
+                  count,
+                );
+                // 播完 f'：cancel → 单位朝向 → 钉正方体。此步结束必须是正方体。
+                cube.current?.cancelAnimation();
+                cube.current?.setOrientation(IDENTITY_QUAT);
+                await cube.current?.setAbsoluteAlg(baseAfter, { force: true });
+                console.info("[wide-inverse-catchup]", {
+                  entered: true,
+                  appliedMove,
+                  count,
+                  absoluteAlg: baseAfter,
+                });
+                // 清空手势窗与 animKey：下一次实体转动再开还差 f2 轨道。
+                guideFollow.layerGuideAnimKey = null;
+                guideFollow.layerGestureTracker = null;
+                guideFollow.syncLayerTracker({
+                  progress: next.progress,
+                  expectedToken: token,
+                  gyroBefore: live ?? lastLiveOrientRef.current,
+                });
+                applyMoveHint(cube.current, guidedScrambleView(next), true);
+              } catch (err) {
+                console.info("[wide-inverse-catchup]", {
+                  entered: true,
+                  error: String(err),
+                });
+                applyMoveHint(cube.current, guidedScrambleView(next), true);
+              }
+            })();
+          };
           if (ev.status === "matched") {
+            const inverseCount = guide.sameFaceInverseCount ?? 0;
+            if (inverseCount > 0) {
+              // 正转抵消一格，不推进。
+              const step = applyGuidedMove(guide, token);
+              guideRef.current = step.guide;
+              publishGuide(step.guide);
+              if (isWideGuideToken(token)) {
+                playWideInverseCatchUp(step.guide, token);
+              }
+              return;
+            }
             guideFollow.layerMatchHold = true;
             void (async () => {
               try {
@@ -643,107 +760,152 @@ export function GamePage({
             })();
             return;
           }
+          if (
+            ev.status === "other" &&
+            ev.classified &&
+            isInverseLayerGestureLabel(token, ev.classified)
+          ) {
+            const step = applyGuidedMove(guide, ev.classified);
+            guideRef.current = step.guide;
+            if (step.kind === "progress" || step.kind === "done") {
+              // 反转×3 ≡ 期望步：apply 已推进，只钉前缀+挂下一步高亮（勿再 confirm）。
+              guideFollow.layerMatchHold = true;
+              void (async () => {
+                try {
+                  await cube.current?.finishGuideStepGyroTrack();
+                  guideFollow.clearManualSync();
+                  guideFollow.clearLayerGesture();
+                  beginPostManualQuiet(token, step.guide);
+                  await paintGameGuideCube(step.guide, { force: true });
+                  publishGuide(step.guide);
+                } catch {
+                  guideFollow.layerMatchHold = false;
+                  publishGuide(step.guide);
+                }
+              })();
+              return;
+            }
+            publishGuide(step.guide);
+            if (isWideGuideToken(token)) {
+              playWideInverseCatchUp(step.guide, ev.classified);
+            }
+            return;
+          }
         }
         statePollKickRef.current?.();
         return;
       }
-      void (async () => {
-        if (movesCancelled) {
-          return;
-        }
-        try {
-          let next = guideRef.current ?? guide;
-          const playSamples: { move: string; intervalMs: number }[] = [];
-          for (const sample of samples) {
-            if (movesCancelled || next.phase === "done") {
-              break;
-            }
-            const orientAlgs = faceOrientCandidatesForGuide(next);
-            const hintOrients = hintOrientationMovesForGuide(next);
-            const stepView = guidedScrambleView(next);
-            const expectOrUndo = stepView.correction ?? stepView.expectedMove;
-            const gripPreview = resolveGuidedBleAbsoluteGripMove(
-              next,
-              sample.move,
-              orientAlgs,
-            );
-            // #180 真机诊断：绝对包 / 候选链 / 映面 / 期望（禁 facelets 轮询）。
-            console.info("[guide-face]", {
-              absolute: sample.move,
-              expectedMove: expectOrUndo,
-              orientAlgs: [...orientAlgs],
-              resolved: gripPreview,
-              progress: next.progress,
-              token: next.displayMoves[next.progress] ?? null,
-            });
-            if (
-              guideFollow.shouldSwallowGuideFaceMove(
-                sample.move,
-                performance.now(),
-                expectOrUndo,
-                orientAlgs,
-              )
-            ) {
-              console.info("[guide-face] swallow", sample.move);
-              continue;
-            }
-            if (
-              guideFollow.shouldDiscardResidualLayerDual(
-                sample.move,
-                expectOrUndo,
-                orientAlgs,
-              )
-            ) {
-              console.info("[guide-face] discard-residual", sample.move);
-              continue;
-            }
-            // 3D 与记账同一握持四分之一（双步勿对 expected 正转字母单独 resolve）。
-            const forPlay = gripPreview;
-            playSamples.push({ ...sample, move: forPlay });
-            const before = next;
-            const result = applyGuidedBleAbsoluteMoveWithOrientAlgs(
-              next,
-              sample.move,
-              orientAlgs,
-            );
-            console.info("[guide-face] apply", {
-              absolute: sample.move,
-              resolved: forPlay,
-              kind: result.kind,
-              wrongStack: result.guide.wrongStack,
-            });
-            next = result.guide;
-            if (result.kind === "need_manual") {
-              statePollKickRef.current?.();
-              break;
-            }
-            if (result.kind === "progress" || result.kind === "done") {
-              guideFollow.clearResidualLayerDual();
-              bleAbsSetupRef.current = formulaPaintAlg(next);
-              next = await rejectCrossProgressIfStateMismatch(
-                before,
-                next,
-                sample.move,
-                hintOrients,
-              );
-            }
-          }
-          if (playSamples.length > 0) {
-            cube.current?.playBluetoothMoves(playSamples);
-          }
+      bleFaceMovesChainRef.current = bleFaceMovesChainRef.current
+        .then(async () => {
           if (movesCancelled) {
             return;
           }
-          bleAbsSetupRef.current = formulaPaintAlg(next);
-          publishGuide(next);
-          if (focusSegmentIdRef.current) {
-            focusSegmentIdRef.current = null;
-            setFocusSegmentId(null);
+          try {
+            let next = guideRef.current ?? guide;
+            const playSamples: { move: string; intervalMs: number }[] = [];
+            for (const sample of samples) {
+              if (movesCancelled || next.phase === "done") {
+                break;
+              }
+              const orientAlgs = faceOrientCandidatesForGuide(next);
+              const hintOrients = hintOrientationMovesForGuide(next);
+              const stepView = guidedScrambleView(next);
+              const expectOrUndo = stepView.correction ?? stepView.expectedMove;
+              if (
+                guideFollow.shouldSwallowGuideFaceMove(
+                  sample.move,
+                  performance.now(),
+                  expectOrUndo,
+                  orientAlgs,
+                )
+              ) {
+                console.info("[guide-face] swallow", sample.move);
+                continue;
+              }
+              if (
+                guideFollow.shouldDiscardResidualLayerDual(
+                  sample.move,
+                  expectOrUndo,
+                  orientAlgs,
+                )
+              ) {
+                console.info("[guide-face] discard-residual", sample.move);
+                continue;
+              }
+              const before = next;
+              const stepToken = before.displayMoves[before.progress] ?? "";
+              // 中层 / 宽边 / 转体：不走外面转 absorb，避免对面包被面转链吞掉。
+              if (
+                next.wrongStack.length === 0 &&
+                (isSliceGuideToken(stepToken) ||
+                  isWideGuideToken(stepToken) ||
+                  isRotationGuideToken(stepToken))
+              ) {
+                statePollKickRef.current?.();
+                break;
+              }
+              // #181：外面转先记账再播 3D；禁止只推 playSamples。
+              const step = stepGamePageBleAbsoluteFace(
+                next,
+                sample.move,
+                orientAlgs,
+              );
+              console.info("[guide-face]", {
+                absolute: step.absolute,
+                expectedMove: expectOrUndo,
+                orientAlgs: [...orientAlgs],
+                resolved: step.resolved,
+                progress: before.progress,
+                token: stepToken || null,
+              });
+              console.info("[guide-face] apply", {
+                absolute: step.absolute,
+                resolved: step.resolved,
+                kind: step.kind,
+                wrongStack: step.guide.wrongStack,
+                correction: step.correction,
+                enteredCorrection: step.enteredCorrection,
+              });
+              if (step.kind === "need_manual") {
+                statePollKickRef.current?.();
+                break;
+              }
+              next = step.guide;
+              guideRef.current = next;
+              playSamples.push({ ...sample, move: step.playMove });
+              if (step.enteredCorrection) {
+                // 纠错提示须在 3D 动画前可见，避免「只播不记」观感。
+                publishGuide(next);
+              }
+              if (step.kind === "progress" || step.kind === "done") {
+                guideFollow.clearResidualLayerDual();
+                bleAbsSetupRef.current = formulaPaintAlg(next);
+                next = await rejectCrossProgressIfStateMismatch(
+                  before,
+                  next,
+                  sample.move,
+                  hintOrients,
+                );
+                guideRef.current = next;
+              }
+            }
+            if (movesCancelled) {
+              return;
+            }
+            bleAbsSetupRef.current = formulaPaintAlg(next);
+            publishGuide(next);
+            if (playSamples.length > 0) {
+              cube.current?.playBluetoothMoves(playSamples);
+            }
+            if (focusSegmentIdRef.current) {
+              focusSegmentIdRef.current = null;
+              setFocusSegmentId(null);
+            }
+          } catch {
+            // 单步解析失败时不打断跟转
           }
-        } catch {
-          // 单步解析失败时不打断跟转
-        }
-      })();
+        })
+        .catch(() => undefined);
     });
 
     const unregisterOrientation = bluetooth.registerOrientation((quat) => {
@@ -1152,17 +1314,17 @@ export function GamePage({
     if (result.kind === "need_manual") {
       return;
     }
-    // 跳过：钉公式前缀（与自动确认相同），不刷 facelets。
+    // 跳过：与自动确认同一条钉前缀→挂高亮路，不刷 facelets。
     guideFollow.clearManualSync();
     guideFollow.clearLayerGesture();
-    beginPostManualQuiet(completedToken);
+    beginPostManualQuiet(completedToken, result.guide);
     void (async () => {
       try {
         await cube.current?.finishGuideStepGyroTrack();
       } catch {
         // 无轨道
       }
-      await paintGameGuideCube(result.guide);
+      await paintGameGuideCube(result.guide, { force: true });
       publishGuide(result.guide);
     })();
   }
@@ -1347,30 +1509,22 @@ export function GamePage({
               {bluetoothOn &&
               guideView &&
               !guideView.correction &&
-              guideView.manualMove ? (
+              !guideView.done &&
+              guideStepHintText(guideView) ? (
                 <div className="game-page-manual-step">
                   <p className="game-page-guide-note" role="status">
-                    {manualStepHintText(guideView.manualMove)}
+                    {guideStepHintText(guideView)}
                   </p>
-                  <button
-                    type="button"
-                    className="game-page-manual-confirm"
-                    onClick={onConfirmManualStep}
-                  >
-                    跳过此步
-                  </button>
+                  {guideStepShowsSkipButton(guideView) ? (
+                    <button
+                      type="button"
+                      className="game-page-manual-confirm"
+                      onClick={onConfirmManualStep}
+                    >
+                      跳过此步
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
-              {bluetoothOn &&
-              guideView &&
-              !guideView.correction &&
-              !guideView.manualMove &&
-              guideView.expectedMove &&
-              !guideView.done ? (
-                <p className="game-page-guide-note" role="status">
-                  下一步 {guideView.expectedMove}
-                  {guideView.partial ? "（再转半步）" : ""}
-                </p>
               ) : null}
               {bluetoothOn && guideView?.done ? (
                 <p className="game-page-guide-note is-done" role="status">
@@ -1424,7 +1578,7 @@ export function GamePage({
                   aria-label="重新打乱"
                   title="重新打乱"
                   onClick={() => {
-                    loadScramble(randomScramble3x3().moves);
+                    loadScramble(nextHomeScrambleMoves());
                   }}
                 >
                   <svg

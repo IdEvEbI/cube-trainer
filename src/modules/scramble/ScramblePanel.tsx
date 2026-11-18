@@ -163,12 +163,6 @@ export function ScramblePanel({
       (guide.expectedMove || guide.manualMove) ? (
         <p className="scramble-guide-note scramble-guide-next" role="status">
           下一步 {guide.displayMoves[guide.currentIndex ?? 0]}
-          {guide.partial ? "（再转半步）" : ""}
-          {guide.manualMove
-            ? isRotationGuideToken(guide.manualMove)
-              ? "（整机转体，到位自动继续）"
-              : "（宽层/中层，到位自动继续）"
-            : ""}
           <span className="scramble-guide-progress">
             {" "}
             · {guide.completedCount}/{guide.displayMoves.length}

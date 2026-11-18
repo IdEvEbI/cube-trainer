@@ -12,7 +12,7 @@ import {
   resolveGuidedBleAbsoluteGripMove,
 } from "../game/guidedAbsolute.ts";
 import { remapGripTokenToPuzzleHint } from "../game/guideOrientation.ts";
-import { createGuidedMoves, invertGuideToken } from "./guided.ts";
+import { createGuidedMoves, guidedScrambleView } from "./guided.ts";
 import { resolveGuideBleFaceMoveWithCandidates } from "./guideBleFaceRemap.ts";
 import { replayGuideSession, type GuideReplayFixture } from "./guideReplay.ts";
 
@@ -65,8 +65,10 @@ describe("E19 · bug-y-then-R-as-U（#180）", () => {
       absB,
       dirtyFirstChain,
     );
-    assert.equal(applied.kind, "wrong");
-    assert.deepEqual(applied.guide.wrongStack, ["R"]);
+    // 期望 R'、映成 R：同面反转 → absorb（#181），不得错映成 U 进纠错。
+    assert.equal(applied.kind, "absorb");
+    assert.equal(applied.guide.wrongStack.length, 0);
+    assert.equal(guidedScrambleView(applied.guide).correction, null);
   });
 
   it("真机日志：absolute=D + 候选链不得映成 U（须为 R）", () => {
@@ -97,12 +99,12 @@ describe("E19 · bug-y-then-R-as-U（#180）", () => {
       deviceLog.absolute,
       deviceLog.orientAlgs,
     );
-    assert.equal(applied.kind, "wrong");
-    assert.deepEqual(applied.guide.wrongStack, ["R"]);
+    assert.equal(applied.kind, "absorb");
+    assert.equal(applied.guide.wrongStack.length, 0);
     assert.equal(
-      invertGuideToken(applied.guide.wrongStack[0]!),
-      "R'",
-      "纠错须为请转 R'，不得为 U'",
+      guidedScrambleView(applied.guide).correction,
+      null,
+      "同面反转不得提示请转 U' / R'",
     );
   });
 });

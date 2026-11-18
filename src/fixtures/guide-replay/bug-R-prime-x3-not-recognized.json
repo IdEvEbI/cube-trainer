@@ -1,0 +1,17 @@
+{
+  "id": "bug-R-prime-x3-not-recognized",
+  "description": "E20 / #181：黄上 z2 后期望 R；连续三包握持 R'（绝对 L'）≡ 一次 R，进度推进；不进 wrongStack。",
+  "displayMoves": ["z2", "R"],
+  "requireYellowUp": true,
+  "events": [
+    { "t": 0, "type": "orient", "alg": "z2" },
+    { "t": 100, "type": "face", "move": "L'" },
+    { "t": 200, "type": "face", "move": "L'" },
+    { "t": 300, "type": "face", "move": "L'" }
+  ],
+  "expect": {
+    "progress": 2,
+    "done": true,
+    "sawWrong": false
+  }
+}

@@ -63,8 +63,9 @@ export type CubeHandle = {
   /**
    * 直接设置展示算法（可为空表示复原），不做打乱校验。
    * 供蓝牙状态同步：朝向与当前 viewOrientation 的 setup 一致。
+   * `force`：忽略缓存，半程 scrub 后必须重钉正方体姿态时用。
    */
-  setAbsoluteAlg(moves: string): void;
+  setAbsoluteAlg(moves: string, options?: { force?: boolean }): Promise<void>;
   /**
    * 用蓝牙 facelets 直接贴 3D（固定色心，不经 setupAlg 解算）。
    * 中层 / 宽层对表与跟随用此路径，避免 E→D'U 画错顶面。
@@ -640,14 +641,15 @@ export function CubeView({
         twisty.timestamp = "end";
       });
     },
-    setAbsoluteAlg(moves: string) {
+    setAbsoluteAlg(moves: string, options?: { force?: boolean }) {
       const alg = moves.trim();
       // 宽层 / 中层 facelets 轮询很勤；alg 未变（含重建进行中）直接跳过，避免箭头闪烁、轨迹被截短。
       if (
+        !options?.force &&
         lastAbsoluteAlg.current === alg &&
         lastAbsoluteFacelets.current === null
       ) {
-        return;
+        return Promise.resolve();
       }
       lastAbsoluteAlg.current = alg;
       lastAbsoluteFacelets.current = null;
@@ -660,7 +662,7 @@ export function CubeView({
       }
       const hintToken = (moveHintToken.current += 1);
       const orient = lastOrientation.current ?? IDENTITY_QUAT;
-      queue.current = queue.current.then(async () => {
+      const task = queue.current.then(async () => {
         const twisty = player.current;
         if (!twisty) {
           return;
@@ -677,6 +679,11 @@ export function CubeView({
         twisty.timestamp = "end";
         await rebindAfterAbsoluteChange(twisty, hintToken, orient);
       });
+      queue.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
+      return task;
     },
     setAbsoluteFromFacelets(
       facelets: string,
@@ -1170,6 +1177,10 @@ export function CubeView({
       generation.current += 1;
       bluetoothPending.current = 0;
       guideStepGyroTrack.current = null;
+      guideStepGyroDesire.current = 0;
+      // 半程 scrub 后 alg 缓存仍是旧前缀时，若不清，setAbsoluteAlg 会跳过，画面停在错色心。
+      lastAbsoluteAlg.current = null;
+      lastAbsoluteFacelets.current = null;
       if (guideStepGyroSession.current) {
         guideStepGyroSession.current.aborted = true;
         guideStepGyroSession.current = null;
