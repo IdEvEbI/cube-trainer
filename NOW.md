@@ -6,9 +6,19 @@
 
 ## 正在做的任务
 
-### 映面回归护栏 ← 当前
+### 游戏页收口 ← 当前
 
-- 本步只加单测（表驱动 `stepGamePageBleAbsoluteFace`）：期望面 × 同面反转 × 朝向候选；不改生产逻辑。
+排队（按序，每次只做一件）：
+
+1. **公式条样式**（见 `docs/design.md`）
+2. **逐步回退**（本步只外面转；宽边 / 中层 / `z2` 先不回退）
+3. **未还原进入**（解法跑完须还原态，否则不开引导）
+4. **游戏页蓝牙重连**
+5. **带打乱回首页计时**
+
+### 映面回归护栏 已合入
+
+- [#184](https://github.com/IdEvEbI/cube-trainer/issues/184) / [PR #185](https://github.com/IdEvEbI/cube-trainer/pull/185)：表驱动 `stepGamePageBleAbsoluteFace` 九条护栏。
 - [#183](https://github.com/IdEvEbI/cube-trainer/pull/183) 已合入；[#181](https://github.com/IdEvEbI/cube-trainer/issues/181) 已关（同面反转 ×3）。
 - [#180](https://github.com/IdEvEbI/cube-trainer/issues/180) / [PR #182](https://github.com/IdEvEbI/cube-trainer/pull/182) 已合入（y 后映面 E19）。
 
@@ -33,9 +43,7 @@
 - [#159](https://github.com/IdEvEbI/cube-trainer/issues/159) `S'` 后勿叠 relative → [PR #166](https://github.com/IdEvEbI/cube-trainer/pull/166)
 - [#160](https://github.com/IdEvEbI/cube-trainer/issues/160) 层转公式色心 Δ 累积（E17）→ [PR #167](https://github.com/IdEvEbI/cube-trainer/pull/167)
 
-**排队**：y' 无动画跳过 → `U+d'`→`y` 另 Issue；PLL `R'`（[#155](https://github.com/IdEvEbI/cube-trainer/issues/155) 已关闭，无修复 PR；仅 [#156](https://github.com/IdEvEbI/cube-trainer/pull/156) E13 文档行）
-
-**另记（未开 Issue）**：`z2` 转体动画偏快、像快切；与实体不同步。不与本串混修。跟拧 3D 与进度脱节（复现串已记，未开 Issue）。
+**另记（未开 Issue）**：y' 无动画跳过 → `U+d'`→`y`；`z2` 转体动画偏快、像快切；跟拧 3D 与进度脱节（复现串已记）。不与游戏页收口五条混修。
 
 ### 本轮已合入（层转后稳定回归）
 
@@ -47,7 +55,8 @@
 ### 冻结
 
 - 其它映面 / 残留口头补丁；L10；计时 3D 未跟。
-- 本地 `feat/f2l-short-prefer` WIP（短解等）与交接 bugfix 分 PR。
+- `feat/f2l-short-prefer` 分支本身无独有代码，短解在 `stash@{0}`，夹着旧跟拧，继续冻，勿当可合分支。
+- `wip/confirmed-four-backup` 已由 #161 / #165 / #166 / #167 合入，可删，勿再合。
 
 ### 近期已合入
 
@@ -62,9 +71,9 @@
 - **状态**：本轮未单独开 Issue；G2 回归中已顺带观察。若需正式过门，再说「G1 通过」或另开验收。
 - **通过标准**：你回复「G1 通过」。
 
-**当前指针**：映面回归护栏（本步只加单测）。[#183](https://github.com/IdEvEbI/cube-trainer/pull/183) / [#181](https://github.com/IdEvEbI/cube-trainer/issues/181) 已合入并关闭。
+**当前指针**：游戏页收口（排队见上：公式条 → 逐步回退 → 未还原进入 → 蓝牙重连 → 带打乱回首页计时）。映面回归护栏 [#185](https://github.com/IdEvEbI/cube-trainer/pull/185) 已合入。
 
-**旁路（不插队）**：AI CFOP 调研笔记已合入（#121 / #122）；确认前不写接入代码。公式练习蓝牙（#127）延期。层转 L10 冻结。
+**旁路（不插队）**：AI CFOP 调研笔记已合入（#121 / #122）；确认前不写接入代码。公式练习蓝牙（#127）仍延期。`feat/f2l-short-prefer` 继续冻结。层转 L10 冻结。
 
 ## 魔域层转 · 最小迭代路径（已归档）
 
@@ -99,8 +108,8 @@ L0–L9 真机通过并合入。交接组合态见 `docs/research-moyu-layer-cap
 1. ~~记录转动序列…~~（略，见 git 历史）
 2. ~~魔域层转 L0→L9~~（#123 / #124 已合入）
 3. ~~打乱计时恢复~~（#130 / #131 已合入）
-4. **游戏页收口** ← 当前：映面回归护栏（只加单测）；[#183](https://github.com/IdEvEbI/cube-trainer/pull/183) / [#181](https://github.com/IdEvEbI/cube-trainer/issues/181) 已合入并关闭
-5. ~~公式练习蓝牙闭环~~（#127 延期）
+4. **游戏页收口** ← 当前（公式条 / 逐步回退 / 未还原进入 / 蓝牙重连 / 带打乱回首页计时）；映面护栏 [#185](https://github.com/IdEvEbI/cube-trainer/pull/185) 已合入
+5. ~~公式练习蓝牙闭环~~（#127 仍延期）
 6. ~~AI CFOP 调研文档~~（#121 / #122 已合入）
 7. 其余后置项见 `docs/prd.md`
 
