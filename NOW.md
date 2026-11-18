@@ -55,8 +55,8 @@
 ### 冻结
 
 - 其它映面 / 残留口头补丁；L10；计时 3D 未跟。
-- `feat/f2l-short-prefer` 分支本身无独有代码，短解在 `stash@{0}`，夹着旧跟拧，继续冻，勿当可合分支。
-- `wip/confirmed-four-backup` 已由 #161 / #165 / #166 / #167 合入，可删，勿再合。
+- `feat/f2l-short-prefer` 分支本身无独有代码，短解在 `stash@{0}`（`wip-before-handoff-matrix`），夹着旧跟拧，继续冻，勿 stash pop。
+- `wip/confirmed-four-backup` 已由 #161 / #165 / #166 / #167 合入，本提交已删，勿再合。
 
 ### 近期已合入
 
