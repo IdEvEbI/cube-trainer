@@ -67,8 +67,17 @@
   word-break: break-word;
 }
 
+/* 公式条步态（跟拧 / 回放同一套；宽窄屏共用） */
+.game-page .scramble-step.is-done {
+  background: transparent;
+  color: #dcd8d0;
+  font-weight: 500;
+  opacity: 1;
+}
+
 .game-page .solve-review-phase-alg .game-step:not(.is-done):not(.is-current) {
-  color: rgb(247 251 255 / 55%);
+  background: transparent;
+  color: #f7fbff;
 }
 
 .game-page .solve-review-phase-play {
